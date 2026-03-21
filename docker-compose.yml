@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-irba}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-irba_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-irba}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-irba} -d ${POSTGRES_DB:-irba}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    environment:
+      # Overrides .env localhost URL so the app resolves the `db` service name.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-irba}:${POSTGRES_PASSWORD:-irba_dev_password}@db:5432/${POSTGRES_DB:-irba}
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

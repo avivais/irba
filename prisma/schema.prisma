@@ -1,0 +1,65 @@
+// IRBA Manager — PostgreSQL via Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlayerKind {
+  REGISTERED
+  DROP_IN
+}
+
+enum Position {
+  PG
+  SG
+  SF
+  PF
+  C
+}
+
+model Player {
+  id          String     @id @default(cuid())
+  name        String
+  phone       String     @unique
+  playerKind  PlayerKind @default(DROP_IN)
+  position    Position?
+  rank        Float?
+  balance     Int        @default(0)
+  isAdmin     Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  attendances Attendance[]
+
+  @@index([phone])
+}
+
+model GameSession {
+  id         String   @id @default(cuid())
+  date       DateTime
+  maxPlayers Int      @default(15)
+  isClosed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  attendances Attendance[]
+
+  @@index([date])
+}
+
+model Attendance {
+  id            String   @id @default(cuid())
+  playerId      String
+  gameSessionId String
+  createdAt     DateTime @default(now())
+
+  player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameSession GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, gameSessionId])
+  @@index([gameSessionId, createdAt])
+}
