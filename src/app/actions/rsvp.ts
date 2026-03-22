@@ -23,9 +23,11 @@ export async function attendAction(
   _prev: RsvpActionState,
   formData: FormData,
 ): Promise<RsvpActionState> {
+  const nameField = formData.get("name");
+  const phoneField = formData.get("phone");
   const parsed = parseAttendFormFields({
-    name: typeof formData.get("name") === "string" ? formData.get("name") : "",
-    phone: typeof formData.get("phone") === "string" ? formData.get("phone") : "",
+    name: typeof nameField === "string" ? nameField : "",
+    phone: typeof phoneField === "string" ? phoneField : "",
   });
 
   if (!parsed.ok) {
