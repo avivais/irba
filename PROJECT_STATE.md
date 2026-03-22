@@ -29,17 +29,19 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### Data model (Prisma)
 
-- **`Player`**: name, unique `phone` (normalized Israeli mobile `05xxxxxxxx`), `playerKind` (`REGISTERED` | `DROP_IN`), `positions` (`Position[]`, multi-value array, default `[]`), optional `rank`, `balance`, `isAdmin`.
+- **`Player`**: name, unique `phone` (normalized Israeli mobile `05xxxxxxxx`), `playerKind` (`REGISTERED` | `DROP_IN`, UI labels **קבוע** / **מזדמן**), `positions` (`Position[]`, multi-value array, default `[]`), optional `rank`, `balance`, `isAdmin`.
 - **`GameSession`**: `date`, `maxPlayers` (default 15), `isClosed`.
 - **`Attendance`**: links player ↔ session, `createdAt` for RSVP order (confirmed = first `maxPlayers` by time; rest = waiting list).
 
 ### RSVP flow (public)
 
-- Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **“אני מגיע”** form (name + phone).
-- **Theme**: header `ThemeToggle` (התאם למכשיר / בהיר / כהה); root `ThemeProvider` in `layout.tsx` so future admin UI inherits the same behavior — reuse `ThemeToggle` or rely on global `dark:` styles.
+- Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
+- **Theme**: header `ThemeToggle` positioned on the **left** (`end-0` in RTL); root `ThemeProvider` in `layout.tsx` so future admin UI inherits the same behavior — reuse `ThemeToggle` or rely on global `dark:` styles.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
 - Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
-- Lists: confirmed + waiting list; phones **masked** in UI; optional **“אורח”** badge for drop-ins.
+- **Cancel RSVP**: inline two-step confirmation (“האם לבטל את ההגעה?” + “כן, בטל” / “לא”) — no `window.confirm`. Success banner auto-dismisses after 3 s (tracked by state reference, not a boolean flag).
+- **RSVP success banner** (“נרשמת בהצלחה”) auto-dismisses after 3 s.
+- Lists: confirmed + waiting list; phones **masked** in UI; optional **”מזדמן”** badge for drop-ins.
 
 ### Admin (authenticated — full CRUD)
 
@@ -56,7 +58,7 @@ Navigation cards to שחקנים and מפגשים sections; logout button.
 
 #### Players CRUD (`/admin/players`)
 
-- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (רשום / אורח), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, edit link, delete button.
+- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (**קבוע** / **מזדמן**), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, edit link, delete button.
 - **Add** (`/admin/players/new`): form with name, phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin.
 - **Edit** (`/admin/players/[id]/edit`): same form; phone field is disabled (identity — phone cannot be changed via admin UI).
 - **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
@@ -146,4 +148,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Admin CRUD shipped (players + sessions); positions overhauled to multi-value array with English-only labels (PG/SG/SF/PF/C); back-navigation arrows corrected for RTL layout; next focus: file import pipeline.*
+*Last updated: Mar 2026 — Admin CRUD complete (players + sessions); positions overhauled to multi-value array with English-only labels (PG/SG/SF/PF/C); player kind labels renamed קבוע/מזדמן; cancel RSVP redesigned with inline confirmation + auto-dismiss banners; responsive layout widened for md+ screens; next focus: file import pipeline.*
