@@ -17,6 +17,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 | Icons | `lucide-react` |
 | Tests | Vitest (`npm test`) |
 | Package manager | **npm** (lockfile: `package-lock.json`) |
+| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets a placeholder `DATABASE_URL` so Prisma loads during `npm ci` / `next build` (no Postgres service in CI). |
 
 ## Repository
 
@@ -49,6 +50,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - **`GET /api/health`** — JSON; 200 if DB answers `SELECT 1`, else 503 (generic body, no secrets).
 - **Docker**: `docker-compose.yml` (`db` + `app`), `Dockerfile`, `docker-entrypoint.sh` runs `prisma migrate deploy` then `next start`.
 - **Seeds**: deterministic `prisma/seed.ts` (`npm run db:seed`); random QA script `scripts/seed-random.ts` (`npm run db:seed:random`) with env guards — see README.
+- **CI**: GitHub Actions workflow above; confirm runs in the repo **Actions** tab after push.
 
 ### Tests
 
@@ -70,9 +72,10 @@ High level — drill into each in its own plan:
 1. **Security & abuse (done for MVP slice)** — follow-up: TLS at edge (ops), CAPTCHA if needed, Redis-backed limits for multi-replica, optional CSP with nonces.
 2. **Data reliability** — automated Postgres backups + **tested restore**; migration discipline (`migrate deploy` on deploy).
 3. **Operations** — runbook (restart, logs), monitoring/uptime on `/api/health`, alerts on repeated failures.
-4. **CI** — pipeline: lint, test, build on every PR/merge.
-5. **Product** — admin + game lifecycle (sessions, open/close); stronger identity if the org needs it; cancellation rules when you’re ready.
-6. **Launch checklist** — env vars, DB migrated, smoke test RSVP + cancel + health, rollback idea.
+4. **Product** — admin + operator tools (sessions, open/close); stronger identity if the org needs it; cancellation rules when you’re ready.
+5. **Launch checklist** — env vars, DB migrated, smoke test RSVP + cancel + health, rollback idea.
+
+**Done:** **CI** — GitHub Actions (`lint`, `test`, `build` on `main`); see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
 ---
 

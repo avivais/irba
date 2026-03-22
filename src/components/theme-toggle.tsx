@@ -2,7 +2,7 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const options = [
   { value: "system" as const, label: "התאם למכשיר", Icon: Monitor },
@@ -10,17 +10,21 @@ const options = [
   { value: "dark" as const, label: "כהה", Icon: Moon },
 ];
 
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
+
 /**
  * Three-way theme control: follow OS, light, or dark.
- * Deferred render until mounted so server/client markup match before hydration.
+ * Deferred render until client so server/client markup match before hydration.
  */
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
 
   if (!mounted) {
     return (
