@@ -205,8 +205,8 @@ export function PlayerForm(props: Props) {
           }}
           className={`${inputBase} ${inputNormal}`}
         >
-          <option value="REGISTERED">שחקן רשום</option>
-          <option value="DROP_IN">אורח</option>
+          <option value="REGISTERED">קבוע</option>
+          <option value="DROP_IN">מזדמן</option>
         </select>
       </div>
 

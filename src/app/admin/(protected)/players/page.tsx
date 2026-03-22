@@ -6,8 +6,8 @@ import { PlayerDeleteButton } from "@/components/admin/player-delete-button";
 export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = {
-  REGISTERED: "רשום",
-  DROP_IN: "אורח",
+  REGISTERED: "קבוע",
+  DROP_IN: "מזדמן",
 };
 
 

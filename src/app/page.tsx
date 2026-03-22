@@ -125,7 +125,7 @@ export default async function HomePage() {
                     </span>
                     {row.player.playerKind === "DROP_IN" && (
                       <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-                        אורח
+                        מזדמן
                       </span>
                     )}
                   </span>
@@ -154,7 +154,7 @@ export default async function HomePage() {
                       </span>
                       {row.player.playerKind === "DROP_IN" && (
                         <span className="rounded bg-amber-200/80 px-1.5 py-0.5 text-xs font-normal text-amber-950 dark:bg-amber-800/50 dark:text-amber-100">
-                          אורח
+                          מזדמן
                         </span>
                       )}
                     </span>
