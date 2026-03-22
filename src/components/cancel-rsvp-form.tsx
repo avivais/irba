@@ -16,7 +16,7 @@ export function CancelRsvpForm() {
   );
 
   return (
-    <form action={formAction} className="w-full max-w-md">
+    <form action={formAction} className="mx-auto w-full max-w-md">
       {state.message && (
         <p
           role={state.ok ? "status" : "alert"}
@@ -32,7 +32,7 @@ export function CancelRsvpForm() {
       <button
         type="submit"
         disabled={pending}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:ring-zinc-500"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-base font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-60 dark:bg-red-700 dark:hover:bg-red-600 dark:focus:ring-red-500"
       >
         {pending ? (
           <>
