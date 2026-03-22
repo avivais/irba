@@ -74,7 +74,7 @@ export function RsvpForm() {
     <form
       action={formAction}
       onSubmit={handleSubmit}
-      className="flex w-full max-w-md flex-col gap-4"
+      className="mx-auto flex w-full max-w-md flex-col gap-4"
       noValidate
     >
       <div className="flex flex-col gap-1">
