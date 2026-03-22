@@ -15,32 +15,37 @@ export function CancelRsvpForm() {
     initialState,
   );
   const [confirming, setConfirming] = useState(false);
-  const [displayMessage, setDisplayMessage] = useState<string | null>(null);
-  const [displayOk, setDisplayOk] = useState(false);
+  const [messageDismissed, setMessageDismissed] = useState(false);
 
   useEffect(() => {
     if (!state.message) return;
-    setDisplayMessage(state.message);
-    setDisplayOk(!!state.ok);
-    setConfirming(false);
-    if (state.ok) {
-      const t = setTimeout(() => setDisplayMessage(null), 3000);
-      return () => clearTimeout(t);
-    }
+    const t0 = setTimeout(() => {
+      setMessageDismissed(false);
+      setConfirming(false);
+    }, 0);
+    const t1 = state.ok
+      ? setTimeout(() => setMessageDismissed(true), 3000)
+      : undefined;
+    return () => {
+      clearTimeout(t0);
+      if (t1 !== undefined) clearTimeout(t1);
+    };
   }, [state]);
+
+  const showMessage = !!state.message && !messageDismissed;
 
   return (
     <form action={formAction} className="mx-auto w-full max-w-md">
-      {displayMessage && (
+      {showMessage && (
         <p
-          role={displayOk ? "status" : "alert"}
+          role={state.ok ? "status" : "alert"}
           className={`mb-3 rounded-md px-3 py-2 text-sm ${
-            displayOk
+            state.ok
               ? "bg-green-50 text-green-900 dark:bg-green-950/50 dark:text-green-100"
               : "bg-red-50 text-red-900 dark:bg-red-950/50 dark:text-red-100"
           }`}
         >
-          {displayMessage}
+          {state.message}
         </p>
       )}
 

@@ -58,13 +58,13 @@ export function RsvpForm() {
     setSuppressServerError(true);
   }
 
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [successDismissed, setSuccessDismissed] = useState(false);
 
   useEffect(() => {
     if (!state.ok || !state.message) return;
-    setShowSuccess(true);
-    const t = setTimeout(() => setShowSuccess(false), 3000);
-    return () => clearTimeout(t);
+    const t0 = setTimeout(() => setSuccessDismissed(false), 0);
+    const t1 = setTimeout(() => setSuccessDismissed(true), 3000);
+    return () => { clearTimeout(t0); clearTimeout(t1); };
   }, [state]);
 
   const serverError =
@@ -75,6 +75,7 @@ export function RsvpForm() {
       ? state.message
       : null;
 
+  const showSuccess = state.ok && state.message && !successDismissed;
   const submitDisabled = pending || !formValid;
 
   return (
