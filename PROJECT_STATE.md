@@ -18,6 +18,8 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 | Tests | Vitest (`npm test`) |
 | Package manager | **npm** (lockfile: `package-lock.json`) |
 | CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets a placeholder `DATABASE_URL` so Prisma loads during `npm ci` / `next build` (no Postgres service in CI). |
+| Admin auth (planned) | **Password + server session** — persistence via **HttpOnly (+ Secure) cookie** (not `localStorage` for session tokens; reduces XSS risk). Same cookie family pattern as RSVP JWT, separate cookie name / secret. “Stay logged in” = session TTL / sliding expiry (TBD). |
+| PWA (goal) | Installable app: **manifest**, **service worker**, offline/cache strategy TBD — after core admin works on mobile web. |
 
 ## Repository
 
@@ -59,21 +61,54 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ## What is not built yet (non-exhaustive)
 
-- Admin UI / authenticated back office (create games, import roster, promote drop-in → registered).
-- Full login (OAuth, magic links, etc.) beyond RSVP session cookie.
+- Admin UI / authenticated back office (see **Admin roadmap** below).
+- **Admin** login (password + session — see decisions below) — distinct from the RSVP session cookie.
+- **Import** pipeline: agreed format exports (CSV etc.) for payments, aggregates, precedence — not live Sheets API for now.
 - CAPTCHA / advanced bot mitigation beyond rate limits.
 - SMS/WhatsApp automation; push notifications.
 - i18n beyond Hebrew for the public UI.
 
+## Admin roadmap (owner priorities — Mar 2026)
+
+Ordered by impact for the operator (solo admin today). **Mobile-friendly** admin is a first-class requirement (responsive layout, touch targets, flows that work on phone — Sheets was a pain on mobile).
+
+1. **Admin UI** — Add/edit **players** and other operational fields; manage **sessions** (מפגשים: create, open/close, dates). Must be comfortable on **laptop and phone**.
+2. **Import (export-based)** — Operator exports data in an agreed format (e.g. CSV). **Payments** and **past attendances** column mapping TBD when we define the first import template.
+3. **Precedence list (“רשימת קדימות”)** — **Year weights**, per-player **aggregated attendance per year** (as in Sheets), **multiple bonuses and fines** per player over time — model in DB + import path (see **Decisions**).
+
+### Precedence list — current Sheets shape (reference)
+
+From the existing spreadsheet (screenshot on file): one row per player (name in the name column), **year columns** with numeric values, each year with a **משקל (weight)** that increases toward the current year, a **סה״כ** total score column, a **bonus sum** column, and **בונוסים / קנסות** (dated lines, points in parentheses). Rows ordered by total score descending.
+
+### Decisions (Mar 2026)
+
+| Topic | Decision |
+|--------|----------|
+| **Admin auth** | **Password + session**, stay logged in via **session cookie** (implement as **HttpOnly** session/JWT cookie — do **not** put session secrets in `localStorage`). |
+| **Sheets / files** | **Manual exports** in whatever format we define together (CSV first); **no** live Google Sheets API for now. |
+| **Player matching (imports)** | Sheets **do not include phone**. **One-time collaborative mapping** (e.g. screenshots / cross-reference **WhatsApp contacts** ↔ **Sheet name**) → then **update script** or **manual DB updates** to attach phones / `Player` rows. |
+| **Past attendance** | Store **aggregated counts per year** per player (as in the sheet), **not** full historical `GameSession` rows for every past practice. |
+| **Precedence model** | Each **calendar year** has a **weight**; each player has **yearly aggregates**; each player can have **multiple bonus and fine line-items** (structured and/or text — finalize in schema design). |
+| **Mobile / PWA** | **Responsive admin** for v1; **PWA (installable)** is an explicit **goal** after core flows work (manifest + service worker + caching strategy). |
+
+**Still TBD in implementation:** exact CSV column templates, admin password hashing env vars, session TTL, and Prisma schema for precedence + imports.
+
 ## Recommended next steps (before / for production)
 
-High level — drill into each in its own plan:
+**Product / operator (aligned with roadmap above):**
 
-1. **Security & abuse (done for MVP slice)** — follow-up: TLS at edge (ops), CAPTCHA if needed, Redis-backed limits for multi-replica, optional CSP with nonces.
+1. Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).
+2. **Admin CRUD** for players + game sessions (then iterate imports).
+3. **File import** — agree **CSV (or similar) templates** for payments / aggregates / precedence; no Sheets API in v1.
+4. **Precedence** — Prisma schema (year weights, aggregates, bonus/fine line items) + import path aligned with export format.
+5. **PWA** — manifest + service worker; ship after admin UX is solid on mobile Safari/Chrome.
+
+**Platform:**
+
+1. **Security & abuse (MVP slice done for public RSVP)** — TLS at edge (ops), CAPTCHA if needed, Redis-backed limits for multi-replica, optional CSP with nonces.
 2. **Data reliability** — automated Postgres backups + **tested restore**; migration discipline (`migrate deploy` on deploy).
 3. **Operations** — runbook (restart, logs), monitoring/uptime on `/api/health`, alerts on repeated failures.
-4. **Product** — admin + operator tools (sessions, open/close); stronger identity if the org needs it; cancellation rules when you’re ready.
-5. **Launch checklist** — env vars, DB migrated, smoke test RSVP + cancel + health, rollback idea.
+4. **Launch checklist** — env vars, DB migrated, smoke test RSVP + cancel + health + admin login, rollback idea.
 
 **Done:** **CI** — GitHub Actions (`lint`, `test`, `build` on `main`); see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
