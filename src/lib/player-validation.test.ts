@@ -4,6 +4,7 @@ import {
   PHONE_INVALID_MESSAGE,
   PLAYER_RANK_MIN,
   PLAYER_RANK_MAX,
+  POSITION_VALUES,
 } from "./player-validation";
 
 const BASE = {
@@ -13,14 +14,14 @@ const BASE = {
 };
 
 describe("parsePlayerForm", () => {
-  it("accepts a valid minimal payload", () => {
+  it("accepts a valid minimal payload (no positions)", () => {
     const result = parsePlayerForm(BASE);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.name).toBe("ישראל ישראלי");
     expect(result.data.phoneNormalized).toBe("0501234567");
     expect(result.data.playerKind).toBe("DROP_IN");
-    expect(result.data.position).toBeNull();
+    expect(result.data.positions).toEqual([]);
     expect(result.data.rank).toBeNull();
     expect(result.data.balance).toBe(0);
     expect(result.data.isAdmin).toBe(false);
@@ -30,7 +31,7 @@ describe("parsePlayerForm", () => {
     const result = parsePlayerForm({
       ...BASE,
       playerKind: "REGISTERED",
-      position: "PG",
+      positions: ["PG", "SF"],
       rank: "5.5",
       balance: "-100",
       isAdmin: "on",
@@ -38,10 +39,54 @@ describe("parsePlayerForm", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.playerKind).toBe("REGISTERED");
-    expect(result.data.position).toBe("PG");
+    expect(result.data.positions).toEqual(["PG", "SF"]);
     expect(result.data.rank).toBe(5.5);
     expect(result.data.balance).toBe(-100);
     expect(result.data.isAdmin).toBe(true);
+  });
+
+  it("accepts all five valid position values together", () => {
+    const result = parsePlayerForm({ ...BASE, positions: [...POSITION_VALUES] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.positions).toEqual([...POSITION_VALUES]);
+  });
+
+  it("accepts each position value individually", () => {
+    for (const pos of POSITION_VALUES) {
+      const result = parsePlayerForm({ ...BASE, positions: [pos] });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.positions).toEqual([pos]);
+    }
+  });
+
+  it("rejects an unknown position value", () => {
+    const result = parsePlayerForm({ ...BASE, positions: ["PG", "UNKNOWN"] });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.positions).toBeTruthy();
+  });
+
+  it("accepts a single position string (not array)", () => {
+    const result = parsePlayerForm({ ...BASE, positions: "PG" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.positions).toEqual(["PG"]);
+  });
+
+  it("treats absent positions as empty array", () => {
+    const result = parsePlayerForm(BASE);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.positions).toEqual([]);
+  });
+
+  it("treats empty string positions as empty array", () => {
+    const result = parsePlayerForm({ ...BASE, positions: "" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.positions).toEqual([]);
   });
 
   it("rejects an empty name", () => {
@@ -154,20 +199,6 @@ describe("parsePlayerForm", () => {
     expect(result.data.balance).toBe(0);
   });
 
-  it("maps empty position string to null", () => {
-    const result = parsePlayerForm({ ...BASE, position: "" });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.position).toBeNull();
-  });
-
-  it("maps absent position to null", () => {
-    const result = parsePlayerForm({ ...BASE });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.position).toBeNull();
-  });
-
   it("parses isAdmin 'on' as true", () => {
     const result = parsePlayerForm({ ...BASE, isAdmin: "on" });
     expect(result.ok).toBe(true);
@@ -180,14 +211,5 @@ describe("parsePlayerForm", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.isAdmin).toBe(false);
-  });
-
-  it("accepts all valid position values", () => {
-    for (const pos of ["PG", "SG", "SF", "PF", "C"] as const) {
-      const result = parsePlayerForm({ ...BASE, position: pos });
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.data.position).toBe(pos);
-    }
   });
 });
