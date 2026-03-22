@@ -1,8 +1,20 @@
 const KEY = "ADMIN_PASSWORD_HASH";
 
-/** Dotenv-safe double-quoted value (bcrypt hashes have no quotes). */
+/**
+ * Next.js loads `.env` with dotenv-expand. Inside double-quoted values, `$foo`
+ * is treated as interpolation, which corrupts bcrypt hashes (`$2`, `$12`, …).
+ * Write each literal `$` as `$$` in the file so expansion yields a single `$`.
+ */
+export function escapeDollarsForDotenvExpand(s: string): string {
+  return s.replace(/\$/g, "$$$$");
+}
+
+/** Dotenv-safe double-quoted value for Next.js (escapes `\`, `"`, and `$`). */
 export function quotedEnvValue(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const escaped = escapeDollarsForDotenvExpand(
+    value.replace(/\\/g, "\\\\").replace(/"/g, '\\"'),
+  );
+  return `"${escaped}"`;
 }
 
 /**

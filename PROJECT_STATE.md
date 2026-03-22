@@ -45,7 +45,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 - **`/admin/login`** — password form (Hebrew / RTL); **`/admin`** — minimal protected shell with theme toggle + logout (route groups: public login vs protected dashboard).
 - **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
-- **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); set via `npm run hash-admin-password` — updates `.env` in place (`--print-only` / `--env-file=` optional; `scripts/hash-admin-password.ts`).
+- **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); set via `npm run hash-admin-password` — writes `.env` with **`$$` escaping** so Next’s dotenv-expand does not corrupt `$2` / `$12` in the hash (`scripts/hash-admin-password.ts`).
 - **Rate limit**: admin login uses `consumeAdminLoginRateLimit` (`IRBA_RL_ADMIN_LOGIN_MAX` / `IRBA_RL_ADMIN_LOGIN_WINDOW_MS`).
 - **Shared cookie `Secure` flag**: [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts) (same `RSVP_COOKIE_SECURE` / production behavior as RSVP).
 

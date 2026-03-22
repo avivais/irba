@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   applyAdminPasswordHashToEnvContent,
+  escapeDollarsForDotenvExpand,
   normalizeAdminPasswordHashFromEnv,
   quotedEnvValue,
 } from "./admin-password-env";
 
+describe("escapeDollarsForDotenvExpand", () => {
+  it("doubles each dollar for Next/dotenv-expand", () => {
+    expect(escapeDollarsForDotenvExpand("$2b$12$x")).toBe("$$2b$$12$$x");
+  });
+});
+
 describe("quotedEnvValue", () => {
-  it("wraps and escapes quotes and backslashes", () => {
+  it("wraps and escapes quotes, backslashes, and dollars", () => {
     expect(quotedEnvValue(`a"b\\c`)).toBe(`"a\\"b\\\\c"`);
+    expect(quotedEnvValue("$2b$12$ab")).toBe(`"$$2b$$12$$ab"`);
   });
 });
 
@@ -30,7 +38,7 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     const before = `ADMIN_PASSWORD_HASH=""\nFOO=1\nADMIN_PASSWORD_HASH="$2b$old"\n`;
     const h = "$2b$12$newhashhere";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `FOO=1\nADMIN_PASSWORD_HASH="${h}"\n`,
+      `FOO=1\nADMIN_PASSWORD_HASH="$$2b$$12$$newhashhere"\n`,
     );
   });
 
@@ -38,7 +46,7 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     const before = `FOO=1\nADMIN_PASSWORD_HASH="old"\nBAR=2\n`;
     const h = "$2b$12$newhashhere";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `FOO=1\nBAR=2\nADMIN_PASSWORD_HASH="${h}"\n`,
+      `FOO=1\nBAR=2\nADMIN_PASSWORD_HASH="$$2b$$12$$newhashhere"\n`,
     );
   });
 
@@ -46,7 +54,7 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     const before = "  ADMIN_PASSWORD_HASH=\n";
     const h = "$2b$x";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `ADMIN_PASSWORD_HASH="${h}"\n`,
+      `ADMIN_PASSWORD_HASH="$$2b$$x"\n`,
     );
   });
 
