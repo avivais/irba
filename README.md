@@ -1,23 +1,35 @@
 # IRBA Manager
 
-מערכת ניהול לאילון רמון כדורסל — הרשמה לאימונים (MVP).
+Web app for **Ilan Ramon Basketball Association** — migrate from spreadsheets and WhatsApp to a self-hosted stack. This MVP focuses on **practice RSVPs** (Hebrew / RTL UI).
 
-## דרישות
+## Stack
 
-- Node.js 20+
-- Docker (אופציונלי, ל-PostgreSQL ולפריסה)
+- **Frontend:** Next.js (App Router), Tailwind CSS, Lucide icons  
+- **Database:** PostgreSQL + Prisma ORM  
+- **Runtime:** Node.js 20+  
+- **Deployment:** Docker Compose (PostgreSQL + app)
 
-## הגדרה מקומית
+## Prerequisites
 
-1. העתק `.env.example` ל-`.env` ועדכן סיסמאות ו-`RSVP_SESSION_SECRET` (לפחות 32 תווים).
+- [Node.js](https://nodejs.org/) 20+  
+- [Docker](https://docs.docker.com/get-docker/) (optional but recommended for Postgres and production-like runs)
 
-2. הרץ PostgreSQL:
+## Local setup
+
+1. **Environment**
+
+   Copy `.env.example` to `.env` and set:
+
+   - `DATABASE_URL` — PostgreSQL connection string  
+   - `RSVP_SESSION_SECRET` — at least **32 characters** (signs the RSVP session cookie)
+
+2. **Start PostgreSQL**
 
    ```bash
    docker compose up -d db
    ```
 
-3. החל סכמה והפעל seed (אופציונלי):
+3. **Apply schema and (optional) seed data**
 
    ```bash
    npm install
@@ -25,41 +37,45 @@
    npm run db:seed
    ```
 
-   (יש מיגרציה ראשונית ב-`prisma/migrations/`; `migrate deploy` מתאים לסביבות קיימות, `migrate dev` לפיתוח עם שינויי סכמה.)
+   Initial migrations live under `prisma/migrations/`. Use `migrate deploy` for existing environments; use `prisma migrate dev` when you change the schema during development.
 
-4. פתח את האפליקציה:
+4. **Run the app**
 
    ```bash
    npm run dev
    ```
 
-   פתח [http://localhost:3000](http://localhost:3000).
+   Open [http://localhost:3000](http://localhost:3000).
 
-### `DATABASE_URL`
+### `DATABASE_URL` hostnames
 
-- **פיתוח עם DB בדוקר על המחשב:** `postgresql://USER:PASSWORD@localhost:5432/DB`
-- **אפליקציה בתוך Docker Compose:** השתמש ב-hostname `db` במקום `localhost`.
+| Context | Example host |
+|--------|----------------|
+| Next.js on your machine, Postgres in Docker (published port) | `localhost` |
+| App container in Docker Compose | `db` (the Compose service name) |
 
-## Docker — אפליקציה + DB
+## Docker: app + database
+
+Build and run both services (app listens on **3000**):
 
 ```bash
 export RSVP_SESSION_SECRET="your-long-random-secret-at-least-32-chars"
 docker compose up --build
 ```
 
-האפליקציה תרוץ על פורט 3000; לפני `next start` רצים `prisma migrate deploy` (ראה `docker-entrypoint.sh`).
+The app image runs `prisma migrate deploy` before `next start` (see `docker-entrypoint.sh`).
 
-## סקריפטים
+## npm scripts
 
-| פקודה | תיאור |
-|--------|--------|
-| `npm run dev` | שרת פיתוח |
-| `npm run build` | בנייה |
+| Command | Description |
+|--------|-------------|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
 | `npm run db:migrate` | `prisma migrate dev` |
-| `npm run db:deploy` | `prisma migrate deploy` (ייצור) |
-| `npm run db:seed` | נתוני דוגמה |
+| `npm run db:deploy` | `prisma migrate deploy` |
+| `npm run db:seed` | Seed sample data |
 
-## אבטחה
+## Security notes
 
-- אין לשמור סודות בקוד; השתמש ב-`.env` (לא בקומיט).
-- `RSVP_SESSION_SECRET` חותם על עוגיית ההרשמה (HTTP-only).
+- Never commit real secrets; keep them in `.env` (gitignored).  
+- `RSVP_SESSION_SECRET` is used to sign the HTTP-only RSVP session cookie.
