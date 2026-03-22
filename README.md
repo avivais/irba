@@ -53,6 +53,11 @@ Web app for **Ilan Ramon Basketball Association** — migrate from spreadsheets 
 
 After setting `ADMIN_SESSION_SECRET` and `ADMIN_PASSWORD_HASH` in `.env`, open [http://localhost:3000/admin/login](http://localhost:3000/admin/login). The admin session is a separate **HttpOnly** JWT cookie (audience `irba-admin` by default), with the same `RSVP_COOKIE_SECURE` behavior as the RSVP cookie. Default session lifetime is **14 days** (override with `ADMIN_SESSION_MAX_AGE_SEC` in seconds, between 300 and 90 days).
 
+Once logged in, the admin home shows navigation to:
+
+- **שחקנים** (`/admin/players`) — list, add, edit, and delete players. Phone is the player's unique identifier and cannot be changed after creation. Deletion is blocked when the player has any attendance records.
+- **מפגשים** (`/admin/sessions`) — list, add, edit, and delete game sessions. Each session can be toggled open/closed (affects RSVP availability on the public page). Deletion is blocked when the session has any registered attendees.
+
 **Login fails immediately (same browser error as wrong password)?** In development, check the **terminal** where `npm run dev` is running — the server logs which case failed (password mismatch, bad/missing hash, or session cookie error). Common fixes: **restart the dev server** after changing `.env`; ensure **`ADMIN_SESSION_SECRET` is at least 32 characters** (password can be correct but cookie signing still fails); ensure **only one** `ADMIN_PASSWORD_HASH` line (re-run `npm run hash-admin-password` to rewrite). **Bcrypt hashes contain `$` characters.** Next.js loads `.env` with **dotenv-expand**, which treats `$X` as variable interpolation and corrupts the hash. The `hash-admin-password` script writes the hash in **single quotes with `\$` escaping** (e.g. `ADMIN_PASSWORD_HASH='\$2b\$12\$...'`), which is the format dotenv-expand resolves correctly. If you paste a hash by hand, use the same pattern.
 
 In Chrome DevTools **Network**, server actions appear as **Fetch/XHR** requests to your app origin (often the document URL with a `Next-Action` header), not as a separate `/api/...` route — disable extensions or use a clean profile if the list is flooded by `chrome-extension://` noise.

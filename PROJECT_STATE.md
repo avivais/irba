@@ -41,7 +41,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
 - Lists: confirmed + waiting list; phones **masked** in UI; optional **“אורח”** badge for drop-ins.
 
-### Admin (authenticated shell)
+### Admin (authenticated — full CRUD)
 
 - **`/admin/login`** — password form (Hebrew / RTL); on success, client-side redirect to **`/admin`** (protected shell with theme toggle + logout). Route groups: `(public)/login` vs `(protected)/` with layout auth guard.
 - **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP; generate with `npm run generate-admin-secret`), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
@@ -49,6 +49,29 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - **Rate limit**: admin login uses `consumeAdminLoginRateLimit` (`IRBA_RL_ADMIN_LOGIN_MAX` / `IRBA_RL_ADMIN_LOGIN_WINDOW_MS`).
 - **Dev diagnostics**: in `NODE_ENV=development`, the login server action logs each step to the terminal (env raw/normalized values, secret status, bcrypt result, cookie outcome) — never in production.
 - **Shared cookie `Secure` flag**: [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts) (same `RSVP_COOKIE_SECURE` / production behavior as RSVP).
+
+#### Admin home (`/admin`)
+
+Navigation cards to שחקנים and מפגשים sections; logout button.
+
+#### Players CRUD (`/admin/players`)
+
+- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (רשום / אורח), position, attendance count, edit link, delete button.
+- **Add** (`/admin/players/new`): form with name, phone, playerKind, position, rank, balance, isAdmin.
+- **Edit** (`/admin/players/[id]/edit`): same form; phone field is disabled (identity — phone cannot be changed via admin UI).
+- **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
+- **Server actions**: `createPlayerAction`, `updatePlayerAction`, `deletePlayerAction` in `src/app/admin/(protected)/players/actions.ts`. All call `requireAdmin()` (session guard) before any DB access.
+- **Validation**: `src/lib/player-validation.ts` — `parsePlayerForm` with per-field Zod + phone normalization; tested in `src/lib/player-validation.test.ts`.
+
+#### Sessions CRUD (`/admin/sessions`)
+
+- **List** (`/admin/sessions`): all sessions sorted newest-first; shows formatted date, attendance count / maxPlayers, open/closed badge, toggle / edit / delete actions.
+- **Add** (`/admin/sessions/new`): form with date (datetime-local, Jerusalem TZ), maxPlayers.
+- **Edit** (`/admin/sessions/[id]/edit`): same fields plus isClosed checkbox; datetime-local pre-filled with session date converted to Jerusalem local time.
+- **Toggle open/close**: `SessionToggleButton` submits `toggleSessionAction` — flips `isClosed`, revalidates `/admin/sessions` and `/` (public page).
+- **Delete**: guarded — blocked if session has any attendance records. `window.confirm` for empty sessions.
+- **Server actions**: `createSessionAction`, `updateSessionAction`, `deleteSessionAction`, `toggleSessionAction` in `src/app/admin/(protected)/sessions/actions.ts`.
+- **Validation**: `src/lib/session-validation.ts` — `parseSessionForm`; tested in `src/lib/session-validation.test.ts`.
 
 ### Security / abuse (MVP)
 
@@ -66,11 +89,12 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 ### Tests
 
 - Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
+- **Player validation tests** (`src/lib/player-validation.test.ts`): 22 cases covering all fields, phone normalization, rank/balance boundaries, position mapping, isAdmin flag.
+- **Session validation tests** (`src/lib/session-validation.test.ts`): 13 cases covering date parsing, maxPlayers bounds, isClosed flag.
 - Default `npm test` does **not** require a running Postgres.
 
 ## What is not built yet (non-exhaustive)
 
-- **Admin CRUD** and full back office (see **Admin roadmap** below) — only login + empty shell exist today.
 - **Import** pipeline: agreed format exports (CSV etc.) for payments, aggregates, precedence — not live Sheets API for now.
 - CAPTCHA / advanced bot mitigation beyond rate limits.
 - SMS/WhatsApp automation; push notifications.
@@ -106,7 +130,7 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 **Product / operator (aligned with roadmap above):**
 
 1. ~~Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).~~ **Done** (login + shell).
-2. **Admin CRUD** for players + game sessions (then iterate imports).
+2. ~~**Admin CRUD** for players + game sessions.~~ **Done** (list, add, edit, delete, open/close toggle).
 3. **File import** — agree **CSV (or similar) templates** for payments / aggregates / precedence; no Sheets API in v1.
 4. **Precedence** — Prisma schema (year weights, aggregates, bonus/fine line items) + import path aligned with export format.
 5. **PWA** — manifest + service worker; ship after admin UX is solid on mobile Safari/Chrome.
@@ -122,4 +146,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — admin login + `/admin` shell shipped; next focus: Admin CRUD (players + sessions).*
+*Last updated: Mar 2026 — Admin CRUD shipped (players + sessions: list, add, edit, delete, open/close toggle); next focus: file import pipeline.*
