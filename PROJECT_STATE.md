@@ -29,7 +29,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### Data model (Prisma)
 
-- **`Player`**: name, unique `phone` (normalized Israeli mobile `05xxxxxxxx`), `playerKind` (`REGISTERED` | `DROP_IN`), optional `position` / `rank`, `balance`, `isAdmin`.
+- **`Player`**: name, unique `phone` (normalized Israeli mobile `05xxxxxxxx`), `playerKind` (`REGISTERED` | `DROP_IN`), `positions` (`Position[]`, multi-value array, default `[]`), optional `rank`, `balance`, `isAdmin`.
 - **`GameSession`**: `date`, `maxPlayers` (default 15), `isClosed`.
 - **`Attendance`**: links player ↔ session, `createdAt` for RSVP order (confirmed = first `maxPlayers` by time; rest = waiting list).
 
@@ -56,8 +56,8 @@ Navigation cards to שחקנים and מפגשים sections; logout button.
 
 #### Players CRUD (`/admin/players`)
 
-- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (רשום / אורח), position, attendance count, edit link, delete button.
-- **Add** (`/admin/players/new`): form with name, phone, playerKind, position, rank, balance, isAdmin.
+- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (רשום / אורח), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, edit link, delete button.
+- **Add** (`/admin/players/new`): form with name, phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin.
 - **Edit** (`/admin/players/[id]/edit`): same form; phone field is disabled (identity — phone cannot be changed via admin UI).
 - **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
 - **Server actions**: `createPlayerAction`, `updatePlayerAction`, `deletePlayerAction` in `src/app/admin/(protected)/players/actions.ts`. All call `requireAdmin()` (session guard) before any DB access.
@@ -89,7 +89,7 @@ Navigation cards to שחקנים and מפגשים sections; logout button.
 ### Tests
 
 - Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
-- **Player validation tests** (`src/lib/player-validation.test.ts`): 22 cases covering all fields, phone normalization, rank/balance boundaries, position mapping, isAdmin flag.
+- **Player validation tests** (`src/lib/player-validation.test.ts`): 25 cases covering all fields, phone normalization, rank/balance boundaries, multi-position array (valid/invalid values, single-string coercion, empty), isAdmin flag.
 - **Session validation tests** (`src/lib/session-validation.test.ts`): 13 cases covering date parsing, maxPlayers bounds, isClosed flag.
 - Default `npm test` does **not** require a running Postgres.
 
@@ -146,4 +146,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Admin CRUD shipped (players + sessions: list, add, edit, delete, open/close toggle); next focus: file import pipeline.*
+*Last updated: Mar 2026 — Admin CRUD shipped (players + sessions); positions overhauled to multi-value array with English-only labels (PG/SG/SF/PF/C); back-navigation arrows corrected for RTL layout; next focus: file import pipeline.*
