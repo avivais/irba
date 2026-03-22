@@ -22,8 +22,8 @@ export function CancelRsvpForm() {
           role={state.ok ? "status" : "alert"}
           className={`mb-2 rounded-md px-3 py-2 text-sm ${
             state.ok
-              ? "bg-green-50 text-green-900"
-              : "bg-red-50 text-red-900"
+              ? "bg-green-50 text-green-900 dark:bg-green-950/50 dark:text-green-100"
+              : "bg-red-50 text-red-900 dark:bg-red-950/50 dark:text-red-100"
           }`}
         >
           {state.message}
@@ -32,7 +32,7 @@ export function CancelRsvpForm() {
       <button
         type="submit"
         disabled={pending}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:opacity-60"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:ring-zinc-500"
       >
         {pending ? (
           <>
