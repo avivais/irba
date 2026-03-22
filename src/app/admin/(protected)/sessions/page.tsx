@@ -16,7 +16,7 @@ export default async function AdminSessionsPage() {
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
       {/* Header */}
-      <header className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4">
+      <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
             href="/admin"
@@ -40,7 +40,7 @@ export default async function AdminSessionsPage() {
       </header>
 
       {/* Session list */}
-      <section className="mx-auto mt-6 w-full max-w-2xl">
+      <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl">
         {sessions.length === 0 ? (
           <p className="text-center text-zinc-500 dark:text-zinc-400">
             אין מפגשים במערכת עדיין.

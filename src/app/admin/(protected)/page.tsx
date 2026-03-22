@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default function AdminHomePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
-      <header className="relative mx-auto flex w-full max-w-2xl items-start justify-between gap-4">
+      <header className="relative mx-auto flex w-full max-w-2xl md:max-w-4xl items-start justify-between gap-4">
         <div className="min-w-0 flex-1 pt-1">
           <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
             IRBA
@@ -23,7 +23,7 @@ export default function AdminHomePage() {
       </header>
 
       {/* Navigation cards */}
-      <nav className="mx-auto mt-8 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+      <nav className="mx-auto mt-8 grid w-full max-w-2xl md:max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2">
         <Link
           href="/admin/players"
           className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:focus:ring-zinc-500/30"
@@ -55,7 +55,7 @@ export default function AdminHomePage() {
         </Link>
       </nav>
 
-      <section className="mx-auto mt-8 w-full max-w-2xl">
+      <section className="mx-auto mt-8 w-full max-w-2xl md:max-w-4xl">
         <form action={adminLogoutAction}>
           <button
             type="submit"
