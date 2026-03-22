@@ -49,7 +49,7 @@ export default function AdminHomePage() {
           <div>
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">מפגשים</p>
             <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              נהל מפגשים ורשימות נרשמים
+              נהל מפגשים
             </p>
           </div>
         </Link>
