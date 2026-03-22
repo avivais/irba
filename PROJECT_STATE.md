@@ -11,6 +11,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 | Layer | Choice |
 |--------|--------|
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
+| Theming | `next-themes`: system (default), light, dark; `class` on `<html>`; `storageKey` `irba-theme` |
 | DB | PostgreSQL, Prisma ORM 7 (driver adapter `@prisma/adapter-pg`) |
 | Auth (MVP) | Signed HTTP-only cookie (`jose`), `RSVP_SESSION_SECRET` (min 32 chars), JWT `iss`/`aud`, optional `RSVP_COOKIE_SECURE` |
 | Icons | `lucide-react` |
@@ -32,6 +33,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 ### RSVP flow (public)
 
 - Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **“אני מגיע”** form (name + phone).
+- **Theme**: header `ThemeToggle` (התאם למכשיר / בהיר / כהה); root `ThemeProvider` in `layout.tsx` so future admin UI inherits the same behavior — reuse `ThemeToggle` or rely on global `dark:` styles.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
 - Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
 - Lists: confirmed + waiting list; phones **masked** in UI; optional **“אורח”** badge for drop-ins.
