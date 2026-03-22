@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   attendAction,
   type RsvpActionState,
@@ -58,6 +58,15 @@ export function RsvpForm() {
     setSuppressServerError(true);
   }
 
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!state.ok || !state.message) return;
+    setShowSuccess(true);
+    const t = setTimeout(() => setShowSuccess(false), 3000);
+    return () => clearTimeout(t);
+  }, [state]);
+
   const serverError =
     !pending &&
     !state.ok &&
@@ -65,8 +74,6 @@ export function RsvpForm() {
     !suppressServerError
       ? state.message
       : null;
-
-  const showSuccess = state.ok && state.message;
 
   const submitDisabled = pending || !formValid;
 
