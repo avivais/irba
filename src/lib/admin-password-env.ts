@@ -1,20 +1,19 @@
 const KEY = "ADMIN_PASSWORD_HASH";
 
 /**
- * Next.js loads `.env` with dotenv-expand. Inside double-quoted values, `$foo`
- * is treated as interpolation, which corrupts bcrypt hashes (`$2`, `$12`, …).
- * Write each literal `$` as `$$` in the file so expansion yields a single `$`.
+ * Wraps value for `.env` so Next.js (dotenv + dotenv-expand) preserves `$` literally.
+ *
+ * dotenv-expand runs on **parsed** values regardless of quote style: bare `$X`
+ * is treated as variable interpolation. The only escape dotenv-expand honours
+ * is `\$`, which `_resolveEscapeSequences` converts back to `$`.
+ *
+ * Single-quoted dotenv values are literal (no `\n` expansion, etc.), so
+ * writing `'\$2b\$12\$...'` in the file gives dotenv the parsed string
+ * `\$2b\$12\$...`, which dotenv-expand then resolves to `$2b$12$...`.
  */
-export function escapeDollarsForDotenvExpand(s: string): string {
-  return s.replace(/\$/g, "$$$$");
-}
-
-/** Dotenv-safe double-quoted value for Next.js (escapes `\`, `"`, and `$`). */
-export function quotedEnvValue(value: string): string {
-  const escaped = escapeDollarsForDotenvExpand(
-    value.replace(/\\/g, "\\\\").replace(/"/g, '\\"'),
-  );
-  return `"${escaped}"`;
+export function envSafeValue(value: string): string {
+  const escaped = value.replace(/\$/g, "\\$");
+  return `'${escaped.replace(/'/g, "'\\''")}'`;
 }
 
 /**
@@ -45,7 +44,7 @@ export function applyAdminPasswordHashToEnvContent(
   content: string,
   hashValue: string,
 ): string {
-  const newLine = `${KEY}=${quotedEnvValue(hashValue)}`;
+  const newLine = `${KEY}=${envSafeValue(hashValue)}`;
   const lines = content.split(/\r?\n/);
   const filtered = lines.filter(
     (line) => !new RegExp(`^\\s*${KEY}=`).test(line),
