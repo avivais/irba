@@ -5,7 +5,8 @@
       "Bash(npm run:*)",
       "Bash(git push:*)",
       "Bash(xargs sed:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(gh run:*)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]"
