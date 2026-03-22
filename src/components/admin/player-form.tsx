@@ -7,14 +7,14 @@ import {
   updatePlayerAction,
   type PlayerActionState,
 } from "@/app/admin/(protected)/players/actions";
-import { parsePlayerForm } from "@/lib/player-validation";
+import { parsePlayerForm, POSITION_VALUES } from "@/lib/player-validation";
 
 type PlayerData = {
   id: string;
   name: string;
   phone: string;
   playerKind: "REGISTERED" | "DROP_IN";
-  position: "PG" | "SG" | "SF" | "PF" | "C" | null;
+  positions: ("PG" | "SG" | "SF" | "PF" | "C")[];
   rank: number | null;
   balance: number;
   isAdmin: boolean;
@@ -35,14 +35,6 @@ const inputBase =
 const inputDisabled =
   "cursor-not-allowed opacity-60 bg-zinc-50 dark:bg-zinc-800";
 
-const POSITION_OPTIONS = [
-  { value: "", label: "ללא עמדה" },
-  { value: "PG", label: "נקודה (PG)" },
-  { value: "SG", label: "שוטר (SG)" },
-  { value: "SF", label: "קטן (SF)" },
-  { value: "PF", label: "גדול (PF)" },
-  { value: "C", label: "סנטר (C)" },
-];
 
 export function PlayerForm(props: Props) {
   const isEdit = props.mode === "edit";
@@ -59,7 +51,7 @@ export function PlayerForm(props: Props) {
   const [playerKind, setPlayerKind] = useState<"REGISTERED" | "DROP_IN">(
     player?.playerKind ?? "DROP_IN",
   );
-  const [position, setPosition] = useState(player?.position ?? "");
+  const [positions, setPositions] = useState<string[]>(player?.positions ?? []);
   const [rank, setRank] = useState(player?.rank != null ? String(player.rank) : "");
   const [balance, setBalance] = useState(String(player?.balance ?? 0));
   const [isAdmin, setIsAdmin] = useState(player?.isAdmin ?? false);
@@ -72,7 +64,7 @@ export function PlayerForm(props: Props) {
     name,
     phone: isEdit ? (player?.phone ?? "") : phone,
     playerKind,
-    position: position || undefined,
+    positions,
     rank: rank || undefined,
     balance: balance || undefined,
     isAdmin: isAdmin ? "on" : undefined,
@@ -218,33 +210,34 @@ export function PlayerForm(props: Props) {
         </select>
       </div>
 
-      {/* Position */}
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="player-position"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
-          עמדה
+      {/* Positions */}
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          עמדות
           <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">
-            (אופציונלי)
+            (אופציונלי, ניתן לבחור כמה)
           </span>
-        </label>
-        <select
-          id="player-position"
-          name="position"
-          value={position}
-          onChange={(e) => {
-            setPosition(e.target.value);
-            setSuppressServerError(true);
-          }}
-          className={`${inputBase} ${inputNormal}`}
-        >
-          {POSITION_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+        </span>
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          {POSITION_VALUES.map((pos) => (
+            <label key={pos} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                name="positions"
+                value={pos}
+                checked={positions.includes(pos)}
+                onChange={(e) => {
+                  setPositions((prev) =>
+                    e.target.checked ? [...prev, pos] : prev.filter((p) => p !== pos),
+                  );
+                  setSuppressServerError(true);
+                }}
+                className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+              />
+              {pos}
+            </label>
           ))}
-        </select>
+        </div>
       </div>
 
       {/* Rank */}

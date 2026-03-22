@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     name: string;
     phone: string;
     playerKind: PlayerKind;
-    position: Position | null;
+    positions: Position[];
     rank: number | null;
     balance: number;
   }> = [];
@@ -90,12 +90,12 @@ async function main(): Promise<void> {
   for (let i = 0; i < playerCount; i++) {
     const phone = randomIsraeliMobileUnique(phones);
     const playerKind: PlayerKind = chance(0.65) ? "REGISTERED" : "DROP_IN";
-    const position: Position | null =
+    // Randomly assign 0–2 positions; registered players more likely to have some
+    const positionCount =
       playerKind === "REGISTERED"
-        ? faker.helpers.arrayElement(POSITIONS)
-        : chance(0.4)
-          ? faker.helpers.arrayElement(POSITIONS)
-          : null;
+        ? chance(0.15) ? 0 : chance(0.5) ? 1 : 2
+        : chance(0.6) ? 0 : 1;
+    const positions: Position[] = faker.helpers.arrayElements(POSITIONS, positionCount);
     const rank: number | null =
       playerKind === "REGISTERED" && chance(0.9)
         ? faker.number.float({ min: 1, max: 5, fractionDigits: 1 })
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
       name: faker.person.fullName(),
       phone,
       playerKind,
-      position,
+      positions,
       rank,
       balance,
     });

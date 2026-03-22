@@ -22,11 +22,11 @@ export async function createPlayerAction(
 ): Promise<PlayerActionState> {
   await requireAdmin();
 
-  const raw: Record<string, string | undefined> = {
+  const raw: Record<string, string | string[] | undefined> = {
     name: formData.get("name")?.toString(),
     phone: formData.get("phone")?.toString(),
     playerKind: formData.get("playerKind")?.toString(),
-    position: formData.get("position")?.toString(),
+    positions: formData.getAll("positions").map((v) => v.toString()),
     rank: formData.get("rank")?.toString(),
     balance: formData.get("balance")?.toString(),
     isAdmin: formData.get("isAdmin")?.toString(),
@@ -38,12 +38,12 @@ export async function createPlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { name, phoneNormalized, playerKind, position, rank, balance, isAdmin } =
+  const { name, phoneNormalized, playerKind, positions, rank, balance, isAdmin } =
     validation.data;
 
   try {
     await prisma.player.create({
-      data: { name, phone: phoneNormalized, playerKind, position, rank, balance, isAdmin },
+      data: { name, phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin },
     });
   } catch (e) {
     if (
@@ -67,12 +67,12 @@ export async function updatePlayerAction(
 ): Promise<PlayerActionState> {
   await requireAdmin();
 
-  const raw: Record<string, string | undefined> = {
+  const raw: Record<string, string | string[] | undefined> = {
     name: formData.get("name")?.toString(),
     // phone is identity — pass through to satisfy Zod but server ignores it on update
     phone: formData.get("phone")?.toString(),
     playerKind: formData.get("playerKind")?.toString(),
-    position: formData.get("position")?.toString(),
+    positions: formData.getAll("positions").map((v) => v.toString()),
     rank: formData.get("rank")?.toString(),
     balance: formData.get("balance")?.toString(),
     isAdmin: formData.get("isAdmin")?.toString(),
@@ -84,13 +84,13 @@ export async function updatePlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { name, playerKind, position, rank, balance, isAdmin } = validation.data;
+  const { name, playerKind, positions, rank, balance, isAdmin } = validation.data;
 
   try {
     await prisma.player.update({
       where: { id },
       // Intentionally omit phone — phone is the player's identity and cannot be changed here
-      data: { name, playerKind, position, rank, balance, isAdmin },
+      data: { name, playerKind, positions, rank, balance, isAdmin },
     });
   } catch (e) {
     if (

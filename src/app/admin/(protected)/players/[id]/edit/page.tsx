@@ -36,7 +36,7 @@ export default async function AdminPlayersEditPage({ params }: Props) {
             name: player.name,
             phone: player.phone,
             playerKind: player.playerKind,
-            position: player.position,
+            positions: player.positions,
             rank: player.rank,
             balance: player.balance,
             isAdmin: player.isAdmin,

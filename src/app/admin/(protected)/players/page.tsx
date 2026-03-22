@@ -10,13 +10,6 @@ const KIND_LABEL: Record<string, string> = {
   DROP_IN: "אורח",
 };
 
-const POSITION_LABEL: Record<string, string> = {
-  PG: "נקודה",
-  SG: "שוטר",
-  SF: "קטן",
-  PF: "גדול",
-  C: "סנטר",
-};
 
 export default async function AdminPlayersPage() {
   const players = await prisma.player.findMany({
@@ -78,9 +71,9 @@ export default async function AdminPlayersPage() {
                     >
                       {KIND_LABEL[player.playerKind]}
                     </span>
-                    {player.position && (
+                    {player.positions.length > 0 && (
                       <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                        {POSITION_LABEL[player.position] ?? player.position}
+                        {player.positions.join(", ")}
                       </span>
                     )}
                     {player.isAdmin && (
