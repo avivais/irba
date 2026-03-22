@@ -22,7 +22,7 @@ Web app for **Ilan Ramon Basketball Association** — migrate from spreadsheets 
 
    - `DATABASE_URL` — PostgreSQL connection string  
    - `RSVP_SESSION_SECRET` — at least **32 characters** (signs the RSVP session cookie)  
-   - `ADMIN_SESSION_SECRET` — at least **32 characters** (signs the admin session cookie; **different** from the RSVP secret)  
+   - `ADMIN_SESSION_SECRET` — at least **32 characters** (signs the admin session cookie; **different** from the RSVP secret). Run `npm run generate-admin-secret` to create one and write it to `.env`.  
    - `ADMIN_PASSWORD_HASH` — **bcrypt** hash of the operator password. Run `npm run hash-admin-password` to hash and **write it into `.env`** automatically (use `--print-only` to print the line instead). Use a strong password; never commit real secrets.
 
 2. **Start PostgreSQL**
@@ -134,6 +134,7 @@ Optional environment variables:
 | `npm run db:seed` | Deterministic sample data (`prisma/seed.ts`) |
 | `npm run db:seed:random` | Random QA seed (`scripts/seed-random.ts`) |
 | `npm run hash-admin-password` | Prompts for a password, then updates `ADMIN_PASSWORD_HASH` in `.env` (add `--print-only` to stdout only; `--env-file=path` for another file) |
+| `npm run generate-admin-secret` | Generates a random `ADMIN_SESSION_SECRET` and writes it to `.env` (rotating it logs the admin out) |
 
 ## Security notes
 

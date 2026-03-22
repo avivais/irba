@@ -43,10 +43,11 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### Admin (authenticated shell)
 
-- **`/admin/login`** — password form (Hebrew / RTL); **`/admin`** — minimal protected shell with theme toggle + logout (route groups: public login vs protected dashboard).
-- **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
-- **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); set via `npm run hash-admin-password` — writes `.env` with **`$$` escaping** so Next’s dotenv-expand does not corrupt `$2` / `$12` in the hash (`scripts/hash-admin-password.ts`).
+- **`/admin/login`** — password form (Hebrew / RTL); on success, client-side redirect to **`/admin`** (protected shell with theme toggle + logout). Route groups: `(public)/login` vs `(protected)/` with layout auth guard.
+- **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP; generate with `npm run generate-admin-secret`), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
+- **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); set via `npm run hash-admin-password` — writes `.env` with single-quoted `\$` escaping so Next’s dotenv-expand preserves the hash (`scripts/hash-admin-password.ts`).
 - **Rate limit**: admin login uses `consumeAdminLoginRateLimit` (`IRBA_RL_ADMIN_LOGIN_MAX` / `IRBA_RL_ADMIN_LOGIN_WINDOW_MS`).
+- **Dev diagnostics**: in `NODE_ENV=development`, the login server action logs each step to the terminal (env raw/normalized values, secret status, bcrypt result, cookie outcome) — never in production.
 - **Shared cookie `Secure` flag**: [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts) (same `RSVP_COOKIE_SECURE` / production behavior as RSVP).
 
 ### Security / abuse (MVP)

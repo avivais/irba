@@ -37,20 +37,30 @@ export function normalizeAdminPasswordHashFromEnv(
 }
 
 /**
- * Removes every ADMIN_PASSWORD_HASH line, then appends one canonical line at the end.
+ * Removes every occurrence of `key=...` then appends one canonical line at the end.
  * Avoids duplicate keys where dotenv would keep the first (often empty) value.
+ */
+export function upsertEnvKey(
+  content: string,
+  key: string,
+  formattedValue: string,
+): string {
+  const newLine = `${key}=${formattedValue}`;
+  const keyRegex = new RegExp(`^\\s*${key}=`, "");
+  const lines = content.split(/\r?\n/);
+  const filtered = lines.filter((line) => !keyRegex.test(line));
+  const body = filtered.join("\n");
+  const prefix =
+    body.length === 0 ? "" : body.endsWith("\n") ? body : `${body}\n`;
+  return `${prefix}${newLine}\n`;
+}
+
+/**
+ * Removes every ADMIN_PASSWORD_HASH line, then appends one with proper escaping.
  */
 export function applyAdminPasswordHashToEnvContent(
   content: string,
   hashValue: string,
 ): string {
-  const newLine = `${KEY}=${envSafeValue(hashValue)}`;
-  const lines = content.split(/\r?\n/);
-  const filtered = lines.filter(
-    (line) => !new RegExp(`^\\s*${KEY}=`).test(line),
-  );
-  const body = filtered.join("\n");
-  const prefix =
-    body.length === 0 ? "" : body.endsWith("\n") ? body : `${body}\n`;
-  return `${prefix}${newLine}\n`;
+  return upsertEnvKey(content, KEY, envSafeValue(hashValue));
 }

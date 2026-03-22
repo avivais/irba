@@ -26,6 +26,16 @@ const passwordSchema = z
   .min(1, "נא להזין סיסמה")
   .max(512, "סיסמה ארוכה מדי");
 
+const isDev = () => process.env.NODE_ENV === "development";
+
+/** Mask a hash for dev logs: show prefix + length, never the full value. */
+function hashPreview(h: string | null | undefined): string {
+  if (h == null) return "(null)";
+  if (h.length === 0) return "(empty string)";
+  const prefix = h.slice(0, 7);
+  return `"${prefix}…" (len ${h.length})`;
+}
+
 export async function adminLoginAction(
   _prev: AdminLoginState,
   formData: FormData,
@@ -36,6 +46,12 @@ export async function adminLoginAction(
       : "";
   const parsedPw = passwordSchema.safeParse(raw);
   if (!parsedPw.success) {
+    if (isDev()) {
+      console.error(
+        "[admin login] zod validation failed:",
+        parsedPw.error.issues[0]?.message,
+      );
+    }
     return { ok: false, message: parsedPw.error.issues[0]?.message };
   }
   const password = parsedPw.data;
@@ -43,16 +59,35 @@ export async function adminLoginAction(
   const headerList = await headers();
   const clientIp = getClientIpFromHeaders((name) => headerList.get(name));
   if (!consumeAdminLoginRateLimit(clientIp)) {
+    if (isDev()) {
+      console.error(`[admin login] rate-limited (ip: ${clientIp})`);
+    }
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
-  const hash = normalizeAdminPasswordHashFromEnv(
-    process.env.ADMIN_PASSWORD_HASH,
-  );
+  const rawEnv = process.env.ADMIN_PASSWORD_HASH;
+  const hash = normalizeAdminPasswordHashFromEnv(rawEnv);
+
+  if (isDev()) {
+    console.log("[admin login] === login attempt ===");
+    console.log(
+      `  ADMIN_PASSWORD_HASH raw env : ${hashPreview(rawEnv)}`,
+    );
+    console.log(
+      `  after normalizeAdminPasswordHashFromEnv: ${hashPreview(hash)}`,
+    );
+    console.log(
+      `  ADMIN_SESSION_SECRET set    : ${(process.env.ADMIN_SESSION_SECRET?.length ?? 0) >= 32 ? "yes" : "NO — must be >= 32 chars"}`,
+    );
+    console.log(`  password length              : ${password.length}`);
+  }
+
   if (!hash) {
-    if (process.env.NODE_ENV === "development") {
+    if (isDev()) {
       console.error(
-        "[admin login] ADMIN_PASSWORD_HASH missing or invalid. Restart the dev server after editing .env; ensure a single bcrypt line (run npm run hash-admin-password again if unsure).",
+        "[admin login] FAIL: hash is null after normalization.",
+        "The raw value from process.env does not look like a bcrypt hash ($2...).",
+        "Restart the dev server after editing .env; re-run npm run hash-admin-password to rewrite.",
       );
     }
     return { ok: false, message: GENERIC_AUTH_ERROR };
@@ -62,19 +97,24 @@ export async function adminLoginAction(
   try {
     match = await compare(password, hash);
   } catch (e) {
-    if (process.env.NODE_ENV === "development") {
+    if (isDev()) {
       console.error(
-        "[admin login] bcrypt.compare failed — hash in .env may be truncated or corrupted.",
-        e instanceof Error ? e.message : e,
+        "[admin login] FAIL: bcrypt.compare threw — hash may be truncated or corrupted.",
+        `  normalized hash: ${hashPreview(hash)}`,
+        `  error: ${e instanceof Error ? e.message : e}`,
       );
     }
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
+  if (isDev()) {
+    console.log(`  bcrypt.compare result        : ${match}`);
+  }
+
   if (!match) {
-    if (process.env.NODE_ENV === "development") {
+    if (isDev()) {
       console.error(
-        "[admin login] Password does not match ADMIN_PASSWORD_HASH (wrong password or stale .env).",
+        "[admin login] FAIL: password does not match hash (wrong password or stale .env — restart after changes).",
       );
     }
     return { ok: false, message: GENERIC_AUTH_ERROR };
@@ -83,16 +123,22 @@ export async function adminLoginAction(
   try {
     await setAdminSessionCookie();
   } catch (e) {
-    if (process.env.NODE_ENV === "development") {
+    if (isDev()) {
       console.error(
-        "[admin login] Failed to set session cookie. Set ADMIN_SESSION_SECRET to a different random string of at least 32 characters, then restart the dev server.",
-        e instanceof Error ? e.message : e,
+        "[admin login] FAIL: could not set session cookie.",
+        `  ADMIN_SESSION_SECRET length: ${process.env.ADMIN_SESSION_SECRET?.length ?? 0}`,
+        `  error: ${e instanceof Error ? e.message : e}`,
+        "Set ADMIN_SESSION_SECRET to a random string >= 32 characters, then restart.",
       );
     }
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
-  redirect("/admin");
+  if (isDev()) {
+    console.log("[admin login] SUCCESS — session cookie set.");
+  }
+
+  return { ok: true };
 }
 
 export async function adminLogoutAction(): Promise<void> {

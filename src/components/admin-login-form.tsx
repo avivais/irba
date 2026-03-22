@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   adminLoginAction,
   type AdminLoginState,
@@ -15,10 +16,17 @@ const inputInvalid =
   "border-red-500 focus:border-red-600 focus:ring-red-600/35 dark:border-red-500 dark:focus:border-red-500 dark:focus:ring-red-500/35";
 
 export function AdminLoginForm() {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(
     adminLoginAction,
     initialState,
   );
+
+  useEffect(() => {
+    if (state.ok) {
+      router.replace("/admin");
+    }
+  }, [state.ok, router]);
 
   const serverError =
     !pending && !state.ok && state.message ? state.message : null;

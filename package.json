@@ -15,7 +15,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:seed:random": "tsx scripts/seed-random.ts",
-    "hash-admin-password": "tsx scripts/hash-admin-password.ts"
+    "hash-admin-password": "tsx scripts/hash-admin-password.ts",
+    "generate-admin-secret": "tsx scripts/generate-admin-secret.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
