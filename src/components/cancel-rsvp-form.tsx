@@ -32,6 +32,9 @@ export function CancelRsvpForm() {
       <button
         type="submit"
         disabled={pending}
+        onClick={(e) => {
+          if (!window.confirm("האם לבטל את ההגעה?")) e.preventDefault();
+        }}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-base font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-60 dark:bg-red-700 dark:hover:bg-red-600 dark:focus:ring-red-500"
       >
         {pending ? (
