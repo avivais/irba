@@ -65,17 +65,70 @@ docker compose up --build
 
 The app image runs `prisma migrate deploy` before `next start` (see `docker-entrypoint.sh`).
 
+## Health check
+
+`GET /api/health` returns JSON and **200** when PostgreSQL responds to a simple query (`SELECT 1`). If the database is unreachable, it returns **503** with a generic body (`database: "down"`) — no stack traces or connection strings.
+
+Use it for load balancers, uptime checks, or quick local verification:
+
+```bash
+curl -sSf http://localhost:3000/api/health
+```
+
+## Testing
+
+Tests use [Vitest](https://vitest.dev/). By default they **do not require a running Postgres** (pure unit tests and mocked DB checks).
+
+```bash
+npm test              # run once
+npm run test:watch    # watch mode
+npm run test:coverage # coverage report
+```
+
+**CI:** Default `npm test` is safe without `DATABASE_URL`. Optional integration tests against a real DB can be gated with `describe.skipIf(!process.env.DATABASE_URL)` or a separate `npm run test:integration` script if you add them later.
+
+## Random local seed (QA)
+
+For richer local data (mixed player kinds, multiple games, **waiting list** overflow), use the random seed script — **not** the same as `prisma db seed`.
+
+**Guards (required):** set `NODE_ENV=development` **or** `IRBA_ALLOW_RANDOM_SEED=1`, otherwise the script exits without touching the database.
+
+**Destructive reset (optional):** `IRBA_SEED_RESET=1` deletes **all** rows in `Attendance`, `Player`, and `GameSession` before inserting.
+
+```bash
+# Typical local run (append to existing data — may warn if players already exist)
+IRBA_ALLOW_RANDOM_SEED=1 npm run db:seed:random
+
+# Clean slate then random data
+IRBA_ALLOW_RANDOM_SEED=1 IRBA_SEED_RESET=1 npm run db:seed:random
+```
+
+Optional environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `IRBA_RANDOM_PLAYERS` | Number of players to create (default `28`, max `80`) |
+| `IRBA_SEED_FAKER_SEED` | Fixed seed for reproducible random data |
+
 ## npm scripts
 
 | Command | Description |
 |--------|-------------|
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
+| `npm test` | Vitest (unit tests) |
+| `npm run test:watch` | Vitest watch mode |
+| `npm run test:coverage` | Vitest with coverage |
 | `npm run db:migrate` | `prisma migrate dev` |
 | `npm run db:deploy` | `prisma migrate deploy` |
-| `npm run db:seed` | Seed sample data |
+| `npm run db:seed` | Deterministic sample data (`prisma/seed.ts`) |
+| `npm run db:seed:random` | Random QA seed (`scripts/seed-random.ts`) |
 
 ## Security notes
 
-- Never commit real secrets; keep them in `.env` (gitignored).  
-- `RSVP_SESSION_SECRET` is used to sign the HTTP-only RSVP session cookie.
+- Never commit real secrets; keep them in `.env` (gitignored). Use strong values in production for `POSTGRES_PASSWORD`, `RSVP_SESSION_SECRET`, and any API keys.
+- `RSVP_SESSION_SECRET` (min 32 characters) signs the HTTP-only RSVP session cookie (`jose` HS256). JWTs include fixed `iss` / `aud` claims (overridable via `RSVP_JWT_ISSUER` / `RSVP_JWT_AUDIENCE`) so tokens from another deployment are rejected. Rotating the secret logs everyone out until they RSVP again.
+- **`RSVP_COOKIE_SECURE`**: set to `1` or `true` when the app is served over HTTPS but `NODE_ENV` is not `production` (for example staging behind a TLS proxy). Otherwise `Secure` cookies follow `NODE_ENV === "production"`.
+- **TLS**: terminate HTTPS in front of the app (reverse proxy, load balancer, or PaaS). The Compose setup exposes plain HTTP on port 3000. Configure the proxy to send `X-Forwarded-Proto: https` and a correct client IP (`X-Forwarded-For`, `X-Real-IP`, or `CF-Connecting-IP` behind Cloudflare).
+- **Rate limits**: RSVP attend and cancel actions are limited per client IP using an in-memory sliding window (`IRBA_RL_*` env vars in `.env.example`). Limits apply per Node process and reset on restart; if you run multiple app replicas, add a shared store (for example Redis) later.
+- **HTTP headers**: baseline security headers are set in `next.config.ts` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`). Content Security Policy is not enabled yet to avoid breaking Next.js defaults; add it with nonces when you tighten further.

@@ -2,10 +2,15 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { getNextGame } from "@/lib/game";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
+import {
+  consumeRsvpRateLimit,
+  getClientIpFromHeaders,
+} from "@/lib/rate-limit";
 import { getSessionPlayerId, setRsvpSessionCookie } from "@/lib/rsvp-session";
 
 const attendSchema = z.object({
@@ -16,6 +21,9 @@ const attendSchema = z.object({
 export type RsvpActionState = { ok: boolean; message?: string };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
+
+const RATE_LIMIT_MESSAGE =
+  "יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.";
 
 export async function attendAction(
   _prev: RsvpActionState,
@@ -43,6 +51,12 @@ export async function attendAction(
       };
     }
     throw e;
+  }
+
+  const headerList = await headers();
+  const clientIp = getClientIpFromHeaders((name) => headerList.get(name));
+  if (!consumeRsvpRateLimit("attend", clientIp)) {
+    return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
   const game = await getNextGame();
@@ -128,6 +142,12 @@ export async function cancelAttendanceAction(
   _prev: RsvpActionState,
   _formData: FormData,
 ): Promise<RsvpActionState> {
+  const headerList = await headers();
+  const clientIp = getClientIpFromHeaders((name) => headerList.get(name));
+  if (!consumeRsvpRateLimit("cancel", clientIp)) {
+    return { ok: false, message: RATE_LIMIT_MESSAGE };
+  }
+
   const playerId = await getSessionPlayerId();
   if (!playerId) {
     return { ok: false, message: "לא נמצאה הרשמה פעילה" };
