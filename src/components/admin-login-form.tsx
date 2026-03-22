@@ -41,7 +41,6 @@ export function AdminLoginForm() {
           name="password"
           type="password"
           autoComplete="current-password"
-          required
           maxLength={512}
           aria-invalid={Boolean(serverError)}
           aria-describedby={serverError ? "admin-login-error" : undefined}

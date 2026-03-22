@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyAdminPasswordHashToEnvContent, quotedEnvValue } from "./admin-password-env";
+import {
+  applyAdminPasswordHashToEnvContent,
+  normalizeAdminPasswordHashFromEnv,
+  quotedEnvValue,
+} from "./admin-password-env";
 
 describe("quotedEnvValue", () => {
   it("wraps and escapes quotes and backslashes", () => {
@@ -7,18 +11,40 @@ describe("quotedEnvValue", () => {
   });
 });
 
+describe("normalizeAdminPasswordHashFromEnv", () => {
+  it("strips quotes and accepts bcrypt hashes", () => {
+    expect(
+      normalizeAdminPasswordHashFromEnv('  "$2b$04$abc"  '),
+    ).toBe("$2b$04$abc");
+  });
+
+  it("returns null for empty or non-bcrypt", () => {
+    expect(normalizeAdminPasswordHashFromEnv("")).toBeNull();
+    expect(normalizeAdminPasswordHashFromEnv(undefined)).toBeNull();
+    expect(normalizeAdminPasswordHashFromEnv("plain")).toBeNull();
+  });
+});
+
 describe("applyAdminPasswordHashToEnvContent", () => {
-  it("replaces an existing ADMIN_PASSWORD_HASH line", () => {
-    const before = `FOO=1\nADMIN_PASSWORD_HASH="old"\nBAR=2\n`;
+  it("removes duplicate ADMIN_PASSWORD_HASH lines and appends one", () => {
+    const before = `ADMIN_PASSWORD_HASH=""\nFOO=1\nADMIN_PASSWORD_HASH="$2b$old"\n`;
     const h = "$2b$12$newhashhere";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `FOO=1\nADMIN_PASSWORD_HASH="${h}"\nBAR=2\n`,
+      `FOO=1\nADMIN_PASSWORD_HASH="${h}"\n`,
     );
   });
 
-  it("replaces an indented ADMIN_PASSWORD_HASH line (normalizes to no indent)", () => {
+  it("replaces an existing ADMIN_PASSWORD_HASH line (moves key to end)", () => {
+    const before = `FOO=1\nADMIN_PASSWORD_HASH="old"\nBAR=2\n`;
+    const h = "$2b$12$newhashhere";
+    expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
+      `FOO=1\nBAR=2\nADMIN_PASSWORD_HASH="${h}"\n`,
+    );
+  });
+
+  it("replaces an indented ADMIN_PASSWORD_HASH line", () => {
     const before = "  ADMIN_PASSWORD_HASH=\n";
-    const h = "x";
+    const h = "$2b$x";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
       `ADMIN_PASSWORD_HASH="${h}"\n`,
     );

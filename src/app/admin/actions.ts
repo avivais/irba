@@ -8,6 +8,7 @@ import {
   clearAdminSessionCookie,
   setAdminSessionCookie,
 } from "@/lib/admin-session";
+import { normalizeAdminPasswordHashFromEnv } from "@/lib/admin-password-env";
 import {
   consumeAdminLoginRateLimit,
   getClientIpFromHeaders,
@@ -45,25 +46,49 @@ export async function adminLoginAction(
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
-  const hash = process.env.ADMIN_PASSWORD_HASH?.trim();
+  const hash = normalizeAdminPasswordHashFromEnv(
+    process.env.ADMIN_PASSWORD_HASH,
+  );
   if (!hash) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[admin login] ADMIN_PASSWORD_HASH missing or invalid. Restart the dev server after editing .env; ensure a single bcrypt line (run npm run hash-admin-password again if unsure).",
+      );
+    }
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
   let match = false;
   try {
     match = await compare(password, hash);
-  } catch {
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[admin login] bcrypt.compare failed — hash in .env may be truncated or corrupted.",
+        e instanceof Error ? e.message : e,
+      );
+    }
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
   if (!match) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[admin login] Password does not match ADMIN_PASSWORD_HASH (wrong password or stale .env).",
+      );
+    }
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
   try {
     await setAdminSessionCookie();
-  } catch {
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[admin login] Failed to set session cookie. Set ADMIN_SESSION_SECRET to a different random string of at least 32 characters, then restart the dev server.",
+        e instanceof Error ? e.message : e,
+      );
+    }
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
