@@ -15,24 +15,23 @@ export function CancelRsvpForm() {
     initialState,
   );
   const [confirming, setConfirming] = useState(false);
-  const [messageDismissed, setMessageDismissed] = useState(false);
+  const [dismissedState, setDismissedState] = useState<RsvpActionState | null>(null);
 
+  // Reset confirming when the action resolves
   useEffect(() => {
     if (!state.message) return;
-    const t0 = setTimeout(() => {
-      setMessageDismissed(false);
-      setConfirming(false);
-    }, 0);
-    const t1 = state.ok
-      ? setTimeout(() => setMessageDismissed(true), 3000)
-      : undefined;
-    return () => {
-      clearTimeout(t0);
-      if (t1 !== undefined) clearTimeout(t1);
-    };
+    const t = setTimeout(() => setConfirming(false), 0);
+    return () => clearTimeout(t);
   }, [state]);
 
-  const showMessage = !!state.message && !messageDismissed;
+  // Auto-dismiss success message after 3s by capturing the dismissed state reference
+  useEffect(() => {
+    if (!state.ok || !state.message) return;
+    const t = setTimeout(() => setDismissedState(state), 3000);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  const showMessage = !!state.message && state !== dismissedState;
 
   return (
     <form action={formAction} className="mx-auto w-full max-w-md">
