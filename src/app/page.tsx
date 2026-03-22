@@ -33,7 +33,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
-      <header className="relative mx-auto w-full max-w-lg">
+      <header className="relative mx-auto w-full max-w-lg md:max-w-2xl">
         <div className="absolute start-0 top-0 z-10">
           <ThemeToggle />
         </div>
@@ -48,7 +48,7 @@ export default async function HomePage() {
       </header>
 
       <section
-        className="mx-auto mt-8 w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+        className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
         aria-labelledby="game-date-heading"
       >
         <div className="flex items-start gap-3">
@@ -74,7 +74,7 @@ export default async function HomePage() {
       </section>
 
       {game && !game.isClosed && (
-        <section className="mx-auto mt-8 w-full max-w-lg">
+        <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
           <h2 className="sr-only">הרשמה</h2>
           <RsvpForm />
         </section>
@@ -82,7 +82,7 @@ export default async function HomePage() {
 
       {game && userIsAttending && (
         <section
-          className="mx-auto mt-6 w-full max-w-lg"
+          className="mx-auto mt-6 w-full max-w-lg md:max-w-2xl"
           aria-labelledby="cancel-heading"
         >
           <h2 id="cancel-heading" className="sr-only">
@@ -94,7 +94,7 @@ export default async function HomePage() {
 
       {game && (
         <section
-          className="mx-auto mt-10 w-full max-w-lg"
+          className="mx-auto mt-10 w-full max-w-lg md:max-w-2xl"
           aria-live="polite"
           aria-label="רשימת משתתפים"
         >
