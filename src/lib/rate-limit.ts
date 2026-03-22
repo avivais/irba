@@ -4,6 +4,7 @@
  */
 
 const store = new Map<string, number[]>();
+const adminLoginStore = new Map<string, number[]>();
 
 function parsePositiveInt(env: string | undefined, fallback: number): number {
   if (env == null || env === "") return fallback;
@@ -49,6 +50,21 @@ export function slidingWindowAllow(
   return true;
 }
 
+export function consumeAdminLoginRateLimit(ip: string, now = Date.now()): boolean {
+  const max = parsePositiveInt(process.env.IRBA_RL_ADMIN_LOGIN_MAX, 10);
+  const windowMs = parsePositiveInt(
+    process.env.IRBA_RL_ADMIN_LOGIN_WINDOW_MS,
+    15 * 60 * 1000,
+  );
+  return slidingWindowAllow(
+    adminLoginStore,
+    `admin-login:${ip}`,
+    max,
+    windowMs,
+    now,
+  );
+}
+
 export function consumeRsvpRateLimit(
   kind: "attend" | "cancel",
   ip: string,
@@ -69,4 +85,9 @@ export function consumeRsvpRateLimit(
 /** Vitest only — clears process-local counters between tests. */
 export function clearRsvpRateLimitStoreForTests(): void {
   store.clear();
+}
+
+/** Vitest only — clears admin login rate limit bucket. */
+export function clearAdminLoginRateLimitStoreForTests(): void {
+  adminLoginStore.clear();
 }

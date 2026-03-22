@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  clearAdminLoginRateLimitStoreForTests,
   clearRsvpRateLimitStoreForTests,
+  consumeAdminLoginRateLimit,
   consumeRsvpRateLimit,
   getClientIpFromHeaders,
   slidingWindowAllow,
@@ -81,5 +83,29 @@ describe("consumeRsvpRateLimit", () => {
     expect(consumeRsvpRateLimit("attend", ip, now)).toBe(true);
     expect(consumeRsvpRateLimit("attend", ip, now + 1000)).toBe(true);
     expect(consumeRsvpRateLimit("attend", ip, now + 2000)).toBe(false);
+  });
+});
+
+describe("consumeAdminLoginRateLimit", () => {
+  beforeEach(() => {
+    clearAdminLoginRateLimitStoreForTests();
+    delete process.env.IRBA_RL_ADMIN_LOGIN_MAX;
+    delete process.env.IRBA_RL_ADMIN_LOGIN_WINDOW_MS;
+  });
+
+  afterEach(() => {
+    clearAdminLoginRateLimitStoreForTests();
+    delete process.env.IRBA_RL_ADMIN_LOGIN_MAX;
+    delete process.env.IRBA_RL_ADMIN_LOGIN_WINDOW_MS;
+  });
+
+  it("respects IRBA_RL_ADMIN_LOGIN_MAX and window", () => {
+    process.env.IRBA_RL_ADMIN_LOGIN_MAX = "2";
+    process.env.IRBA_RL_ADMIN_LOGIN_WINDOW_MS = "60000";
+    const ip = "10.0.0.2";
+    const now = 700_000;
+    expect(consumeAdminLoginRateLimit(ip, now)).toBe(true);
+    expect(consumeAdminLoginRateLimit(ip, now + 1000)).toBe(true);
+    expect(consumeAdminLoginRateLimit(ip, now + 2000)).toBe(false);
   });
 });

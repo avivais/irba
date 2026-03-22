@@ -17,8 +17,8 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 | Icons | `lucide-react` |
 | Tests | Vitest (`npm test`) |
 | Package manager | **npm** (lockfile: `package-lock.json`) |
-| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets a placeholder `DATABASE_URL` so Prisma loads during `npm ci` / `next build` (no Postgres service in CI). |
-| Admin auth (planned) | **Password + server session** — persistence via **HttpOnly (+ Secure) cookie** (not `localStorage` for session tokens; reduces XSS risk). Same cookie family pattern as RSVP JWT, separate cookie name / secret. “Stay logged in” = session TTL / sliding expiry (TBD). |
+| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets placeholder `DATABASE_URL`, `RSVP_SESSION_SECRET`, and `ADMIN_SESSION_SECRET` so Prisma / Next build load without Postgres in CI. |
+| Admin auth (MVP) | **Password + HttpOnly JWT session** — `ADMIN_SESSION_SECRET`, `ADMIN_PASSWORD_HASH` (bcrypt), cookie `irba_admin_session`, default 14-day TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional). Separate from RSVP; shared `Secure` via [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts). |
 | PWA (goal) | Installable app: **manifest**, **service worker**, offline/cache strategy TBD — after core admin works on mobile web. |
 
 ## Repository
@@ -41,10 +41,18 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
 - Lists: confirmed + waiting list; phones **masked** in UI; optional **“אורח”** badge for drop-ins.
 
+### Admin (authenticated shell)
+
+- **`/admin/login`** — password form (Hebrew / RTL); **`/admin`** — minimal protected shell with theme toggle + logout (route groups: public login vs protected dashboard).
+- **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
+- **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); bootstrap via `npm run hash-admin-password` (`scripts/hash-admin-password.ts`).
+- **Rate limit**: admin login uses `consumeAdminLoginRateLimit` (`IRBA_RL_ADMIN_LOGIN_MAX` / `IRBA_RL_ADMIN_LOGIN_WINDOW_MS`).
+- **Shared cookie `Secure` flag**: [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts) (same `RSVP_COOKIE_SECURE` / production behavior as RSVP).
+
 ### Security / abuse (MVP)
 
 - **Cookies**: HTTP-only, `sameSite=lax`, `Secure` in production or when `RSVP_COOKIE_SECURE` is set; JWT verifies `iss` / `aud` (defaults `irba` / `irba-rsvp`).
-- **Rate limits**: in-memory per process for attend vs cancel; client IP from `CF-Connecting-IP`, `X-Real-IP`, or first `X-Forwarded-For` hop (configure your reverse proxy).
+- **Rate limits**: in-memory per process for attend vs cancel and **admin login**; client IP from `CF-Connecting-IP`, `X-Real-IP`, or first `X-Forwarded-For` hop (configure your reverse proxy).
 - **Response headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` via `next.config.ts`.
 
 ### Ops / DX
@@ -56,13 +64,12 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### Tests
 
-- Unit tests: `phone`, `maskPhone`, `rate-limit`, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
+- Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
 - Default `npm test` does **not** require a running Postgres.
 
 ## What is not built yet (non-exhaustive)
 
-- Admin UI / authenticated back office (see **Admin roadmap** below).
-- **Admin** login (password + session — see decisions below) — distinct from the RSVP session cookie.
+- **Admin CRUD** and full back office (see **Admin roadmap** below) — only login + empty shell exist today.
 - **Import** pipeline: agreed format exports (CSV etc.) for payments, aggregates, precedence — not live Sheets API for now.
 - CAPTCHA / advanced bot mitigation beyond rate limits.
 - SMS/WhatsApp automation; push notifications.
@@ -91,13 +98,13 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 | **Precedence model** | Each **calendar year** has a **weight**; each player has **yearly aggregates**; each player can have **multiple bonus and fine line-items** (structured and/or text — finalize in schema design). |
 | **Mobile / PWA** | **Responsive admin** for v1; **PWA (installable)** is an explicit **goal** after core flows work (manifest + service worker + caching strategy). |
 
-**Still TBD in implementation:** exact CSV column templates, admin password hashing env vars, session TTL, and Prisma schema for precedence + imports.
+**Still TBD in implementation:** exact CSV column templates, multi-admin / `Player.isAdmin` linkage, and Prisma schema for precedence + imports. Admin uses `ADMIN_PASSWORD_HASH` + `ADMIN_SESSION_SECRET` and optional `ADMIN_SESSION_MAX_AGE_SEC`.
 
 ## Recommended next steps (before / for production)
 
 **Product / operator (aligned with roadmap above):**
 
-1. Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).
+1. ~~Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).~~ **Done** (login + shell).
 2. **Admin CRUD** for players + game sessions (then iterate imports).
 3. **File import** — agree **CSV (or similar) templates** for payments / aggregates / precedence; no Sheets API in v1.
 4. **Precedence** — Prisma schema (year weights, aggregates, bonus/fine line items) + import path aligned with export format.
@@ -114,4 +121,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: snapshot for handoff — edit when milestones land.*
+*Last updated: Mar 2026 — admin login + `/admin` shell shipped; next focus: Admin CRUD (players + sessions).*

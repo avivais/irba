@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { cookieSecure } from "@/lib/cookie-secure";
 
 export const RSVP_COOKIE_NAME = "irba_rsvp_session";
 
@@ -11,13 +12,6 @@ function jwtIssuer(): string {
 /** Audience ties tokens to this app so cookies from another deploy or product are rejected. */
 function jwtAudience(): string {
   return process.env.RSVP_JWT_AUDIENCE ?? "irba-rsvp";
-}
-
-/** Secure cookies in production, or when explicitly forcing HTTPS deployments (e.g. staging behind TLS proxy). */
-function cookieSecure(): boolean {
-  const v = process.env.RSVP_COOKIE_SECURE?.toLowerCase();
-  if (v === "1" || v === "true" || v === "yes") return true;
-  return process.env.NODE_ENV === "production";
 }
 
 function getSigningKey(): Uint8Array {

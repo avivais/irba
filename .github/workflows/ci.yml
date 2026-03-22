@@ -12,6 +12,9 @@ jobs:
     env:
       # Required at module load by src/lib/prisma.ts; no Postgres service in this job.
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      # Placeholders so Next/Prisma can load if build touches session helpers.
+      RSVP_SESSION_SECRET: ci-placeholder-rsvp-session-secret-32chars
+      ADMIN_SESSION_SECRET: ci-placeholder-admin-session-secret-32chars
 
     steps:
       - uses: actions/checkout@v4

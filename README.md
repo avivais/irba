@@ -21,7 +21,9 @@ Web app for **Ilan Ramon Basketball Association** — migrate from spreadsheets 
    Copy `.env.example` to `.env` and set:
 
    - `DATABASE_URL` — PostgreSQL connection string  
-   - `RSVP_SESSION_SECRET` — at least **32 characters** (signs the RSVP session cookie)
+   - `RSVP_SESSION_SECRET` — at least **32 characters** (signs the RSVP session cookie)  
+   - `ADMIN_SESSION_SECRET` — at least **32 characters** (signs the admin session cookie; **different** from the RSVP secret)  
+   - `ADMIN_PASSWORD_HASH` — **bcrypt** hash of the operator password (generate with `npm run hash-admin-password`; use a strong password; never commit real secrets)
 
 2. **Start PostgreSQL**
 
@@ -46,6 +48,10 @@ Web app for **Ilan Ramon Basketball Association** — migrate from spreadsheets 
    ```
 
    Open [http://localhost:3000](http://localhost:3000).
+
+### Admin area (`/admin`)
+
+After setting `ADMIN_SESSION_SECRET` and `ADMIN_PASSWORD_HASH` in `.env`, open [http://localhost:3000/admin/login](http://localhost:3000/admin/login). The admin session is a separate **HttpOnly** JWT cookie (audience `irba-admin` by default), with the same `RSVP_COOKIE_SECURE` behavior as the RSVP cookie. Default session lifetime is **14 days** (override with `ADMIN_SESSION_MAX_AGE_SEC` in seconds, between 300 and 90 days).
 
 ### `DATABASE_URL` hostnames
 
@@ -123,12 +129,13 @@ Optional environment variables:
 | `npm run db:deploy` | `prisma migrate deploy` |
 | `npm run db:seed` | Deterministic sample data (`prisma/seed.ts`) |
 | `npm run db:seed:random` | Random QA seed (`scripts/seed-random.ts`) |
+| `npm run hash-admin-password` | Prompts for a password and prints `ADMIN_PASSWORD_HASH` (dev/trusted terminal only) |
 
 ## Security notes
 
-- Never commit real secrets; keep them in `.env` (gitignored). Use strong values in production for `POSTGRES_PASSWORD`, `RSVP_SESSION_SECRET`, and any API keys.
+- Never commit real secrets; keep them in `.env` (gitignored). Use strong values in production for `POSTGRES_PASSWORD`, `RSVP_SESSION_SECRET`, `ADMIN_SESSION_SECRET`, `ADMIN_PASSWORD_HASH`, and any API keys.
 - `RSVP_SESSION_SECRET` (min 32 characters) signs the HTTP-only RSVP session cookie (`jose` HS256). JWTs include fixed `iss` / `aud` claims (overridable via `RSVP_JWT_ISSUER` / `RSVP_JWT_AUDIENCE`) so tokens from another deployment are rejected. Rotating the secret logs everyone out until they RSVP again.
 - **`RSVP_COOKIE_SECURE`**: set to `1` or `true` when the app is served over HTTPS but `NODE_ENV` is not `production` (for example staging behind a TLS proxy). Otherwise `Secure` cookies follow `NODE_ENV === "production"`.
 - **TLS**: terminate HTTPS in front of the app (reverse proxy, load balancer, or PaaS). The Compose setup exposes plain HTTP on port 3000. Configure the proxy to send `X-Forwarded-Proto: https` and a correct client IP (`X-Forwarded-For`, `X-Real-IP`, or `CF-Connecting-IP` behind Cloudflare).
-- **Rate limits**: RSVP attend and cancel actions are limited per client IP using an in-memory sliding window (`IRBA_RL_*` env vars in `.env.example`). Limits apply per Node process and reset on restart; if you run multiple app replicas, add a shared store (for example Redis) later.
+- **Rate limits**: RSVP attend and cancel actions, and **admin login**, are limited per client IP using an in-memory sliding window (`IRBA_RL_*` and `IRBA_RL_ADMIN_LOGIN_*` in `.env.example`). Limits apply per Node process and reset on restart; if you run multiple app replicas, add a shared store (for example Redis) later.
 - **HTTP headers**: baseline security headers are set in `next.config.ts` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`). Content Security Policy is not enabled yet to avoid breaking Next.js defaults; add it with nonces when you tighten further.
