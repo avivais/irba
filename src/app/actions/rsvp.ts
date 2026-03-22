@@ -3,20 +3,14 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { z } from "zod";
 import { getNextGame } from "@/lib/game";
-import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
+import { parseAttendFormFields } from "@/lib/rsvp-validation";
 import {
   consumeRsvpRateLimit,
   getClientIpFromHeaders,
 } from "@/lib/rate-limit";
 import { getSessionPlayerId, setRsvpSessionCookie } from "@/lib/rsvp-session";
-
-const attendSchema = z.object({
-  name: z.string().trim().min(1, "נא להזין שם").max(80),
-  phone: z.string().min(1, "נא להזין מספר טלפון"),
-});
 
 export type RsvpActionState = { ok: boolean; message?: string };
 
@@ -29,29 +23,17 @@ export async function attendAction(
   _prev: RsvpActionState,
   formData: FormData,
 ): Promise<RsvpActionState> {
-  const parsed = attendSchema.safeParse({
+  const parsed = parseAttendFormFields({
     name: typeof formData.get("name") === "string" ? formData.get("name") : "",
     phone: typeof formData.get("phone") === "string" ? formData.get("phone") : "",
   });
 
-  if (!parsed.success) {
-    const msg =
-      parsed.error.issues[0]?.message ?? "קלט לא תקין";
-    return { ok: false, message: msg };
+  if (!parsed.ok) {
+    return { ok: false, message: parsed.message };
   }
 
-  let phone: string;
-  try {
-    phone = normalizePhone(parsed.data.phone);
-  } catch (e) {
-    if (e instanceof PhoneValidationError) {
-      return {
-        ok: false,
-        message: "מספר הטלפון חייב להיות ישראלי בפורמט 05xxxxxxxx",
-      };
-    }
-    throw e;
-  }
+  const phone = parsed.phoneNormalized;
+  const name = parsed.name;
 
   const headerList = await headers();
   const clientIp = getClientIpFromHeaders((name) => headerList.get(name));
@@ -61,10 +43,10 @@ export async function attendAction(
 
   const game = await getNextGame();
   if (!game) {
-    return { ok: false, message: "אין אימון מתוזמן" };
+    return { ok: false, message: "אין מפגש מתוזמן" };
   }
   if (game.isClosed) {
-    return { ok: false, message: "ההרשמה לאימון סגורה" };
+    return { ok: false, message: "ההרשמה למפגש סגורה" };
   }
 
   let playerId: string;
@@ -85,12 +67,12 @@ export async function attendAction(
         pid = existing.id;
         await tx.player.update({
           where: { id: existing.id },
-          data: { name: parsed.data.name },
+          data: { name },
         });
       } else {
         const created = await tx.player.create({
           data: {
-            name: parsed.data.name,
+            name,
             phone,
             playerKind: "DROP_IN",
           },
@@ -121,10 +103,10 @@ export async function attendAction(
     });
   } catch (e) {
     if (e instanceof Error && e.message === "GAME_CLOSED") {
-      return { ok: false, message: "ההרשמה לאימון סגורה" };
+      return { ok: false, message: "ההרשמה למפגש סגורה" };
     }
     if (e instanceof Error && e.message === "ALREADY_REGISTERED") {
-      return { ok: false, message: "כבר נרשמת לאימון הזה" };
+      return { ok: false, message: "כבר נרשמת למפגש הזה" };
     }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return { ok: false, message: "מספר הטלפון כבר רשום. נסה להתחבר שוב." };
@@ -155,7 +137,7 @@ export async function cancelAttendanceAction(
 
   const game = await getNextGame();
   if (!game) {
-    return { ok: false, message: "אין אימון מתוזמן" };
+    return { ok: false, message: "אין מפגש מתוזמן" };
   }
 
   try {

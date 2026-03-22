@@ -7,12 +7,17 @@ async function main() {
   gameDate.setDate(gameDate.getDate() + 7);
   gameDate.setHours(20, 0, 0, 0);
 
-  await prisma.gameSession.create({
-    data: {
-      date: gameDate,
-      maxPlayers: 15,
-    },
+  const openGame = await prisma.gameSession.findFirst({
+    where: { isClosed: false },
   });
+  if (!openGame) {
+    await prisma.gameSession.create({
+      data: {
+        date: gameDate,
+        maxPlayers: 15,
+      },
+    });
+  }
 
   await prisma.player.createMany({
     data: [
@@ -31,6 +36,7 @@ async function main() {
         rank: 4.0,
       },
     ],
+    skipDuplicates: true,
   });
 }
 

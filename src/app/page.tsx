@@ -39,10 +39,10 @@ export default async function HomePage() {
         </div>
         <div className="px-2 pt-1 text-center sm:px-14">
           <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            אילון רמון כדורסל
+            IRBA
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
-            האימון הבא
+            המפגש הבא
           </h1>
         </div>
       </header>
@@ -58,7 +58,7 @@ export default async function HomePage() {
           />
           <div>
             <h2 id="game-date-heading" className="text-lg font-semibold">
-              מועד האימון
+              מועד המפגש
             </h2>
             {game ? (
               <p className="mt-1 text-base text-zinc-700 dark:text-zinc-300">
@@ -66,7 +66,7 @@ export default async function HomePage() {
               </p>
             ) : (
               <p className="mt-1 text-base text-zinc-600 dark:text-zinc-400">
-                אין אימון מתוזמן
+                אין מפגש מתוזמן
               </p>
             )}
           </div>

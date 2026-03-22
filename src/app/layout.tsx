@@ -9,8 +9,8 @@ const heebo = Heebo({
 });
 
 export const metadata: Metadata = {
-  title: "מנהל אילון רמון כדורסל",
-  description: "הרשמה לאימונים — אילון רמון כדורסל",
+  title: "מנהל IRBA",
+  description: "הרשמה למפגשים — IRBA",
 };
 
 export default function RootLayout({
