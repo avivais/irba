@@ -12,6 +12,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 |--------|--------|
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Theming | `next-themes`: system (default), light, dark; `class` on `<html>`; `storageKey` `irba-theme` |
+| Page titles | Root layout uses `title.template: "%s :: IRBA"` with `default: "IRBA"`; every page exports its own `metadata.title` segment. |
 | DB | PostgreSQL, Prisma ORM 7 (driver adapter `@prisma/adapter-pg`) |
 | Auth (MVP) | Signed HTTP-only cookie (`jose`), `RSVP_SESSION_SECRET` (min 32 chars), JWT `iss`/`aud`, optional `RSVP_COOKIE_SECURE` |
 | Icons | `lucide-react` |
@@ -36,7 +37,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 ### RSVP flow (public)
 
 - Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
-- **Theme**: header `ThemeToggle` positioned on the **left** (`end-0` in RTL); root `ThemeProvider` in `layout.tsx` so future admin UI inherits the same behavior — reuse `ThemeToggle` or rely on global `dark:` styles.
+- **Theme**: header `ThemeToggle` consistently positioned on the **left** (`end-0` in RTL) across all pages; root `ThemeProvider` in `layout.tsx` so all routes inherit the same behavior.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
 - Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
 - **Cancel RSVP**: inline two-step confirmation (“האם לבטל את ההגעה?” + “כן, בטל” / “לא”) — no `window.confirm`. Success banner auto-dismisses after 3 s (tracked by state reference, not a boolean flag).
@@ -148,4 +149,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Admin CRUD complete (players + sessions); positions overhauled to multi-value array with English-only labels (PG/SG/SF/PF/C); player kind labels renamed קבוע/מזדמן; cancel RSVP redesigned with inline confirmation + auto-dismiss banners; responsive layout widened for md+ screens; next focus: file import pipeline.*
+*Last updated: Mar 2026 — Admin CRUD complete (players + sessions); positions overhauled to multi-value array with English-only labels (PG/SG/SF/PF/C); player kind labels renamed קבוע/מזדמן; cancel RSVP redesigned with inline confirmation + auto-dismiss banners; responsive layout widened for md+ screens; per-page titles with `%s :: IRBA` template; ThemeToggle consistently on the left across all pages; next focus: file import pipeline.*
