@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LogOut, Users, CalendarDays } from "lucide-react";
 import { adminLogoutAction } from "@/app/admin/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+export const metadata: Metadata = { title: "ניהול" };
 
 export const dynamic = "force-dynamic";
 

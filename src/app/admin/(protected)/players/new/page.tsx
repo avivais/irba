@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PlayerForm } from "@/components/admin/player-form";
+
+export const metadata: Metadata = { title: "שחקן חדש" };
 
 export default function AdminPlayersNewPage() {
   return (

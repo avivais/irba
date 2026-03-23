@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SessionForm } from "@/components/admin/session-form";
+
+export const metadata: Metadata = { title: "מפגש חדש" };
 
 export default function AdminSessionsNewPage() {
   return (

@@ -8,6 +8,10 @@ import { maskPhone } from "@/lib/mask-phone";
 import { prisma } from "@/lib/prisma";
 import { getSessionPlayerId } from "@/lib/rsvp-session";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "המפגש הבא" };
+
 /** RSVP reads live DB state — do not prerender at build time without a database. */
 export const dynamic = "force-dynamic";
 

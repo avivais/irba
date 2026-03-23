@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Users, Plus, Pencil } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PlayerDeleteButton } from "@/components/admin/player-delete-button";
+
+export const metadata: Metadata = { title: "שחקנים" };
 
 export const dynamic = "force-dynamic";
 

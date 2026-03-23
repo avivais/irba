@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SessionForm } from "@/components/admin/session-form";
+
+export const metadata: Metadata = { title: "עריכת מפגש" };
 
 type Props = {
   params: Promise<{ id: string }>;

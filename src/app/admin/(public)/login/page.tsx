@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { AdminLoginForm } from "@/components/admin-login-form";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+export const metadata: Metadata = { title: "כניסת מנהל" };
 
 export const dynamic = "force-dynamic";
 

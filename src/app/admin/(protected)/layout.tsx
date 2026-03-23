@@ -1,10 +1,5 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
-
-export const metadata: Metadata = {
-  title: "מנהל IRBA",
-};
 
 export const dynamic = "force-dynamic";
 

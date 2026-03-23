@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, Plus, Pencil } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatGameDate } from "@/lib/format-date";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { SessionToggleButton } from "@/components/admin/session-toggle-button";
+
+export const metadata: Metadata = { title: "מפגשים" };
 
 export const dynamic = "force-dynamic";
 
