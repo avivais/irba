@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default function AdminLoginPage() {
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
-      <header className="relative mx-auto w-full max-w-md">
+      <header className="relative mx-auto w-full max-w-lg md:max-w-2xl">
         <div className="absolute end-0 top-0 z-10">
           <ThemeToggle />
         </div>
