@@ -55,7 +55,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 #### Admin home (`/admin`)
 
-Navigation cards to שחקנים and מפגשים sections; logout button.
+Navigation cards to שחקנים, מפגשים, and רשימת קדימות sections; logout button.
 
 #### Players CRUD (`/admin/players`)
 
@@ -76,6 +76,27 @@ Navigation cards to שחקנים and מפגשים sections; logout button.
 - **Server actions**: `createSessionAction`, `updateSessionAction`, `deleteSessionAction`, `toggleSessionAction` in `src/app/admin/(protected)/sessions/actions.ts`.
 - **Validation**: `src/lib/session-validation.ts` — `parseSessionForm`; tested in `src/lib/session-validation.test.ts`.
 
+#### Precedence list — רשימת קדימות (`/admin/precedence`)
+
+**Data model** (migration `20260323180203_precedence`):
+- **`YearWeight`**: calendar `year` (Int, PK) → `weight` (Float). Controls how much each past year counts.
+- **`PlayerYearAggregate`**: `(playerId, year)` unique — stores historical attendance count for years before live tracking. Not created for the current year (counted from live `Attendance` rows).
+- **`PlayerAdjustment`**: `id`, `playerId`, `date`, `points` (Float, signed), `description` (String). Covers bonuses (+) and fines (−).
+
+**Score formula** (`src/lib/precedence.ts`):
+```
+score = Σ(aggregate.count × yearWeight) + liveCurrentYearCount × currentYearWeight + Σ(adjustment.points)
+```
+Current year is auto-counted from live `Attendance` records; no `PlayerYearAggregate` row needed for it.
+
+**Admin UI:**
+- **`/admin/precedence`** — ranked list of all players with total score + breakdown (aggregates, live count, adjustments); links to player detail.
+- **`/admin/precedence/weights`** — year weights CRUD (list, new, edit, delete).
+- **`/admin/precedence/[playerId]`** — player detail page: inline aggregate upsert per year, adjustments list with add/edit/delete.
+- **`/admin/precedence/[playerId]/adjustments/new`** and **`.../[adjId]/edit`** — adjustment forms (date, points, description).
+- **Server actions**: in `src/app/admin/(protected)/precedence/[playerId]/actions.ts` and `weights/actions.ts`.
+- **Validation**: `src/lib/adjustment-validation.ts`, `src/lib/year-weight-validation.ts`; tested in `src/lib/precedence.test.ts` (10 cases).
+
 ### Security / abuse (MVP)
 
 - **Cookies**: HTTP-only, `sameSite=lax`, `Secure` in production or when `RSVP_COOKIE_SECURE` is set; JWT verifies `iss` / `aud` (defaults `irba` / `irba-rsvp`).
@@ -94,6 +115,7 @@ Navigation cards to שחקנים and מפגשים sections; logout button.
 - Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
 - **Player validation tests** (`src/lib/player-validation.test.ts`): 25 cases covering all fields, phone normalization, rank/balance boundaries, multi-position array (valid/invalid values, single-string coercion, empty), isAdmin flag.
 - **Session validation tests** (`src/lib/session-validation.test.ts`): 13 cases covering date parsing, maxPlayers bounds, isClosed flag.
+- **Precedence tests** (`src/lib/precedence.test.ts`): 10 cases covering score formula (zero state, aggregates only, live count, adjustments, combined), edge cases (missing weight, negative adjustments, fractional weights).
 - Default `npm test` does **not** require a running Postgres.
 
 ## What is not built yet (non-exhaustive)
@@ -126,7 +148,7 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 | **Precedence model** | Each **calendar year** has a **weight**; each player has **yearly aggregates**; each player can have **multiple bonus and fine line-items** (structured and/or text — finalize in schema design). |
 | **Mobile / PWA** | **Responsive admin** for v1; **PWA (installable)** is an explicit **goal** after core flows work (manifest + service worker + caching strategy). |
 
-**Still TBD in implementation:** exact CSV column templates, multi-admin / `Player.isAdmin` linkage, and Prisma schema for precedence + imports. Admin uses `ADMIN_PASSWORD_HASH` + `ADMIN_SESSION_SECRET` and optional `ADMIN_SESSION_MAX_AGE_SEC`.
+**Still TBD in implementation:** exact CSV column templates, multi-admin / `Player.isAdmin` linkage. Admin uses `ADMIN_PASSWORD_HASH` + `ADMIN_SESSION_SECRET` and optional `ADMIN_SESSION_MAX_AGE_SEC`.
 
 ## Recommended next steps (before / for production)
 
@@ -134,8 +156,8 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 1. ~~Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).~~ **Done** (login + shell).
 2. ~~**Admin CRUD** for players + game sessions.~~ **Done** (list, add, edit, delete, open/close toggle).
-3. **File import** — agree **CSV (or similar) templates** for payments / aggregates / precedence; no Sheets API in v1.
-4. **Precedence** — Prisma schema (year weights, aggregates, bonus/fine line items) + import path aligned with export format.
+3. ~~**Precedence list ("רשימת קדימות")** — Prisma schema (year weights, aggregates, bonus/fine line items) + admin UI.~~ **Done** (schema, score calc, full CRUD UI).
+4. **File import** — agree **CSV (or similar) templates** for payments / historical aggregates / adjustments; no Sheets API in v1.
 5. **PWA** — manifest + service worker; ship after admin UX is solid on mobile Safari/Chrome.
 
 **Platform:**
@@ -149,4 +171,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Admin CRUD complete (players + sessions); positions overhauled to multi-value array with English-only labels (PG/SG/SF/PF/C); player kind labels renamed קבוע/מזדמן; cancel RSVP redesigned with inline confirmation + auto-dismiss banners; responsive layout widened for md+ screens; per-page titles with `%s :: IRBA` template; ThemeToggle consistently on the left across all pages; next focus: file import pipeline.*
+*Last updated: Mar 2026 — Precedence list (רשימת קדימות) complete: YearWeight + PlayerYearAggregate + PlayerAdjustment schema (migration 20260323180203), score formula (src/lib/precedence.ts), full admin CRUD UI at /admin/precedence; 10 precedence unit tests added. Previous: Admin CRUD (players + sessions), positions multi-value array, per-page titles, ThemeToggle left. Next focus: file import pipeline (CSV templates for historical aggregates + adjustments).*
