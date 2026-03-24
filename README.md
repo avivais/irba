@@ -43,11 +43,23 @@ Web app for **Ilan Ramon Basketball Association** — migrate from spreadsheets 
 
 4. **Run the app**
 
+   **Development** (hot reload, large unminified bundle — use on desktop only):
    ```bash
    npm run dev
    ```
 
+   **Production** (minified, code-split — required for mobile or tunnel testing):
+   ```bash
+   npm run build
+   npm start
+   ```
+
    Open [http://localhost:3000](http://localhost:3000).
+
+   > **Important:** The dev bundle is 10–20 MB unminified. React will not hydrate
+   > reliably on mobile devices or slow connections in dev mode, causing all
+   > client-side interactivity (forms, theme toggle, validation) to silently break.
+   > Always use `npm run build && npm start` when testing on a phone or over a tunnel.
 
 ### Admin area (`/admin`)
 
@@ -79,6 +91,30 @@ docker compose up --build
 ```
 
 The app image runs `prisma migrate deploy` before `next start` (see `docker-entrypoint.sh`).
+
+## Exposing to the web (tunnel)
+
+To test on a mobile device outside your local network, use a Cloudflare quick tunnel. No account is required.
+
+**Install once:**
+```bash
+brew install cloudflared
+```
+
+**Start the production server and tunnel:**
+```bash
+npm run build
+npm start &
+cloudflared tunnel --url http://localhost:3000
+```
+
+Cloudflare prints a public HTTPS URL (e.g. `https://some-words.trycloudflare.com`). Open it on your phone.
+
+> **Notes:**
+> - Always use the production build (`npm start`), not `npm run dev`, when testing over a tunnel — see the dev vs production note above.
+> - Quick tunnels have no uptime guarantee and are intended for short-lived testing only.
+> - The URL changes each time you start a new tunnel.
+> - To stop: `Ctrl+C` the cloudflared process.
 
 ## Health check
 
@@ -129,8 +165,9 @@ Optional environment variables:
 
 | Command | Description |
 |--------|-------------|
-| `npm run dev` | Development server |
+| `npm run dev` | Development server (desktop only — see note above) |
 | `npm run build` | Production build |
+| `npm start` | Production server (required for mobile / tunnel testing) |
 | `npm test` | Vitest (unit tests) |
 | `npm run test:watch` | Vitest watch mode |
 | `npm run test:coverage` | Vitest with coverage |
