@@ -118,9 +118,38 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 - **Precedence tests** (`src/lib/precedence.test.ts`): 10 cases covering score formula (zero state, aggregates only, live count, adjustments, combined), edge cases (missing weight, negative adjustments, fractional weights).
 - Default `npm test` does **not** require a running Postgres.
 
+#### Import pipeline (`/admin/import`)
+
+Migrates historical Sheets data into the DB. Three flows, each with **file upload** or **paste CSV** input (tab switcher), client-side parse → preview table (✓/✗ per row) → confirm → server action.
+
+**Player fields added** (migration `20260324104857_add_player_fields_and_payment`):
+- `nickname String?` — primary matching key for all CSV imports; indexed
+- `firstNameHe`, `lastNameHe`, `firstNameEn`, `lastNameEn` (`String?`) — name components
+- `birthdate DateTime?`
+
+**New `Payment` model** (same migration): `playerId`, `date`, `amount: Int` (NIS, signed), `description?`.
+
+**Import flows:**
+
+| Flow | Route | CSV format | Key |
+|------|-------|-----------|-----|
+| שחקנים | `/admin/import/players` | `nickname,firstNameHe,lastNameHe,firstNameEn,lastNameEn,phone,birthdate,playerKind` | upsert by `phone`; update by `nickname` if no phone |
+| נוכחות עבר | `/admin/import/aggregates` | Wide: `nickname,2021,2022,…` | upserts `PlayerYearAggregate(playerId, year)` |
+| תשלומים | `/admin/import/payments` | Wide: `date,אבי,עידן,…` | creates `Payment` rows |
+
+**CSV parsing** (`src/lib/csv-import.ts`): `parsePlayersCsv`, `parseAggregatesCsv`, `parsePaymentsCsv` — pure functions, no DB, reuse `normalizePhone`. Tested in `src/lib/csv-import.test.ts` (24 cases).
+
+**Input modes** (`src/components/admin/import-upload.tsx`): tab switcher — "העלה קובץ" (FileReader) or "הדבק טקסט" (textarea + parse button). Switching tabs resets preview.
+
+**Server actions**: `importPlayersAction`, `importAggregatesAction`, `importPaymentsAction` — each calls `requireAdmin()`, resolves nicknames to playerIds in batch, upserts/creates rows.
+
+**Results import** (תוצאות sheet) — deferred.
+
+---
+
 ## What is not built yet (non-exhaustive)
 
-- **Import** pipeline: agreed format exports (CSV etc.) for payments, aggregates, precedence — not live Sheets API for now.
+- **Results import** (תוצאות sheet): game outcomes (winners/losers per session) — deferred.
 - CAPTCHA / advanced bot mitigation beyond rate limits.
 - SMS/WhatsApp automation; push notifications.
 - i18n beyond Hebrew for the public UI.
@@ -157,7 +186,7 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 1. ~~Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).~~ **Done** (login + shell).
 2. ~~**Admin CRUD** for players + game sessions.~~ **Done** (list, add, edit, delete, open/close toggle).
 3. ~~**Precedence list ("רשימת קדימות")** — Prisma schema (year weights, aggregates, bonus/fine line items) + admin UI.~~ **Done** (schema, score calc, full CRUD UI).
-4. **File import** — agree **CSV (or similar) templates** for payments / historical aggregates / adjustments; no Sheets API in v1.
+4. ~~**File import** — agree **CSV (or similar) templates** for payments / historical aggregates; no Sheets API in v1.~~ **Done** (players, aggregates, payments — file upload + paste; 24 CSV tests).
 5. **PWA** — manifest + service worker; ship after admin UX is solid on mobile Safari/Chrome.
 
 **Platform:**
@@ -171,4 +200,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Precedence list (רשימת קדימות) complete: YearWeight + PlayerYearAggregate + PlayerAdjustment schema (migration 20260323180203), score formula (src/lib/precedence.ts), full admin CRUD UI at /admin/precedence; 10 precedence unit tests added. Previous: Admin CRUD (players + sessions), positions multi-value array, per-page titles, ThemeToggle left. Next focus: file import pipeline (CSV templates for historical aggregates + adjustments).*
+*Last updated: Mar 2026 — Import pipeline complete: Player schema expanded (nickname, name components, birthdate, migration 20260324104857), new Payment model, three CSV import flows (players / aggregates / payments) at /admin/import with file-upload + paste-text input modes, preview table, server actions; 24 csv-import unit tests. Previous: Precedence list (YearWeight + PlayerYearAggregate + PlayerAdjustment, score formula, CRUD UI, 10 tests). Next focus: PWA (manifest + service worker).*

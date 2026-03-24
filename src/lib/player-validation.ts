@@ -21,10 +21,16 @@ export const playerFormSchema = z.object({
   rank: z.string().optional(),
   balance: z.string().optional(),
   isAdmin: z.string().optional(),
+  nickname: z.string().trim().max(50, "הכינוי ארוך מדי (עד 50 תווים)").optional(),
+  firstNameHe: z.string().trim().max(80).optional(),
+  lastNameHe: z.string().trim().max(80).optional(),
+  firstNameEn: z.string().trim().max(80).optional(),
+  lastNameEn: z.string().trim().max(80).optional(),
+  birthdate: z.string().optional(),
 });
 
 export type PlayerFieldErrors = Partial<
-  Record<"name" | "phone" | "playerKind" | "positions" | "rank" | "balance", string>
+  Record<"name" | "phone" | "playerKind" | "positions" | "rank" | "balance" | "nickname" | "birthdate", string>
 >;
 
 export type ParsedPlayer = {
@@ -35,6 +41,12 @@ export type ParsedPlayer = {
   rank: number | null;
   balance: number;
   isAdmin: boolean;
+  nickname: string | null;
+  firstNameHe: string | null;
+  lastNameHe: string | null;
+  firstNameEn: string | null;
+  lastNameEn: string | null;
+  birthdate: Date | null;
 };
 
 export type PlayerFormValidation =
@@ -123,6 +135,21 @@ export function parsePlayerForm(
 
   const isAdmin = parsed.data.isAdmin === "on";
 
+  const nickname = parsed.data.nickname?.trim() || null;
+  const firstNameHe = parsed.data.firstNameHe?.trim() || null;
+  const lastNameHe = parsed.data.lastNameHe?.trim() || null;
+  const firstNameEn = parsed.data.firstNameEn?.trim() || null;
+  const lastNameEn = parsed.data.lastNameEn?.trim() || null;
+
+  let birthdate: Date | null = null;
+  if (parsed.data.birthdate && parsed.data.birthdate.trim() !== "") {
+    const d = new Date(parsed.data.birthdate.trim());
+    if (isNaN(d.getTime())) {
+      return { ok: false, errors: { birthdate: "תאריך לא תקין" } };
+    }
+    birthdate = d;
+  }
+
   return {
     ok: true,
     data: {
@@ -133,6 +160,12 @@ export function parsePlayerForm(
       rank,
       balance,
       isAdmin,
+      nickname,
+      firstNameHe,
+      lastNameHe,
+      firstNameEn,
+      lastNameEn,
+      birthdate,
     },
   };
 }

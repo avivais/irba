@@ -18,6 +18,12 @@ type PlayerData = {
   rank: number | null;
   balance: number;
   isAdmin: boolean;
+  nickname: string | null;
+  firstNameHe: string | null;
+  lastNameHe: string | null;
+  firstNameEn: string | null;
+  lastNameEn: string | null;
+  birthdate: Date | null;
 };
 
 type Props =
@@ -55,6 +61,14 @@ export function PlayerForm(props: Props) {
   const [rank, setRank] = useState(player?.rank != null ? String(player.rank) : "");
   const [balance, setBalance] = useState(String(player?.balance ?? 0));
   const [isAdmin, setIsAdmin] = useState(player?.isAdmin ?? false);
+  const [nickname, setNickname] = useState(player?.nickname ?? "");
+  const [firstNameHe, setFirstNameHe] = useState(player?.firstNameHe ?? "");
+  const [lastNameHe, setLastNameHe] = useState(player?.lastNameHe ?? "");
+  const [firstNameEn, setFirstNameEn] = useState(player?.firstNameEn ?? "");
+  const [lastNameEn, setLastNameEn] = useState(player?.lastNameEn ?? "");
+  const [birthdate, setBirthdate] = useState(
+    player?.birthdate ? new Date(player.birthdate).toISOString().slice(0, 10) : "",
+  );
 
   const [nameBlurred, setNameBlurred] = useState(false);
   const [phoneBlurred, setPhoneBlurred] = useState(false);
@@ -68,6 +82,12 @@ export function PlayerForm(props: Props) {
     rank: rank || undefined,
     balance: balance || undefined,
     isAdmin: isAdmin ? "on" : undefined,
+    nickname: nickname || undefined,
+    firstNameHe: firstNameHe || undefined,
+    lastNameHe: lastNameHe || undefined,
+    firstNameEn: firstNameEn || undefined,
+    lastNameEn: lastNameEn || undefined,
+    birthdate: birthdate || undefined,
   });
 
   const fieldErrors = validation.ok ? {} : validation.errors;
@@ -316,6 +336,68 @@ export function PlayerForm(props: Props) {
         >
           הרשאת מנהל
         </label>
+      </div>
+
+      {/* Nickname */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="player-nickname" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          כינוי
+          <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(לייבוא, אופציונלי)</span>
+        </label>
+        <input
+          id="player-nickname"
+          name="nickname"
+          type="text"
+          maxLength={50}
+          value={nickname}
+          onChange={(e) => onFieldChange(setNickname, e.target.value)}
+          className={`${inputBase} ${inputNormal}`}
+          placeholder="כינוי קצר"
+        />
+      </div>
+
+      {/* Name fields */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="player-fn-he" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">שם פרטי (עברית)</label>
+          <input id="player-fn-he" name="firstNameHe" type="text" maxLength={80} value={firstNameHe}
+            onChange={(e) => onFieldChange(setFirstNameHe, e.target.value)}
+            className={`${inputBase} ${inputNormal}`} placeholder="שם פרטי" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="player-ln-he" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">שם משפחה (עברית)</label>
+          <input id="player-ln-he" name="lastNameHe" type="text" maxLength={80} value={lastNameHe}
+            onChange={(e) => onFieldChange(setLastNameHe, e.target.value)}
+            className={`${inputBase} ${inputNormal}`} placeholder="שם משפחה" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="player-fn-en" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">First name (English)</label>
+          <input id="player-fn-en" name="firstNameEn" type="text" maxLength={80} value={firstNameEn}
+            onChange={(e) => onFieldChange(setFirstNameEn, e.target.value)}
+            className={`${inputBase} ${inputNormal}`} placeholder="First name" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="player-ln-en" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Last name (English)</label>
+          <input id="player-ln-en" name="lastNameEn" type="text" maxLength={80} value={lastNameEn}
+            onChange={(e) => onFieldChange(setLastNameEn, e.target.value)}
+            className={`${inputBase} ${inputNormal}`} placeholder="Last name" />
+        </div>
+      </div>
+
+      {/* Birthdate */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="player-birthdate" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          תאריך לידה
+          <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
+        </label>
+        <input
+          id="player-birthdate"
+          name="birthdate"
+          type="date"
+          value={birthdate}
+          onChange={(e) => onFieldChange(setBirthdate, e.target.value)}
+          className={`${inputBase} ${inputNormal}`}
+        />
       </div>
 
       {serverError && (

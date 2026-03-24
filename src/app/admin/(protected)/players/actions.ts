@@ -30,6 +30,12 @@ export async function createPlayerAction(
     rank: formData.get("rank")?.toString(),
     balance: formData.get("balance")?.toString(),
     isAdmin: formData.get("isAdmin")?.toString(),
+    nickname: formData.get("nickname")?.toString(),
+    firstNameHe: formData.get("firstNameHe")?.toString(),
+    lastNameHe: formData.get("lastNameHe")?.toString(),
+    firstNameEn: formData.get("firstNameEn")?.toString(),
+    lastNameEn: formData.get("lastNameEn")?.toString(),
+    birthdate: formData.get("birthdate")?.toString(),
   };
 
   const validation = parsePlayerForm(raw);
@@ -38,12 +44,14 @@ export async function createPlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { name, phoneNormalized, playerKind, positions, rank, balance, isAdmin } =
+  const { name, phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+    nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } =
     validation.data;
 
   try {
     await prisma.player.create({
-      data: { name, phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin },
+      data: { name, phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+        nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
     });
   } catch (e) {
     if (
@@ -76,6 +84,12 @@ export async function updatePlayerAction(
     rank: formData.get("rank")?.toString(),
     balance: formData.get("balance")?.toString(),
     isAdmin: formData.get("isAdmin")?.toString(),
+    nickname: formData.get("nickname")?.toString(),
+    firstNameHe: formData.get("firstNameHe")?.toString(),
+    lastNameHe: formData.get("lastNameHe")?.toString(),
+    firstNameEn: formData.get("firstNameEn")?.toString(),
+    lastNameEn: formData.get("lastNameEn")?.toString(),
+    birthdate: formData.get("birthdate")?.toString(),
   };
 
   const validation = parsePlayerForm(raw);
@@ -84,13 +98,15 @@ export async function updatePlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { name, playerKind, positions, rank, balance, isAdmin } = validation.data;
+  const { name, playerKind, positions, rank, balance, isAdmin,
+    nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } = validation.data;
 
   try {
     await prisma.player.update({
       where: { id },
       // Intentionally omit phone — phone is the player's identity and cannot be changed here
-      data: { name, playerKind, positions, rank, balance, isAdmin },
+      data: { name, playerKind, positions, rank, balance, isAdmin,
+        nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
     });
   } catch (e) {
     if (
