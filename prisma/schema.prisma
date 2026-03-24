@@ -33,7 +33,9 @@ model Player {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  attendances Attendance[]
+  attendances    Attendance[]
+  yearAggregates PlayerYearAggregate[]
+  adjustments    PlayerAdjustment[]
 
   @@index([phone])
 }
@@ -49,6 +51,36 @@ model GameSession {
   attendances Attendance[]
 
   @@index([date])
+}
+
+model YearWeight {
+  year   Int   @id
+  weight Float
+}
+
+model PlayerYearAggregate {
+  id       String @id @default(cuid())
+  playerId String
+  year     Int
+  count    Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, year])
+  @@index([playerId])
+}
+
+model PlayerAdjustment {
+  id          String   @id @default(cuid())
+  playerId    String
+  date        DateTime
+  points      Float
+  description String
+  createdAt   DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
 }
 
 model Attendance {

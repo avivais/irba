@@ -38,6 +38,66 @@ async function main() {
     ],
     skipDuplicates: true,
   });
+
+  // Year weights
+  await prisma.yearWeight.createMany({
+    data: [
+      { year: 2024, weight: 1.0 },
+      { year: 2025, weight: 1.5 },
+      { year: 2026, weight: 2.0 },
+    ],
+    skipDuplicates: true,
+  });
+
+  // Historical aggregates + adjustments for seeded players
+  const playerA = await prisma.player.findUnique({
+    where: { phone: normalizePhone("0521111111") },
+  });
+  const playerB = await prisma.player.findUnique({
+    where: { phone: normalizePhone("0522222222") },
+  });
+
+  if (playerA) {
+    await prisma.playerYearAggregate.createMany({
+      data: [
+        { playerId: playerA.id, year: 2024, count: 14 },
+        { playerId: playerA.id, year: 2025, count: 12 },
+      ],
+      skipDuplicates: true,
+    });
+    await prisma.playerAdjustment.createMany({
+      data: [
+        {
+          playerId: playerA.id,
+          date: new Date("2025-06-10"),
+          points: 2,
+          description: "בונוס ארגון",
+        },
+      ],
+      skipDuplicates: false,
+    });
+  }
+
+  if (playerB) {
+    await prisma.playerYearAggregate.createMany({
+      data: [
+        { playerId: playerB.id, year: 2024, count: 10 },
+        { playerId: playerB.id, year: 2025, count: 15 },
+      ],
+      skipDuplicates: true,
+    });
+    await prisma.playerAdjustment.createMany({
+      data: [
+        {
+          playerId: playerB.id,
+          date: new Date("2025-03-01"),
+          points: -1,
+          description: "קנס ביטול",
+        },
+      ],
+      skipDuplicates: false,
+    });
+  }
 }
 
 main()
