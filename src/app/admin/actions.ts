@@ -138,7 +138,7 @@ export async function adminLoginAction(
     console.log("[admin login] SUCCESS — session cookie set.");
   }
 
-  return { ok: true };
+  redirect("/admin");
 }
 
 export async function adminLogoutAction(): Promise<void> {
