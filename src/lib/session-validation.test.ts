@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseSessionForm,
+  parseIsraelLocalDate,
   SESSION_MAX_PLAYERS_MIN,
   SESSION_MAX_PLAYERS_MAX,
 } from "./session-validation";
@@ -9,6 +10,25 @@ const BASE = {
   date: "2026-06-01T19:00",
   maxPlayers: "15",
 };
+
+describe("parseIsraelLocalDate", () => {
+  it("converts Israel winter time (UTC+2) to correct UTC", () => {
+    // Jan 1 Israel is UTC+2, so 10:00 Israel = 08:00 UTC
+    const result = parseIsraelLocalDate("2026-01-01T10:00");
+    expect(result.toISOString()).toBe("2026-01-01T08:00:00.000Z");
+  });
+
+  it("converts Israel summer time (UTC+3) to correct UTC", () => {
+    // Aug 1 Israel is UTC+3 (IDT), so 19:00 Israel = 16:00 UTC
+    const result = parseIsraelLocalDate("2026-08-01T19:00");
+    expect(result.toISOString()).toBe("2026-08-01T16:00:00.000Z");
+  });
+
+  it("passes through strings that already have a timezone", () => {
+    const result = parseIsraelLocalDate("2026-08-15T18:30:00.000Z");
+    expect(result.toISOString()).toBe("2026-08-15T18:30:00.000Z");
+  });
+});
 
 describe("parseSessionForm", () => {
   it("accepts a valid date and maxPlayers", () => {

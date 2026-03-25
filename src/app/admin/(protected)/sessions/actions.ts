@@ -7,6 +7,20 @@ import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
 
+/** Return the UTC start and end of the calendar day containing `date` in Israel timezone. */
+function israelDayBounds(date: Date): { gte: Date; lt: Date } {
+  const dayStr = date.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }); // "YYYY-MM-DD"
+  const midnightRef = new Date(dayStr + "T00:00Z");
+  const midnightIsrael = midnightRef
+    .toLocaleString("sv-SE", { timeZone: "Asia/Jerusalem" })
+    .replace(" ", "T")
+    .slice(0, 16);
+  const offsetMs = new Date(midnightIsrael + "Z").getTime() - midnightRef.getTime();
+  const gte = new Date(midnightRef.getTime() - offsetMs);
+  const lt = new Date(gte.getTime() + 86_400_000);
+  return { gte, lt };
+}
+
 export type SessionActionState = { ok: boolean; message?: string };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
@@ -35,6 +49,15 @@ export async function createSessionAction(
   }
 
   const { date, maxPlayers } = validation.data;
+
+  const { gte, lt } = israelDayBounds(date);
+  const existing = await prisma.gameSession.findFirst({
+    where: { date: { gte, lt } },
+    select: { id: true },
+  });
+  if (existing) {
+    return { ok: false, message: "כבר קיים מפגש ביום זה" };
+  }
 
   try {
     await prisma.gameSession.create({
@@ -69,6 +92,15 @@ export async function updateSessionAction(
   }
 
   const { date, maxPlayers, isClosed } = validation.data;
+
+  const { gte, lt } = israelDayBounds(date);
+  const existing = await prisma.gameSession.findFirst({
+    where: { date: { gte, lt }, NOT: { id } },
+    select: { id: true },
+  });
+  if (existing) {
+    return { ok: false, message: "כבר קיים מפגש ביום זה" };
+  }
 
   try {
     await prisma.gameSession.update({

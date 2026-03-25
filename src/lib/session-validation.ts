@@ -1,5 +1,27 @@
 import { z } from "zod";
 
+/**
+ * Parse a datetime-local string ("YYYY-MM-DDTHH:mm") as Israel local time and return a UTC Date.
+ * Handles DST automatically by computing the Israel timezone offset at the given moment.
+ */
+export function parseIsraelLocalDate(localStr: string): Date {
+  // If the string already carries a timezone, parse it as-is
+  if (/Z$|[+-]\d{2}:\d{2}$/.test(localStr)) {
+    return new Date(localStr);
+  }
+  // Treat localStr as UTC to get a reference point
+  const refUtc = new Date(localStr + "Z");
+  // Format that UTC moment in Israel timezone
+  const refIsrael = refUtc
+    .toLocaleString("sv-SE", { timeZone: "Asia/Jerusalem" })
+    .replace(" ", "T")
+    .slice(0, 16);
+  // offsetMs = how many ms ahead Israel is relative to UTC at this moment
+  const offsetMs = new Date(refIsrael + "Z").getTime() - refUtc.getTime();
+  // Actual UTC = Israel local time - offset
+  return new Date(refUtc.getTime() - offsetMs);
+}
+
 export const SESSION_MAX_PLAYERS_MIN = 1;
 export const SESSION_MAX_PLAYERS_MAX = 100;
 
@@ -36,9 +58,9 @@ export function parseSessionForm(
     return { ok: false, errors };
   }
 
-  // Parse date
-  const date = new Date(parsed.data.date);
-  if (isNaN(date.getTime())) {
+  // Parse date — treat datetime-local string as Israel local time
+  const date = parseIsraelLocalDate(parsed.data.date);
+  if (!date || isNaN(date.getTime())) {
     return { ok: false, errors: { date: "תאריך לא תקין" } };
   }
 

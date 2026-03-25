@@ -74,7 +74,8 @@ Navigation cards to שחקנים, מפגשים, and רשימת קדימות sect
 - **Toggle open/close**: `SessionToggleButton` submits `toggleSessionAction` — flips `isClosed`, revalidates `/admin/sessions` and `/` (public page).
 - **Delete**: guarded — blocked if session has any attendance records. `window.confirm` for empty sessions.
 - **Server actions**: `createSessionAction`, `updateSessionAction`, `deleteSessionAction`, `toggleSessionAction` in `src/app/admin/(protected)/sessions/actions.ts`.
-- **Validation**: `src/lib/session-validation.ts` — `parseSessionForm`; tested in `src/lib/session-validation.test.ts`.
+- **Validation**: `src/lib/session-validation.ts` — `parseSessionForm` + `parseIsraelLocalDate` (converts `datetime-local` input to UTC treating it as Israel local time, DST-aware); tested in `src/lib/session-validation.test.ts`.
+- **Duplicate guard**: `createSessionAction` and `updateSessionAction` reject a session if another already exists on the same Israel calendar day (`"כבר קיים מפגש ביום זה"`); edit excludes the session being updated from the check.
 
 #### Precedence list — רשימת קדימות (`/admin/precedence`)
 
@@ -114,7 +115,7 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 
 - Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
 - **Player validation tests** (`src/lib/player-validation.test.ts`): 25 cases covering all fields, phone normalization, rank/balance boundaries, multi-position array (valid/invalid values, single-string coercion, empty), isAdmin flag.
-- **Session validation tests** (`src/lib/session-validation.test.ts`): 13 cases covering date parsing, maxPlayers bounds, isClosed flag.
+- **Session validation tests** (`src/lib/session-validation.test.ts`): 16 cases covering date parsing (including Israel timezone DST conversion), maxPlayers bounds, isClosed flag.
 - **Precedence tests** (`src/lib/precedence.test.ts`): 10 cases covering score formula (zero state, aggregates only, live count, adjustments, combined), edge cases (missing weight, negative adjustments, fractional weights).
 - Default `npm test` does **not** require a running Postgres.
 
@@ -200,4 +201,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Bug fixes: admin login now uses server-side `redirect("/admin")` after setting the session cookie (replaces unreliable client-side `router.replace`); ThemeToggle mount guard uses `useSyncExternalStore` (lint-clean, works in production). Root cause investigation: dev-mode Turbopack bundle (~10–20 MB unminified) fails to hydrate React over mobile/tunnel connections — always use `npm run build && npm start` when testing on mobile or over a tunnel. Previous: Import pipeline complete (players, aggregates, payments CSV flows; 24 tests). Next focus: PWA (manifest + service worker).*
+*Last updated: Mar 2026 — Session fixes: (1) `datetime-local` input now correctly interpreted as Israel local time (DST-aware) via `parseIsraelLocalDate` — previously stored 2–3 h off because server treated the value as UTC; (2) creation and edit actions now reject duplicate sessions on the same Israel calendar day. Previous: Import pipeline complete (players, aggregates, payments CSV flows; 24 tests). Next focus: PWA (manifest + service worker).*
