@@ -30,7 +30,7 @@ export function AdjustmentDeleteButton({ playerId, adjId }: Props) {
           disabled={pending}
           onClick={handleClick}
           title="מחק התאמה"
-          className="flex min-h-9 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-300 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:focus:ring-red-700"
+          className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-300 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:focus:ring-red-700"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
