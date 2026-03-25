@@ -1,15 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)",
+      "Bash(git:*)",
       "Bash(npm run:*)",
-      "Bash(git push:*)",
       "Bash(xargs sed:*)",
       "Bash(npx prisma:*)",
       "Bash(gh run:*)",
       "Bash(npx tsc:*)",
       "Bash(npx vitest:*)",
-      "Bash(grep -i \"balance\\\\|trigger\" /Users/avivais/Development/irba/prisma/migrations/**/*.sql)"
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]"
