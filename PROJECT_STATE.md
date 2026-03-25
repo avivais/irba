@@ -59,8 +59,8 @@ Navigation cards to שחקנים, מפגשים, and רשימת קדימות sect
 
 #### Players CRUD (`/admin/players`)
 
-- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (**קבוע** / **מזדמן**), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, edit link, delete button.
-- **Add** (`/admin/players/new`): form with name, phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin.
+- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (**קבוע** / **מזדמן**), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, **balance** (coloured: red = negative, green = positive), edit link, delete button. Row hover highlight; clicking anywhere on the row navigates to edit (absolute link overlay, `z-0`); action buttons sit above it at `z-10`.
+- **Add** (`/admin/players/new`): form with name, phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin. Balance field uses `type="text"` + `inputMode="numeric"` (not `type="number"`) — browsers drop intermediate `-` in number inputs, silently discarding the minus sign.
 - **Edit** (`/admin/players/[id]/edit`): same form; phone field is disabled (identity — phone cannot be changed via admin UI).
 - **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
 - **Server actions**: `createPlayerAction`, `updatePlayerAction`, `deletePlayerAction` in `src/app/admin/(protected)/players/actions.ts`. All call `requireAdmin()` (session guard) before any DB access.
@@ -134,15 +134,15 @@ Migrates historical Sheets data into the DB. Three flows, each with **file uploa
 
 | Flow | Route | CSV format | Key |
 |------|-------|-----------|-----|
-| שחקנים | `/admin/import/players` | `nickname,firstNameHe,lastNameHe,firstNameEn,lastNameEn,phone,birthdate,playerKind` | upsert by `phone`; update by `nickname` if no phone |
+| שחקנים | `/admin/import/players` | `nickname,firstNameHe,lastNameHe,firstNameEn,lastNameEn,phone,birthdate,playerKind,positions` | upsert by `phone`; update by `nickname` if no phone |
 | נוכחות עבר | `/admin/import/aggregates` | Wide: `nickname,2021,2022,…` | upserts `PlayerYearAggregate(playerId, year)` |
 | תשלומים | `/admin/import/payments` | Wide: `date,אבי,עידן,…` | creates `Payment` rows |
 
-**CSV parsing** (`src/lib/csv-import.ts`): `parsePlayersCsv`, `parseAggregatesCsv`, `parsePaymentsCsv` — pure functions, no DB, reuse `normalizePhone`. Tested in `src/lib/csv-import.test.ts` (24 cases).
+**CSV parsing** (`src/lib/csv-import.ts`): `parsePlayersCsv`, `parseAggregatesCsv`, `parsePaymentsCsv` — pure functions, no DB, reuse `normalizePhone`. RFC 4180 quoted-field parser (handles `"PG,SG"` multi-value cells). Birthdate accepts ISO (`YYYY-MM-DD`) and Israeli (`D.M.YY` / `D.M.YYYY`) formats. Tested in `src/lib/csv-import.test.ts` (30 cases).
 
-**Input modes** (`src/components/admin/import-upload.tsx`): tab switcher — "העלה קובץ" (FileReader) or "הדבק טקסט" (textarea + parse button). Switching tabs resets preview.
+**Input modes** (`src/components/admin/import-upload.tsx`): tab switcher — "העלה קובץ" (FileReader) or "הדבק טקסט" (textarea + parse button). Switching tabs resets preview. Optional `checkConflicts` prop triggers a conflict-review step before import: each conflicting row gets a **דלג / דרוס** (skip / overwrite) choice; only the decided rows are passed to `onImport`.
 
-**Server actions**: `importPlayersAction`, `importAggregatesAction`, `importPaymentsAction` — each calls `requireAdmin()`, resolves nicknames to playerIds in batch, upserts/creates rows.
+**Server actions**: `importPlayersAction`, `importAggregatesAction`, `importPaymentsAction` — each calls `requireAdmin()`, resolves nicknames to playerIds in batch, upserts/creates rows. `checkPlayerConflictsAction` — batch-checks incoming rows against existing phone + nickname; returns per-row conflict messages for the review step. Player import now upserts `positions` array.
 
 **Results import** (תוצאות sheet) — deferred.
 
@@ -201,4 +201,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Session fixes: (1) `datetime-local` input now correctly interpreted as Israel local time (DST-aware) via `parseIsraelLocalDate` — previously stored 2–3 h off because server treated the value as UTC; (2) creation and edit actions now reject duplicate sessions on the same Israel calendar day. Previous: Import pipeline complete (players, aggregates, payments CSV flows; 24 tests). Next focus: PWA (manifest + service worker).*
+*Last updated: Mar 2026 — Players list UX: row hover, click-to-edit, inline balance with colour coding, delete cursor fix. Bug fix: balance input switched from `type="number"` to `type="text"` — number inputs silently drop the `-` sign during intermediate typing states, causing wrong values on negative entry. Import: RFC 4180 quoted-field CSV parser, Israeli date formats (D.M.YY / D.M.YYYY), positions column, conflict-review step (skip/overwrite per row), `checkPlayerConflictsAction`; 30 CSV tests. Previous: session timezone fix + duplicate guard. Next focus: PWA (manifest + service worker).*
