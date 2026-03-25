@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
+import { Position } from "@prisma/client";
 
 async function requireAdmin(): Promise<void> {
   const subject = await getAdminSessionSubject();
@@ -64,7 +65,7 @@ export async function importPlayersAction(
             lastNameEn: row.lastNameEn,
             birthdate,
             playerKind: row.playerKind,
-            positions: { set: row.positions as any[] },
+            positions: { set: row.positions as Position[] },
           },
           create: {
             name,
@@ -76,7 +77,7 @@ export async function importPlayersAction(
             lastNameEn: row.lastNameEn,
             birthdate,
             playerKind: row.playerKind,
-            positions: { set: row.positions as any[] },
+            positions: { set: row.positions as Position[] },
           },
         });
       } else {
@@ -94,7 +95,7 @@ export async function importPlayersAction(
               lastNameEn: row.lastNameEn,
               birthdate,
               playerKind: row.playerKind,
-              positions: { set: row.positions as any[] },
+              positions: { set: row.positions as Position[] },
             },
           });
         } else {
