@@ -1,9 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, ClipboardPaste, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Upload, ClipboardPaste, CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import type { RowError } from "@/lib/csv-import";
 import type { ImportResult } from "@/app/admin/(protected)/import/players/actions";
+
+export type { ConflictItem } from "@/app/admin/(protected)/import/players/actions";
+import type { ConflictItem } from "@/app/admin/(protected)/import/players/actions";
 
 export type PreviewRow = {
   label: string; // short description shown in preview table
@@ -22,6 +25,7 @@ type Props<T> = {
   buildPreview: (rows: T[], errors: RowError[]) => PreviewRow[];
   onImport: (rows: T[]) => Promise<ImportResult>;
   backHref: string;
+  checkConflicts?: (rows: T[]) => Promise<ConflictItem[]>;
 };
 
 export function ImportUploadPage<T>({
@@ -32,14 +36,17 @@ export function ImportUploadPage<T>({
   buildPreview,
   onImport,
   backHref,
+  checkConflicts,
 }: Props<T>) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [inputMode, setInputMode] = useState<"file" | "paste">("file");
   const [pasteText, setPasteText] = useState("");
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [validRows, setValidRows] = useState<T[]>([]);
-  const [status, setStatus] = useState<"idle" | "importing" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "checking" | "conflict_review" | "importing" | "done" | "error">("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [conflictDecisions, setConflictDecisions] = useState<Record<number, "overwrite" | "skip">>({});
 
   function processText(text: string) {
     const parsed = parse(text);
@@ -47,6 +54,8 @@ export function ImportUploadPage<T>({
     setPreview(buildPreview(parsed.rows, parsed.errors));
     setStatus("idle");
     setResult(null);
+    setConflicts([]);
+    setConflictDecisions({});
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -68,14 +77,51 @@ export function ImportUploadPage<T>({
     setStatus("idle");
     setResult(null);
     setPasteText("");
+    setConflicts([]);
+    setConflictDecisions({});
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function setDecision(rowIndex: number, decision: "overwrite" | "skip") {
+    setConflictDecisions((prev) => ({ ...prev, [rowIndex]: decision }));
   }
 
   async function handleImport() {
     if (validRows.length === 0) return;
+
+    // First pass: check for conflicts if the prop is provided
+    if (checkConflicts && status !== "conflict_review") {
+      setStatus("checking");
+      try {
+        const found = await checkConflicts(validRows);
+        if (found.length > 0) {
+          setConflicts(found);
+          setConflictDecisions(Object.fromEntries(found.map((c) => [c.rowIndex, "skip" as const])));
+          setStatus("conflict_review");
+          return;
+        }
+      } catch {
+        setStatus("error");
+        return;
+      }
+    }
+
+    // Second pass (or no conflicts): filter rows based on decisions and import
+    const conflictIndexes = new Set(conflicts.map((c) => c.rowIndex));
+    const rowsToImport = validRows.filter((_, i) =>
+      !conflictIndexes.has(i) || conflictDecisions[i] === "overwrite"
+    );
+
+    if (rowsToImport.length === 0) {
+      // All conflicts were skipped — treat as success with 0 imported
+      setResult({ imported: 0, errors: [] });
+      setStatus("done");
+      return;
+    }
+
     setStatus("importing");
     try {
-      const res = await onImport(validRows);
+      const res = await onImport(rowsToImport);
       setResult(res);
       setStatus("done");
     } catch {
@@ -86,9 +132,20 @@ export function ImportUploadPage<T>({
   const validCount = preview?.filter((r) => r.valid).length ?? 0;
   const errorCount = preview?.filter((r) => !r.valid).length ?? 0;
 
+  // For mapping conflict rowIndex → preview label
+  const validPreviewRows = preview?.filter((r) => r.valid) ?? [];
+
+  // How many rows will be imported given current conflict decisions
+  const conflictIndexes = new Set(conflicts.map((c) => c.rowIndex));
+  const importableCount = validRows.filter(
+    (_, i) => !conflictIndexes.has(i) || conflictDecisions[i] === "overwrite"
+  ).length;
+
   const tabBase = "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-zinc-400/40";
   const tabActive = "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100";
   const tabInactive = "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200";
+
+  const showImportButton = validCount > 0 && status !== "done";
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -224,11 +281,61 @@ export function ImportUploadPage<T>({
           </div>
         )}
 
+        {/* Conflict review */}
+        {status === "conflict_review" && conflicts.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden />
+              <p className="font-medium text-amber-800 dark:text-amber-300">
+                {conflicts.length} שורות עם קונפליקטים — בחר פעולה לכל שורה
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {conflicts.map((c) => {
+                const label = validPreviewRows[c.rowIndex]?.label ?? `שורה ${c.rowIndex + 1}`;
+                const decision = conflictDecisions[c.rowIndex] ?? "skip";
+                return (
+                  <li key={c.rowIndex} className="flex flex-col gap-1 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-zinc-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-sm text-zinc-800 dark:text-zinc-200">{label}</div>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setDecision(c.rowIndex, "skip")}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-zinc-400/40 ${
+                            decision === "skip"
+                              ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
+                              : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          דלג
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDecision(c.rowIndex, "overwrite")}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-zinc-400/40 ${
+                            decision === "overwrite"
+                              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                              : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          דרוס
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-amber-700 dark:text-amber-400">{c.message}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         {/* Import button */}
-        {validCount > 0 && status !== "done" && (
+        {showImportButton && (
           <button
             type="button"
-            disabled={status === "importing"}
+            disabled={status === "importing" || status === "checking"}
             onClick={handleImport}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:min-w-[14rem]"
           >
@@ -237,6 +344,13 @@ export function ImportUploadPage<T>({
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                 מייבא…
               </>
+            ) : status === "checking" ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                בודק קונפליקטים…
+              </>
+            ) : status === "conflict_review" ? (
+              `אשר ייבוא (${importableCount} שורות)`
             ) : (
               `ייבא ${validCount} שורות`
             )}

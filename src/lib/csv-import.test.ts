@@ -71,10 +71,50 @@ describe("parsePlayersCsv", () => {
     expect(errors[0].message).toMatch(/תאריך/);
   });
 
+  it("parses Israeli D.M.YY birthdate", () => {
+    const csv = "nickname,birthdate\nאבי,22.1.82";
+    const { rows, errors } = parsePlayersCsv(csv);
+    expect(errors).toHaveLength(0);
+    expect(rows[0].birthdate).toBeInstanceOf(Date);
+    expect(rows[0].birthdate?.getFullYear()).toBe(1982);
+    expect(rows[0].birthdate?.getMonth()).toBe(0); // January
+    expect(rows[0].birthdate?.getDate()).toBe(22);
+  });
+
+  it("parses Israeli D.M.YYYY birthdate", () => {
+    const csv = "nickname,birthdate\nאבי,27.4.1985";
+    const { rows, errors } = parsePlayersCsv(csv);
+    expect(errors).toHaveLength(0);
+    expect(rows[0].birthdate?.getFullYear()).toBe(1985);
+    expect(rows[0].birthdate?.getMonth()).toBe(3); // April
+    expect(rows[0].birthdate?.getDate()).toBe(27);
+  });
+
   it("returns empty result for empty CSV", () => {
     const { rows, errors } = parsePlayersCsv("");
     expect(rows).toHaveLength(0);
     expect(errors).toHaveLength(0);
+  });
+
+  it("parses quoted multi-position field", () => {
+    const csv = `nickname,positions\nאבי,"PG,SG"`;
+    const { rows, errors } = parsePlayersCsv(csv);
+    expect(errors).toHaveLength(0);
+    expect(rows[0].positions).toEqual(["PG", "SG"]);
+  });
+
+  it("parses single unquoted position", () => {
+    const csv = "nickname,positions\nאבי,PF";
+    const { rows, errors } = parsePlayersCsv(csv);
+    expect(errors).toHaveLength(0);
+    expect(rows[0].positions).toEqual(["PF"]);
+  });
+
+  it("errors on invalid position value", () => {
+    const csv = "nickname,positions\nאבי,XY";
+    const { rows, errors } = parsePlayersCsv(csv);
+    expect(rows).toHaveLength(0);
+    expect(errors[0].message).toMatch(/עמדה/);
   });
 });
 

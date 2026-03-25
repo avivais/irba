@@ -57,10 +57,17 @@ export default async function AdminPlayersPage() {
             {players.map((player) => (
               <li
                 key={player.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                className="relative flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-zinc-50 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-zinc-800/50"
               >
+                {/* Full-row edit link overlay */}
+                <Link
+                  href={`/admin/players/${player.id}/edit`}
+                  className="absolute inset-0 z-0"
+                  aria-label={`ערוך את ${player.name}`}
+                />
+
                 {/* Player info */}
-                <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="pointer-events-none relative z-10 flex min-w-0 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
                       {player.name}
@@ -89,6 +96,18 @@ export default async function AdminPlayersPage() {
                     <span dir="ltr">{player.phone}</span>
                     <span>·</span>
                     <span>{player._count.attendances} נוכחויות</span>
+                    <span>·</span>
+                    <span
+                      className={
+                        player.balance < 0
+                          ? "text-red-500 dark:text-red-400"
+                          : player.balance > 0
+                            ? "text-green-600 dark:text-green-400"
+                            : undefined
+                      }
+                    >
+                      יתרה {player.balance}₪
+                    </span>
                     {player.rank != null && (
                       <>
                         <span>·</span>
@@ -99,7 +118,7 @@ export default async function AdminPlayersPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="relative z-10 flex shrink-0 items-center gap-2">
                   <Link
                     href={`/admin/players/${player.id}/edit`}
                     className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"

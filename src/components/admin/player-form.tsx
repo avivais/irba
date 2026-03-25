@@ -303,8 +303,8 @@ export function PlayerForm(props: Props) {
         <input
           id="player-balance"
           name="balance"
-          type="number"
-          step={1}
+          type="text"
+          inputMode="numeric"
           value={balance}
           onChange={(e) => onFieldChange(setBalance, e.target.value)}
           aria-invalid={Boolean(balanceError)}

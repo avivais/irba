@@ -1,4 +1,5 @@
 import { normalizePhone, PhoneValidationError } from "./phone";
+import { POSITION_VALUES, type PositionValue } from "./player-validation";
 
 export type RowError = { rowIndex: number; message: string };
 
@@ -8,14 +9,65 @@ export type ParseResult<T> = {
 };
 
 // ---------------------------------------------------------------------------
-// Shared CSV parser
+// Date parsing — supports YYYY-MM-DD and Israeli D.M.YY / D.M.YYYY
 // ---------------------------------------------------------------------------
+
+function parseBirthdate(raw: string): Date | null {
+  const trimmed = raw.trim();
+
+  // Israeli format: D.M.YY or D.M.YYYY
+  const israeliMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/);
+  if (israeliMatch) {
+    const day = parseInt(israeliMatch[1], 10);
+    const month = parseInt(israeliMatch[2], 10) - 1;
+    let year = parseInt(israeliMatch[3], 10);
+    if (year < 100) year += year <= 30 ? 2000 : 1900;
+    const d = new Date(year, month, day);
+    if (d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) {
+      return d;
+    }
+    return null;
+  }
+
+  // ISO / other formats parseable by Date constructor
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// ---------------------------------------------------------------------------
+// Shared CSV parser — RFC 4180, handles quoted fields (e.g. "PG,SG,SF")
+// ---------------------------------------------------------------------------
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  while (i <= line.length) {
+    if (i === line.length) { fields.push(""); break; }
+    if (line[i] === '"') {
+      // Quoted field
+      i++;
+      let f = "";
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') { f += '"'; i += 2; }
+        else if (line[i] === '"') { i++; break; }
+        else { f += line[i++]; }
+      }
+      fields.push(f.trim());
+      if (i < line.length && line[i] === ',') i++;
+    } else {
+      // Unquoted field
+      const end = line.indexOf(',', i);
+      if (end === -1) { fields.push(line.slice(i).trim()); break; }
+      fields.push(line.slice(i, end).trim());
+      i = end + 1;
+    }
+  }
+  return fields;
+}
 
 function parseCsvText(text: string): string[][] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-  return lines.map((line) =>
-    line.split(",").map((cell) => cell.trim()),
-  );
+  return lines.map(parseCsvLine);
 }
 
 // ---------------------------------------------------------------------------
@@ -31,6 +83,7 @@ export type ParsedPlayerRow = {
   phone: string | null;
   birthdate: Date | null;
   playerKind: "REGISTERED" | "DROP_IN";
+  positions: PositionValue[];
 };
 
 export function parsePlayersCsv(text: string): ParseResult<ParsedPlayerRow> {
@@ -78,8 +131,8 @@ export function parsePlayersCsv(text: string): ParseResult<ParsedPlayerRow> {
     let birthdate: Date | null = null;
     const rawBirthdate = get(col("birthdate"));
     if (rawBirthdate) {
-      const d = new Date(rawBirthdate);
-      if (isNaN(d.getTime())) {
+      const d = parseBirthdate(rawBirthdate);
+      if (!d) {
         errors.push({ rowIndex: i, message: `תאריך לידה לא תקין: ${rawBirthdate}` });
         continue;
       }
@@ -91,6 +144,19 @@ export function parsePlayersCsv(text: string): ParseResult<ParsedPlayerRow> {
     const playerKind: "REGISTERED" | "DROP_IN" =
       rawKind === "REGISTERED" ? "REGISTERED" : "DROP_IN";
 
+    // Positions — optional, comma-separated value (use quotes in CSV for multiple: "PG,SG")
+    const positions: PositionValue[] = [];
+    const rawPositions = get(col("positions"));
+    if (rawPositions) {
+      const parts = rawPositions.split(",").map((p) => p.trim().toUpperCase());
+      const invalid = parts.filter((p) => !(POSITION_VALUES as readonly string[]).includes(p));
+      if (invalid.length > 0) {
+        errors.push({ rowIndex: i, message: `עמדה לא תקינה: ${invalid.join(", ")}` });
+        continue;
+      }
+      positions.push(...(parts as PositionValue[]));
+    }
+
     rows.push({
       nickname,
       firstNameHe: get(col("firstnamehe")) || null,
@@ -100,6 +166,7 @@ export function parsePlayersCsv(text: string): ParseResult<ParsedPlayerRow> {
       phone,
       birthdate,
       playerKind,
+      positions,
     });
   }
 
