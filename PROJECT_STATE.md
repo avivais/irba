@@ -55,13 +55,13 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 #### Admin home (`/admin`)
 
-Navigation cards to שחקנים, מפגשים, and רשימת קדימות sections; logout button.
+Navigation cards to שחקנים, מפגשים, קדימות, and ייבוא נתונים sections; logout button. All nav cards and the logout button have `active:` press states.
 
 #### Players CRUD (`/admin/players`)
 
 - **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (**קבוע** / **מזדמן**), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, **balance** (coloured: red = negative, green = positive), edit link, delete button. Row hover/active highlight; clicking anywhere on the row navigates to edit. **Loading state** (`PlayerList` client component, `src/components/admin/player-list.tsx`): clicking a row or edit button immediately replaces the action area with a spinner and freezes the list (invisible `z-30` overlay, `cursor-wait`) until navigation completes.
-- **Add** (`/admin/players/new`): form with name, phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin. Balance field uses `type="text"` + `inputMode="numeric"` (not `type="number"`) — browsers drop intermediate `-` in number inputs, silently discarding the minus sign.
-- **Edit** (`/admin/players/[id]/edit`): same form; phone field is disabled (identity — phone cannot be changed via admin UI).
+- **Add** (`/admin/players/new`): form with phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin, nickname, name fields (He/En), birthdate. Balance field uses `type="text"` + `inputMode="numeric"` (not `type="number"`) — browsers drop intermediate `-` in number inputs. **Cancel button** (red, outside form) + **back button** (→ חזרה לרשימה) at top of form — both trigger dirty-guard confirm dialog when any field has been touched. Popstate guard active for create mode.
+- **Edit** (`/admin/players/[id]/edit`): same form; phone disabled. Dual save buttons: **שמור שינויים** (stay) + **שמור וחזור לרשימה**. Cancel button + back button with dirty-guard confirm. Popstate guard active.
 - **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
 - **Server actions**: `createPlayerAction`, `updatePlayerAction`, `deletePlayerAction` in `src/app/admin/(protected)/players/actions.ts`. All call `requireAdmin()` (session guard) before any DB access.
 - **Validation**: `src/lib/player-validation.ts` — `parsePlayerForm` with per-field Zod + phone normalization; tested in `src/lib/player-validation.test.ts`.
@@ -202,4 +202,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Mobile touch UX pass: removed tap highlight (`-webkit-tap-highlight-color`), eliminated 300 ms double-tap delay (`touch-action: manipulation`), added press feedback (scale + fade) for all buttons and links via `globals.css`; players list now shows per-row loading spinner and freezes other clicks during navigation (`PlayerList` client component). Previous: `npm stop` (PID-file-based), cloudflared tunnel, Cancel button outside form. Next focus: PWA (manifest + service worker).*
+*Last updated: Mar 2026 — Touch UX complete: `active:` press states on every tappable element across the entire admin (buttons, links, nav cards, edit/delete/toggle/save/cancel — all with dark mode variants); Cancel button + dirty-guard confirm added to new player form (create mode), matching edit mode; popstate guard now active in both modes. Previous: mobile touch UX pass (tap highlight removal, 300 ms delay fix, scale+fade via globals.css, players list loading state). Next focus: PWA (manifest + service worker).*
