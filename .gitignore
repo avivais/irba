@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 .next.pid
+.cloudflared.pid
 *.pem
 
 # debug

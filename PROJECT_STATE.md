@@ -108,7 +108,7 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 
 - **`GET /api/health`** — JSON; 200 if DB answers `SELECT 1`, else 503 (generic body, no secrets).
 - **Docker**: `docker-compose.yml` (`db` + `app`), `Dockerfile`, `docker-entrypoint.sh` runs `prisma migrate deploy` then `next start`.
-- **Process management**: `npm start` writes PID to `.next.pid`; `npm stop` kills it by PID (project-scoped, won't affect other projects). `npm run web` opens a Cloudflare quick tunnel; `npm run startweb` does both (server in background, tunnel in foreground).
+- **Process management**: `npm start` writes PID to `.next.pid`; `npm run web` / `npm run startweb` / `npm run buildandstartweb` write cloudflared's PID to `.cloudflared.pid`; `npm stop` kills both by PID file (project-scoped).
 - **Seeds**: deterministic `prisma/seed.ts` (`npm run db:seed`); random QA script `scripts/seed-random.ts` (`npm run db:seed:random`) with env guards — see README.
 - **CI**: GitHub Actions workflow above; confirm runs in the repo **Actions** tab after push.
 

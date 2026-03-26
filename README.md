@@ -118,7 +118,7 @@ npm run web
 > - Always use the production build (`npm start` / `npm run startweb`), not `npm run dev`, when testing over a tunnel — see the dev vs production note above.
 > - Quick tunnels have no uptime guarantee and are intended for short-lived testing only.
 > - The URL changes each time you start a new tunnel.
-> - To stop the tunnel: `Ctrl+C`. To stop the server: `npm stop`.
+> - To stop everything: `npm stop` (kills both server and tunnel by PID file).
 
 ## Health check
 
@@ -172,9 +172,10 @@ Optional environment variables:
 | `npm run dev` | Development server (desktop only — see note above) |
 | `npm run build` | Production build |
 | `npm start` | Production server — writes PID to `.next.pid` (required for mobile / tunnel testing) |
-| `npm stop` | Kill the running production server (reads `.next.pid`) |
-| `npm run web` | Expose the already-running server via a Cloudflare quick tunnel |
+| `npm stop` | Kill the running server and tunnel (reads `.next.pid` / `.cloudflared.pid`) |
+| `npm run web` | Expose the already-running server via a Cloudflare quick tunnel (PID saved to `.cloudflared.pid`) |
 | `npm run startweb` | Start the production server in the background, then open a Cloudflare tunnel |
+| `npm run buildandstartweb` | Build, start server in the background, then open a Cloudflare tunnel |
 | `npm test` | Vitest (unit tests) |
 | `npm run test:watch` | Vitest watch mode |
 | `npm run test:coverage` | Vitest with coverage |
