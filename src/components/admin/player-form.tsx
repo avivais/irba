@@ -100,20 +100,35 @@ export function PlayerForm(props: Props) {
   const [, setDirtyVersion] = useState(0);
 
   const s = lastSavedRef.current;
-  const isDirty = isEdit && (
-    playerKind !== s.playerKind ||
-    positions.length !== s.positions.length ||
-    positions.some((p) => !s.positions.includes(p)) ||
-    rank !== s.rank ||
-    balance !== s.balance ||
-    isAdmin !== s.isAdmin ||
-    nickname !== s.nickname ||
-    firstNameHe !== s.firstNameHe ||
-    lastNameHe !== s.lastNameHe ||
-    firstNameEn !== s.firstNameEn ||
-    lastNameEn !== s.lastNameEn ||
-    birthdate !== s.birthdate
-  );
+  const isDirty = isEdit
+    ? (
+      playerKind !== s.playerKind ||
+      positions.length !== s.positions.length ||
+      positions.some((p) => !s.positions.includes(p)) ||
+      rank !== s.rank ||
+      balance !== s.balance ||
+      isAdmin !== s.isAdmin ||
+      nickname !== s.nickname ||
+      firstNameHe !== s.firstNameHe ||
+      lastNameHe !== s.lastNameHe ||
+      firstNameEn !== s.firstNameEn ||
+      lastNameEn !== s.lastNameEn ||
+      birthdate !== s.birthdate
+    )
+    : (
+      phone !== "" ||
+      playerKind !== "DROP_IN" ||
+      positions.length > 0 ||
+      rank !== "" ||
+      balance !== "0" ||
+      isAdmin !== false ||
+      nickname !== "" ||
+      firstNameHe !== "" ||
+      lastNameHe !== "" ||
+      firstNameEn !== "" ||
+      lastNameEn !== "" ||
+      birthdate !== ""
+    );
 
   // Keep a ref so popstate handler always reads current value
   const isDirtyRef = useRef(isDirty);
@@ -129,7 +144,6 @@ export function PlayerForm(props: Props) {
 
   // popstate guard (covers mobile browser back button / soft navigation back)
   useEffect(() => {
-    if (!isEdit) return;
     history.pushState(null, "", window.location.href);
     const handler = () => {
       if (isDirtyRef.current) {
@@ -139,7 +153,8 @@ export function PlayerForm(props: Props) {
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
-  }, [isEdit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reset submitting button tracking when the action finishes
   useEffect(() => {
@@ -228,10 +243,10 @@ export function PlayerForm(props: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              יש שינויים שלא נשמרו
+              {isEdit ? "יש שינויים שלא נשמרו" : "לנטוש את הטופס?"}
             </p>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              האם לעזוב את הדף? השינויים לא יישמרו.
+              {isEdit ? "האם לעזוב את הדף? השינויים לא יישמרו." : "הפרטים שהזנת לא יישמרו."}
             </p>
             <div className="mt-5 flex gap-3">
               <button
@@ -259,16 +274,14 @@ export function PlayerForm(props: Props) {
         className="flex w-full flex-col gap-5"
         noValidate
       >
-        {/* Back link (edit mode only) — right-aligned in RTL */}
-        {isEdit && (
-          <button
-            type="button"
-            onClick={handleBack}
-            className="self-start text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white cursor-pointer"
-          >
-            → חזרה לרשימה
-          </button>
-        )}
+        {/* Back link */}
+        <button
+          type="button"
+          onClick={handleBack}
+          className="self-start text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white cursor-pointer"
+        >
+          → חזרה לרשימה
+        </button>
 
         {/* Phone */}
         <div className="flex flex-col gap-1">
@@ -600,16 +613,14 @@ export function PlayerForm(props: Props) {
       </form>
 
       {/* Cancel — outside the form to prevent any accidental form submission on mobile */}
-      {isEdit && (
-        <button
-          type="button"
-          onClick={handleBack}
-          disabled={pending}
-          className="mt-3 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          ביטול
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={handleBack}
+        disabled={pending}
+        className="mt-3 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        ביטול
+      </button>
     </>
   );
 }
