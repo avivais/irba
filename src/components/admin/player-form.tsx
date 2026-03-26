@@ -237,14 +237,14 @@ export function PlayerForm(props: Props) {
               <button
                 type="button"
                 onClick={() => { setConfirmOpen(false); router.push("/admin/players"); }}
-                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500"
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:bg-red-700"
               >
                 עזוב
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600 dark:active:bg-zinc-500"
               >
                 המשך עריכה
               </button>
@@ -264,7 +264,7 @@ export function PlayerForm(props: Props) {
           <button
             type="button"
             onClick={handleBack}
-            className="self-start text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer"
+            className="self-start text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white cursor-pointer"
           >
             → חזרה לרשימה
           </button>
@@ -551,7 +551,7 @@ export function PlayerForm(props: Props) {
               value="false"
               onClick={() => setSubmittingButton("save")}
               disabled={pending || !formValid}
-              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus:ring-zinc-300/50"
+              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50"
             >
               {pending && submittingButton === "save" ? (
                 <>
@@ -569,7 +569,7 @@ export function PlayerForm(props: Props) {
               value="true"
               onClick={() => setSubmittingButton("return")}
               disabled={pending || !formValid}
-              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending && submittingButton === "return" ? (
                 <>
@@ -585,7 +585,7 @@ export function PlayerForm(props: Props) {
           <button
             type="submit"
             disabled={pending || !formValid}
-            className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus:ring-zinc-300/50"
+            className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50"
           >
             {pending ? (
               <>
@@ -605,7 +605,7 @@ export function PlayerForm(props: Props) {
           type="button"
           onClick={handleBack}
           disabled={pending}
-          className="mt-3 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-4 focus:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           ביטול
         </button>

@@ -22,7 +22,7 @@ export default async function AdminPlayersPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin"
-            className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            className="text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white"
           >
             → חזרה
           </Link>
@@ -34,7 +34,7 @@ export default async function AdminPlayersPage() {
         </div>
         <Link
           href="/admin/players/new"
-          className="flex min-h-10 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="flex min-h-10 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
         >
           <Plus className="h-4 w-4" aria-hidden />
           הוסף שחקן

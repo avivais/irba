@@ -123,7 +123,7 @@ export function PlayerList({ players }: { players: Player[] }) {
                     <Link
                       href={`/admin/players/${player.id}/edit`}
                       onClick={() => setLoadingId(player.id)}
-                      className="pointer-events-auto flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="pointer-events-auto flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
                     >
                       <Pencil className="h-3.5 w-3.5" aria-hidden />
                       עריכה
