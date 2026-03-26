@@ -7,7 +7,7 @@ import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parsePlayerForm } from "@/lib/player-validation";
 
-export type PlayerActionState = { ok: boolean; message?: string };
+export type PlayerActionState = { ok: boolean; message?: string; savedInPlace?: boolean };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
 
@@ -120,7 +120,11 @@ export async function updatePlayerAction(
   }
 
   revalidatePath("/admin/players");
-  redirect("/admin/players");
+  const returnToList = formData.get("returnToList") !== "false";
+  if (returnToList) {
+    redirect("/admin/players");
+  }
+  return { ok: true, savedInPlace: true };
 }
 
 export async function deletePlayerAction(
