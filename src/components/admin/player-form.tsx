@@ -536,44 +536,33 @@ export function PlayerForm(props: Props) {
 
         {/* Submit buttons */}
         {isEdit ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-3">
-              {/* Save & stay — primary, rightmost in RTL (first in DOM) */}
-              <button
-                type="submit"
-                name="returnToList"
-                value="false"
-                disabled={pending || !formValid}
-                className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus:ring-zinc-300/50"
-              >
-                {pending ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                    שומר…
-                  </>
-                ) : (
-                  "שמור שינויים"
-                )}
-              </button>
-              {/* Save & return — secondary, leftmost in RTL */}
-              <button
-                type="submit"
-                name="returnToList"
-                value="true"
-                disabled={pending || !formValid}
-                className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                שמור וחזור לרשימה
-              </button>
-            </div>
-            {/* Cancel — separate row, red */}
+          <div className="flex gap-3">
+            {/* Save & stay — primary, rightmost in RTL (first in DOM) */}
             <button
-              type="button"
-              onClick={handleBack}
-              disabled={pending}
-              className="flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-4 focus:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+              type="submit"
+              name="returnToList"
+              value="false"
+              disabled={pending || !formValid}
+              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus:ring-zinc-300/50"
             >
-              ביטול
+              {pending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  שומר…
+                </>
+              ) : (
+                "שמור שינויים"
+              )}
+            </button>
+            {/* Save & return — secondary, leftmost in RTL */}
+            <button
+              type="submit"
+              name="returnToList"
+              value="true"
+              disabled={pending || !formValid}
+              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              שמור וחזור לרשימה
             </button>
           </div>
         ) : (
@@ -593,6 +582,18 @@ export function PlayerForm(props: Props) {
           </button>
         )}
       </form>
+
+      {/* Cancel — outside the form to prevent any accidental form submission on mobile */}
+      {isEdit && (
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={pending}
+          className="mt-3 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-4 focus:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          ביטול
+        </button>
+      )}
     </>
   );
 }
