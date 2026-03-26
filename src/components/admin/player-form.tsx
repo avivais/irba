@@ -41,19 +41,9 @@ const inputBase =
 const inputDisabled =
   "cursor-not-allowed opacity-60 bg-zinc-50 dark:bg-zinc-800";
 
-const HEBREW_MONTHS = [
-  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
-  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
-];
-
-function parseBirthdate(date: Date | null | undefined) {
-  if (!date) return { y: "", m: "", d: "" };
-  const d = new Date(date);
-  return {
-    y: String(d.getUTCFullYear()),
-    m: String(d.getUTCMonth() + 1),
-    d: String(d.getUTCDate()),
-  };
+function formatIsraeliDate(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${parseInt(day)}.${parseInt(month)}.${year}`;
 }
 
 export function PlayerForm(props: Props) {
@@ -81,15 +71,9 @@ export function PlayerForm(props: Props) {
   const [firstNameEn, setFirstNameEn] = useState(player?.firstNameEn ?? "");
   const [lastNameEn, setLastNameEn] = useState(player?.lastNameEn ?? "");
 
-  const initBirth = parseBirthdate(player?.birthdate);
-  const [birthYear, setBirthYear] = useState(initBirth.y);
-  const [birthMonth, setBirthMonth] = useState(initBirth.m);
-  const [birthDay, setBirthDay] = useState(initBirth.d);
-
-  const birthdateValue =
-    birthYear && birthMonth && birthDay
-      ? `${birthYear}-${String(birthMonth).padStart(2, "0")}-${String(birthDay).padStart(2, "0")}`
-      : "";
+  const [birthdate, setBirthdate] = useState(
+    player?.birthdate ? new Date(player.birthdate).toISOString().slice(0, 10) : "",
+  );
 
   const [phoneBlurred, setPhoneBlurred] = useState(false);
   const [suppressServerError, setSuppressServerError] = useState(false);
@@ -109,9 +93,7 @@ export function PlayerForm(props: Props) {
     lastNameHe: player?.lastNameHe ?? "",
     firstNameEn: player?.firstNameEn ?? "",
     lastNameEn: player?.lastNameEn ?? "",
-    birthYear: initBirth.y,
-    birthMonth: initBirth.m,
-    birthDay: initBirth.d,
+    birthdate: player?.birthdate ? new Date(player.birthdate).toISOString().slice(0, 10) : "",
   });
   const [, setDirtyVersion] = useState(0);
 
@@ -128,9 +110,7 @@ export function PlayerForm(props: Props) {
     lastNameHe !== s.lastNameHe ||
     firstNameEn !== s.firstNameEn ||
     lastNameEn !== s.lastNameEn ||
-    birthYear !== s.birthYear ||
-    birthMonth !== s.birthMonth ||
-    birthDay !== s.birthDay
+    birthdate !== s.birthdate
   );
 
   // Keep a ref so popstate handler always reads current value
@@ -168,7 +148,7 @@ export function PlayerForm(props: Props) {
       lastSavedRef.current = {
         playerKind, positions: [...positions], rank, balance, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn,
-        birthYear, birthMonth, birthDay,
+        birthdate,
       };
       setDirtyVersion((v) => v + 1);
       setShowSaved(true);
@@ -190,7 +170,7 @@ export function PlayerForm(props: Props) {
     lastNameHe: lastNameHe || undefined,
     firstNameEn: firstNameEn || undefined,
     lastNameEn: lastNameEn || undefined,
-    birthdate: birthdateValue || undefined,
+    birthdate: birthdate || undefined,
   });
 
   const fieldErrors = validation.ok ? {} : validation.errors;
@@ -227,9 +207,6 @@ export function PlayerForm(props: Props) {
     !pending && !state.ok && state.message && !suppressServerError
       ? state.message
       : null;
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: currentYear - 1939 }, (_, i) => currentYear - i);
 
   return (
     <>
@@ -512,45 +489,31 @@ export function PlayerForm(props: Props) {
           </div>
         </div>
 
-        {/* Birthdate — three selects, works on all devices */}
+        {/* Birthdate — native picker with Israeli-format overlay */}
         <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="player-birthdate" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             תאריך לידה
             <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
-          </span>
-          <div className="flex gap-2" dir="ltr">
-            <select
-              value={birthDay}
-              onChange={(e) => { setBirthDay(e.target.value); setSuppressServerError(true); }}
-              className={`${inputBase} ${inputNormal} flex-1`}
-            >
-              <option value="">יום</option>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={String(d)}>{d}</option>
-              ))}
-            </select>
-            <select
-              value={birthMonth}
-              onChange={(e) => { setBirthMonth(e.target.value); setSuppressServerError(true); }}
-              className={`${inputBase} ${inputNormal} flex-1`}
-            >
-              <option value="">חודש</option>
-              {HEBREW_MONTHS.map((m, i) => (
-                <option key={i + 1} value={String(i + 1)}>{m}</option>
-              ))}
-            </select>
-            <select
-              value={birthYear}
-              onChange={(e) => { setBirthYear(e.target.value); setSuppressServerError(true); }}
-              className={`${inputBase} ${inputNormal} flex-[1.5]`}
-            >
-              <option value="">שנה</option>
-              {years.map((y) => (
-                <option key={y} value={String(y)}>{y}</option>
-              ))}
-            </select>
+          </label>
+          <div className="relative">
+            {/* Native date input — transparent, sits on top to capture all interaction */}
+            <input
+              id="player-birthdate"
+              name="birthdate"
+              type="date"
+              value={birthdate}
+              onChange={(e) => { onFieldChange(setBirthdate, e.target.value); }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            {/* Visible display in Israeli format */}
+            <div className={`${inputBase} ${inputNormal} pointer-events-none`}>
+              {birthdate ? (
+                formatIsraeliDate(birthdate)
+              ) : (
+                <span className="text-zinc-400 dark:text-zinc-500">לא מוגדר</span>
+              )}
+            </div>
           </div>
-          <input type="hidden" name="birthdate" value={birthdateValue} />
         </div>
 
         {serverError && (
