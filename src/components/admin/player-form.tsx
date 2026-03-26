@@ -123,7 +123,7 @@ export function PlayerForm(props: Props) {
     name !== s.name ||
     playerKind !== s.playerKind ||
     positions.length !== s.positions.length ||
-    positions.some((p) => !s.positions.includes(p)) ||
+    positions.some((p) => !(s.positions as string[]).includes(p)) ||
     rank !== s.rank ||
     balance !== s.balance ||
     isAdmin !== s.isAdmin ||
