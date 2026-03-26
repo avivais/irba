@@ -28,7 +28,6 @@ export default async function AdminPlayersEditPage({ params }: Props) {
           mode="edit"
           player={{
             id: player.id,
-            name: player.name,
             phone: player.phone,
             playerKind: player.playerKind,
             positions: player.positions,

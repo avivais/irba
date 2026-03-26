@@ -4,7 +4,7 @@ export type AdjustmentInput = { points: number };
 
 export type PlayerPrecedenceInput = {
   id: string;
-  name: string;
+  playerName: string;
   aggregates: AggregateInput[];
   liveCount: number;
   adjustments: AdjustmentInput[];
@@ -57,7 +57,7 @@ export function computePrecedenceScores(
 
     return {
       playerId: player.id,
-      playerName: player.name,
+      playerName: player.playerName,
       historicalScore,
       currentYearScore,
       adjustmentsTotal,

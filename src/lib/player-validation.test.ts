@@ -8,7 +8,6 @@ import {
 } from "./player-validation";
 
 const BASE = {
-  name: "ישראל ישראלי",
   phone: "0501234567",
   playerKind: "DROP_IN" as const,
 };
@@ -18,7 +17,6 @@ describe("parsePlayerForm", () => {
     const result = parsePlayerForm(BASE);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.name).toBe("ישראל ישראלי");
     expect(result.data.phoneNormalized).toBe("0501234567");
     expect(result.data.playerKind).toBe("DROP_IN");
     expect(result.data.positions).toEqual([]);
@@ -87,34 +85,6 @@ describe("parsePlayerForm", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.positions).toEqual([]);
-  });
-
-  it("rejects an empty name", () => {
-    const result = parsePlayerForm({ ...BASE, name: "" });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.name).toBeTruthy();
-  });
-
-  it("rejects a name over 80 characters", () => {
-    const result = parsePlayerForm({ ...BASE, name: "א".repeat(81) });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.name).toBeTruthy();
-  });
-
-  it("trims whitespace and rejects a whitespace-only name", () => {
-    const result = parsePlayerForm({ ...BASE, name: "   " });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.name).toBeTruthy();
-  });
-
-  it("trims whitespace from a valid name", () => {
-    const result = parsePlayerForm({ ...BASE, name: "  דן  " });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.name).toBe("דן");
   });
 
   it("rejects an empty phone", () => {

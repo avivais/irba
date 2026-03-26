@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { AdjustmentForm } from "@/components/admin/adjustment-form";
+import { getPlayerDisplayName } from "@/lib/player-display";
 
 export const metadata: Metadata = { title: "התאמה חדשה" };
 
@@ -13,7 +14,7 @@ export default async function NewAdjustmentPage({ params }: Props) {
 
   const player = await prisma.player.findUnique({
     where: { id: playerId },
-    select: { name: true },
+    select: { firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true },
   });
   if (!player) notFound();
 
@@ -24,7 +25,7 @@ export default async function NewAdjustmentPage({ params }: Props) {
           href={`/admin/precedence/${playerId}`}
           className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
-          → חזרה ל{player.name}
+          → חזרה ל{getPlayerDisplayName(player)}
         </Link>
         <span className="text-zinc-300 dark:text-zinc-600">|</span>
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">

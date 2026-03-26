@@ -11,11 +11,6 @@ export const POSITION_VALUES = ["PG", "SG", "SF", "PF", "C"] as const;
 export type PositionValue = (typeof POSITION_VALUES)[number];
 
 export const playerFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "נא להזין שם")
-    .max(80, "השם ארוך מדי (עד 80 תווים)"),
   phone: z.string().min(1, "נא להזין מספר טלפון"),
   playerKind: z.enum(["REGISTERED", "DROP_IN"]),
   rank: z.string().optional(),
@@ -30,11 +25,10 @@ export const playerFormSchema = z.object({
 });
 
 export type PlayerFieldErrors = Partial<
-  Record<"name" | "phone" | "playerKind" | "positions" | "rank" | "balance" | "nickname" | "birthdate", string>
+  Record<"phone" | "playerKind" | "positions" | "rank" | "balance" | "nickname" | "birthdate", string>
 >;
 
 export type ParsedPlayer = {
-  name: string;
   phoneNormalized: string;
   playerKind: "REGISTERED" | "DROP_IN";
   positions: PositionValue[];
@@ -153,7 +147,6 @@ export function parsePlayerForm(
   return {
     ok: true,
     data: {
-      name: parsed.data.name,
       phoneNormalized,
       playerKind: parsed.data.playerKind,
       positions,

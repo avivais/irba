@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Trophy, Settings2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { computePrecedenceScores } from "@/lib/precedence";
+import { getPlayerDisplayName } from "@/lib/player-display";
 
 export const metadata: Metadata = { title: "קדימות" };
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function AdminPrecedencePage() {
 
   const [players, yearWeights, liveAttendances] = await Promise.all([
     prisma.player.findMany({
-      orderBy: { name: "asc" },
+      orderBy: [{ firstNameHe: "asc" }, { firstNameEn: "asc" }, { nickname: "asc" }],
       include: {
         yearAggregates: true,
         adjustments: true,
@@ -35,7 +36,7 @@ export default async function AdminPrecedencePage() {
   const rows = computePrecedenceScores(
     players.map((p) => ({
       id: p.id,
-      name: p.name,
+      playerName: getPlayerDisplayName(p),
       aggregates: p.yearAggregates,
       liveCount: liveCountMap.get(p.id) ?? 0,
       adjustments: p.adjustments,

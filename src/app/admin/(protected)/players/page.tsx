@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Users, Plus, Pencil } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PlayerDeleteButton } from "@/components/admin/player-delete-button";
+import { getPlayerDisplayName } from "@/lib/player-display";
 
 export const metadata: Metadata = { title: "שחקנים" };
 
@@ -16,7 +17,7 @@ const KIND_LABEL: Record<string, string> = {
 
 export default async function AdminPlayersPage() {
   const players = await prisma.player.findMany({
-    orderBy: { name: "asc" },
+    orderBy: [{ firstNameHe: "asc" }, { firstNameEn: "asc" }, { nickname: "asc" }],
     include: { _count: { select: { attendances: true } } },
   });
 
@@ -63,14 +64,14 @@ export default async function AdminPlayersPage() {
                 <Link
                   href={`/admin/players/${player.id}/edit`}
                   className="absolute inset-0 z-0"
-                  aria-label={`ערוך את ${player.name}`}
+                  aria-label={`ערוך את ${getPlayerDisplayName(player)}`}
                 />
 
                 {/* Player info */}
                 <div className="pointer-events-none relative z-10 flex min-w-0 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {player.name}
+                      {getPlayerDisplayName(player)}
                     </span>
                     <span
                       className={`rounded px-1.5 py-0.5 text-xs font-normal ${
@@ -128,7 +129,7 @@ export default async function AdminPlayersPage() {
                   </Link>
                   <PlayerDeleteButton
                     id={player.id}
-                    playerName={player.name}
+                    playerName={getPlayerDisplayName(player)}
                     attendanceCount={player._count.attendances}
                   />
                 </div>

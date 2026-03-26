@@ -10,7 +10,14 @@
       "Bash(npx vitest:*)",
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(cat /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/precedence/[playerId]/page.tsx)",
+      "Bash(cat /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/precedence/[playerId]/adjustments/new/page.tsx)",
+      "Bash(cat /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/precedence/[playerId]/adjustments/[adjId]/edit/page.tsx)",
+      "Bash(grep -n \"name:\" /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/players/[id]/edit/page.tsx)",
+      "Bash(cat /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/players/[id]/edit/page.tsx)",
+      "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/import/players/actions.ts)",
+      "Bash(/Users/avivais/Development/irba/prisma/migrations/20260326015000_drop_player_name/migration.sql:*)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]"

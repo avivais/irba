@@ -23,7 +23,6 @@ export async function createPlayerAction(
   await requireAdmin();
 
   const raw: Record<string, string | string[] | undefined> = {
-    name: formData.get("name")?.toString(),
     phone: formData.get("phone")?.toString(),
     playerKind: formData.get("playerKind")?.toString(),
     positions: formData.getAll("positions").map((v) => v.toString()),
@@ -44,13 +43,13 @@ export async function createPlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { name, phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+  const { phoneNormalized, playerKind, positions, rank, balance, isAdmin,
     nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } =
     validation.data;
 
   try {
     await prisma.player.create({
-      data: { name, phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+      data: { phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
     });
   } catch (e) {
@@ -76,7 +75,6 @@ export async function updatePlayerAction(
   await requireAdmin();
 
   const raw: Record<string, string | string[] | undefined> = {
-    name: formData.get("name")?.toString(),
     // phone is identity — pass through to satisfy Zod but server ignores it on update
     phone: formData.get("phone")?.toString(),
     playerKind: formData.get("playerKind")?.toString(),
@@ -98,14 +96,14 @@ export async function updatePlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { name, playerKind, positions, rank, balance, isAdmin,
+  const { playerKind, positions, rank, balance, isAdmin,
     nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } = validation.data;
 
   try {
     await prisma.player.update({
       where: { id },
       // Intentionally omit phone — phone is the player's identity and cannot be changed here
-      data: { name, playerKind, positions, rank, balance, isAdmin,
+      data: { playerKind, positions, rank, balance, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
     });
   } catch (e) {

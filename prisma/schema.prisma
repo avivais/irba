@@ -23,7 +23,6 @@ enum Position {
 
 model Player {
   id          String     @id @default(cuid())
-  name        String
   phone       String     @unique
   playerKind  PlayerKind @default(DROP_IN)
   positions   Position[] @default([])

@@ -69,12 +69,12 @@ export async function attendAction(
         pid = existing.id;
         await tx.player.update({
           where: { id: existing.id },
-          data: { name },
+          data: { firstNameHe: name },
         });
       } else {
         const created = await tx.player.create({
           data: {
-            name,
+            firstNameHe: name,
             phone,
             playerKind: "DROP_IN",
           },

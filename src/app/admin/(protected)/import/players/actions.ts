@@ -45,14 +45,6 @@ export async function importPlayersAction(
     try {
       const birthdate = row.birthdate ? new Date(row.birthdate) : null;
 
-      // Derive display name
-      const name =
-        row.firstNameHe && row.lastNameHe
-          ? `${row.firstNameHe} ${row.lastNameHe}`
-          : row.firstNameEn && row.lastNameEn
-            ? `${row.firstNameEn} ${row.lastNameEn}`
-            : row.nickname;
-
       if (row.phone) {
         // Upsert by phone
         await prisma.player.upsert({
@@ -68,7 +60,6 @@ export async function importPlayersAction(
             positions: { set: row.positions as Position[] },
           },
           create: {
-            name,
             phone: row.phone,
             nickname: row.nickname,
             firstNameHe: row.firstNameHe,

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plus, Pencil } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getPlayerDisplayName } from "@/lib/player-display";
 import { AggregateDeleteButton } from "@/components/admin/aggregate-delete-button";
 import { AggregateUpsertForm } from "@/components/admin/aggregate-upsert-form";
 import { AdjustmentDeleteButton } from "@/components/admin/adjustment-delete-button";
@@ -58,7 +59,7 @@ export default async function PlayerPrecedencePage({ params }: Props) {
         </Link>
         <span className="text-zinc-300 dark:text-zinc-600">|</span>
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-          {player.name}
+          {getPlayerDisplayName(player)}
         </h1>
       </header>
 

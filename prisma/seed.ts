@@ -22,14 +22,16 @@ async function main() {
   await prisma.player.createMany({
     data: [
       {
-        name: "שחקן לדוגמה א׳",
+        firstNameHe: "שחקן",
+        lastNameHe: "א׳",
         phone: normalizePhone("0521111111"),
         playerKind: "REGISTERED",
         positions: ["PG"],
         rank: 3.5,
       },
       {
-        name: "שחקן לדוגמה ב׳",
+        firstNameHe: "שחקן",
+        lastNameHe: "ב׳",
         phone: normalizePhone("0522222222"),
         playerKind: "REGISTERED",
         positions: ["SG"],

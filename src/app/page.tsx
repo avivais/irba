@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { formatGameDate } from "@/lib/format-date";
 import { getNextGame } from "@/lib/game";
 import { maskPhone } from "@/lib/mask-phone";
+import { getPlayerDisplayName } from "@/lib/player-display";
 import { prisma } from "@/lib/prisma";
 import { getSessionPlayerId } from "@/lib/rsvp-session";
 
@@ -125,7 +126,7 @@ export default async function HomePage() {
                 >
                   <span className="flex flex-wrap items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
                     <span>
-                      {index + 1}. {row.player.name}
+                      {index + 1}. {getPlayerDisplayName(row.player)}
                     </span>
                     {row.player.playerKind === "DROP_IN" && (
                       <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
@@ -154,7 +155,7 @@ export default async function HomePage() {
                   >
                     <span className="flex flex-wrap items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
                       <span>
-                        {index + 1}. {row.player.name}
+                        {index + 1}. {getPlayerDisplayName(row.player)}
                       </span>
                       {row.player.playerKind === "DROP_IN" && (
                         <span className="rounded bg-amber-200/80 px-1.5 py-0.5 text-xs font-normal text-amber-950 dark:bg-amber-800/50 dark:text-amber-100">
