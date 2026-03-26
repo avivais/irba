@@ -149,57 +149,257 @@ Migrates historical Sheets data into the DB. Three flows, each with **file uploa
 
 ---
 
-## What is not built yet (non-exhaustive)
+## What is not built yet
 
-- **Results import** (תוצאות sheet): game outcomes (winners/losers per session) — deferred.
-- CAPTCHA / advanced bot mitigation beyond rate limits.
-- SMS/WhatsApp automation; push notifications.
-- i18n beyond Hebrew for the public UI.
-
-## Admin roadmap (owner priorities — Mar 2026)
-
-Ordered by impact for the operator (solo admin today). **Mobile-friendly** admin is a first-class requirement (responsive layout, touch targets, flows that work on phone — Sheets was a pain on mobile).
-
-1. **Admin UI** — Add/edit **players** and other operational fields; manage **sessions** (מפגשים: create, open/close, dates). Must be comfortable on **laptop and phone**.
-2. **Import (export-based)** — Operator exports data in an agreed format (e.g. CSV). **Payments** and **past attendances** column mapping TBD when we define the first import template.
-3. **Precedence list (“רשימת קדימות”)** — **Year weights**, per-player **aggregated attendance per year** (as in Sheets), **multiple bonuses and fines** per player over time — model in DB + import path (see **Decisions**).
-
-### Precedence list — current Sheets shape (reference)
-
-From the existing spreadsheet (screenshot on file): one row per player (name in the name column), **year columns** with numeric values, each year with a **משקל (weight)** that increases toward the current year, a **סה״כ** total score column, a **bonus sum** column, and **בונוסים / קנסות** (dated lines, points in parentheses). Rows ordered by total score descending.
-
-### Decisions (Mar 2026)
+### Decisions & constraints
 
 | Topic | Decision |
 |--------|----------|
-| **Admin auth** | **Password + session**, stay logged in via **session cookie** (implement as **HttpOnly** session/JWT cookie — do **not** put session secrets in `localStorage`). |
-| **Sheets / files** | **Manual exports** in whatever format we define together (CSV first); **no** live Google Sheets API for now. |
-| **Player matching (imports)** | Sheets **do not include phone**. **One-time collaborative mapping** (e.g. screenshots / cross-reference **WhatsApp contacts** ↔ **Sheet name**) → then **update script** or **manual DB updates** to attach phones / `Player` rows. |
-| **Past attendance** | Store **aggregated counts per year** per player (as in the sheet), **not** full historical `GameSession` rows for every past practice. |
-| **Precedence model** | Each **calendar year** has a **weight**; each player has **yearly aggregates**; each player can have **multiple bonus and fine line-items** (structured and/or text — finalize in schema design). |
-| **Mobile / PWA** | **Responsive admin** for v1; **PWA (installable)** is an explicit **goal** after core flows work (manifest + service worker + caching strategy). |
-
-**Still TBD in implementation:** exact CSV column templates, multi-admin / `Player.isAdmin` linkage. Admin uses `ADMIN_PASSWORD_HASH` + `ADMIN_SESSION_SECRET` and optional `ADMIN_SESSION_MAX_AGE_SEC`.
-
-## Recommended next steps (before / for production)
-
-**Product / operator (aligned with roadmap above):**
-
-1. ~~Spike: **admin auth** (password + HttpOnly session cookie) + minimal protected `/admin` shell (mobile-responsive).~~ **Done** (login + shell).
-2. ~~**Admin CRUD** for players + game sessions.~~ **Done** (list, add, edit, delete, open/close toggle).
-3. ~~**Precedence list ("רשימת קדימות")** — Prisma schema (year weights, aggregates, bonus/fine line items) + admin UI.~~ **Done** (schema, score calc, full CRUD UI).
-4. ~~**File import** — agree **CSV (or similar) templates** for payments / historical aggregates; no Sheets API in v1.~~ **Done** (players, aggregates, payments — file upload + paste; 24 CSV tests).
-5. ~~**PWA**~~ — deferred indefinitely (see stack note above).
-
-**Platform:**
-
-1. **Security & abuse (MVP slice done for public RSVP)** — TLS at edge (ops), CAPTCHA if needed, Redis-backed limits for multi-replica, optional CSP with nonces.
-2. **Data reliability** — automated Postgres backups + **tested restore**; migration discipline (`migrate deploy` on deploy).
-3. **Operations** — runbook (restart, logs), monitoring/uptime on `/api/health`, alerts on repeated failures.
-4. **Launch checklist** — env vars, DB migrated, smoke test RSVP + cancel + health + admin login, rollback idea.
-
-**Done:** **CI** — GitHub Actions (`lint`, `test`, `build` on `main`); see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
+| **Admin auth (current)** | `ADMIN_PASSWORD_HASH` + HttpOnly JWT cookie — kept as bootstrap/fallback. Once user auth ships and the admin player account exists, this becomes obsolete. |
+| **Player = User** | No separate User model. `Player` IS the user. Phone is the identity key — if admin pre-creates a player and they later register, they link by phone. |
+| **`Player.isAdmin`** | Grants full admin access when the player logs in via user auth. One admin today. |
+| **WhatsApp** | Baileys library, dedicated SIM. Used for OTP delivery, all notifications (session open, waitlist promotion, admin alerts). WA group integration deferred. |
+| **Balance** | Fully computed from `Payment` and `SessionCharge` history — never stored directly. Prevents drift. Opening balances handled via a payment record at import time. |
+| **Cascade recalc** | Editing any past `SessionCharge` triggers chronological re-evaluation of all subsequent sessions for all players (because running balance at each session determines charge tier). |
+| **Admin court cost** | Admin is charged like any registered player for their session share. Financial dashboard shows aggregate: total court costs charged vs. total collected vs. outstanding gap. |
+| **Waitlist order** | Registered players sorted by precedence score descending, then drop-ins by `createdAt` ascending. Promotion is manual (admin picks from sorted list). |
+| **PWA** | Deferred indefinitely — app is fully server-dependent, offline adds no value. |
+| **Results import** | (תוצאות sheet) deferred. |
 
 ---
 
-*Last updated: Mar 2026 — Touch UX complete: `active:` press states on every tappable element across the entire admin (buttons, links, nav cards, edit/delete/toggle/save/cancel — all with dark mode variants); Cancel button + dirty-guard confirm added to new player form (create mode), matching edit mode; popstate guard now active in both modes. PWA deferred indefinitely. Next focus: core missing features (session RSVP management, payments, charging, match results, balanced teams).*
+### Feature roadmap — ordered by priority
+
+Each area lists its logical commits in sequence. Commits should be human-sized and independently reviewable.
+
+---
+
+#### 1. Config system *(foundation — implement first)*
+
+Admin-editable key/value configuration stored in DB (`AppConfig` table). All other features pull defaults from here.
+
+**Keys:**
+- Default session day/time (e.g. Monday 21:00)
+- Default session duration (e.g. 2h)
+- Default location name + lat/lng
+- RSVP auto-close window (default 13h before session start)
+- Drop-in flat charge (ILS)
+- Debt threshold for drop-in treatment (ILS)
+- Default rank for unranked players
+- Max score per match (default 12)
+
+**Commits:**
+1. Schema: `AppConfig(key, value, updatedAt)` migration
+2. `src/lib/config.ts` — typed getters with defaults, cached per request
+3. Admin UI: `/admin/config` — grouped settings form, save action
+
+---
+
+#### 2. Session enhancements
+
+**Location & time:**
+- Add `locationName String?`, `locationLat Float?`, `locationLng Float?`, `startTime DateTime`, `endTime DateTime` to `GameSession`
+- Session create/edit form pre-fills from config defaults; all fields overridable
+- Map links generated from lat/lng (Google Maps: `https://maps.google.com/?q=lat,lng`, Waze: `https://waze.com/ul?ll=lat,lng`)
+- Minimap via OpenStreetMap/Leaflet embed (no API key)
+
+**RSVP auto-close & session constraints:**
+- Public RSVP blocked if `now >= session.startTime - closeWindow` — admin can still manage
+- Creating or opening a session blocked if any existing session has `endTime > now`
+- Auto-register admin player (`isAdmin=true`) as attendee on session create; removable
+
+**Admin session detail page** (`/admin/sessions/[id]`):
+- Full attendee list (confirmed + sorted waitlist)
+- Add player from existing (searchable dropdown) or quick-create new
+- Remove player; manually promote from waitlist
+- Waitlist: registered players ranked by precedence score, then drop-ins by signup time
+
+**Commits:**
+1. Schema migration: location + time fields on `GameSession`
+2. Config integration: session form defaults from `AppConfig`
+3. Map links + Leaflet minimap component
+4. RSVP enforcement: auto-close check in attend action + UI indicator
+5. Session creation constraint: block if previous session not ended
+6. Admin session detail page: attendee list + waitlist view
+7. Add/remove player actions on session detail
+8. Auto-register admin on session create
+
+---
+
+#### 3. User auth
+
+Player = User. Phone is the identity. Two registration paths, both on the public site.
+
+**Schema additions to `Player`:**
+- `email String?`, `nationalId String?` (9-digit Israeli ID)
+- `passwordHash String?`, `otpCode String?`, `otpExpiresAt DateTime?`
+- `emailVerified Boolean default false`
+
+**Flows:**
+- **Phone + OTP:** enter phone → WhatsApp OTP sent → verify → set password + email + nationalId on first login
+- **Phone + password:** register with phone + password + email + nationalId; links to existing Player by phone
+- **Remember me:** 30-day cookie vs. session cookie
+- **Password reset:** phone → WhatsApp OTP → set new password
+- **Email:** stored, used as fallback notification channel (not primary)
+- **`isAdmin=true`** players → full admin access; existing `ADMIN_PASSWORD_HASH` auth kept as fallback
+
+**Israeli ID validation (`src/lib/israeli-id.ts`):**
+Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum % 10 === 0.
+
+**Commits:**
+1. Schema migration: auth fields on `Player`
+2. `src/lib/israeli-id.ts` + tests
+3. OTP generation/verification logic (WA delivery wired in step 4)
+4. Phone+OTP registration/login flow (UI + actions)
+5. Phone+password registration/login flow (UI + actions)
+6. Password reset flow
+7. Remember me + session cookie handling
+8. `isAdmin` → admin access; bridge from old `ADMIN_PASSWORD_HASH` auth
+
+---
+
+#### 4. WhatsApp integration *(Baileys)*
+
+**`src/lib/whatsapp.ts`** — singleton Baileys client, auto-reconnect, message queue.
+
+**`sendWhatsAppMessage(phone, message)`** — used by all notification sites.
+
+**Notifications wired up:**
+- OTP delivery (auth flow)
+- Session opened for RSVP → all registered players
+- Waitlist promotion → promoted player
+- Player RSVP'd or cancelled → admin
+
+**Commits:**
+1. Baileys setup: client init, QR auth, reconnect logic, env `WA_SESSION_PATH`
+2. `sendWhatsAppMessage` wrapper + dev-mode dry-run (logs instead of sends)
+3. OTP delivery integration (wired to auth flow from step 3)
+4. Session-open notification action
+5. Waitlist promotion notification
+6. Admin RSVP/cancel alert
+
+---
+
+#### 5. Payments
+
+**Schema:** Add `method` field to `Payment` — enum `CASH | PAYBOX | BIT | BANK_TRANSFER | OTHER`.
+
+**Balance:** fully computed — `balance = Σ(payments.amount) - Σ(sessionCharges.amount)` for a player.
+
+**Admin UI:**
+- Per-player payment history page: add, edit, delete payments; method selector; balance shown live
+- Admin financial dashboard: total charged across all sessions, total collected, outstanding gap
+
+**Player-facing (after login):**
+- Payment history + current balance shown on public page
+
+**Municipality export:**
+- Admin button → CSV of all players: full name + national ID (once collected via auth)
+
+**Commits:**
+1. Schema migration: `method` on `Payment`
+2. `src/lib/balance.ts` — computed balance function
+3. Admin per-player payment management UI
+4. Admin financial dashboard (aggregate view)
+5. Player-facing balance + payment history (requires user auth)
+6. Municipality CSV export
+
+---
+
+#### 6. Charging
+
+**New models:**
+- `HourlyRate(id, effectiveFrom DateTime, pricePerHour Float)` — multiple rows, latest wins
+- `SessionCharge(id, sessionId, playerId, amount Float, chargeType: REGISTERED | DROP_IN | ADMIN_OVERRIDE, createdAt, updatedAt)`
+- `ChargeAuditLog(id, sessionChargeId, changedAt, changedBy, previousAmount, newAmount, reason?)` — every edit tracked
+
+**Charge calculation engine (`src/lib/charging.ts`):**
+- Resolve applicable hourly rate for session date
+- Total cost = rate × duration (from session `startTime`/`endTime`)
+- For each player at session time: compute running balance (all payments + charges strictly before `session.startTime`)
+- Classify: drop-in flat if `playerKind=DROP_IN`; drop-in flat if registered and `runningBalance ≤ -threshold`; else split remainder equally
+- Returns proposed `SessionCharge[]` — not written until admin confirms
+
+**Session charge flow (admin):**
+- “Charge session” button on session detail → shows proposed amounts per player
+- Admin can edit any individual amount (type changes to `ADMIN_OVERRIDE`)
+- Confirm → charges written; audit log entry created for each
+
+**Cascade recalculation:**
+- Triggered when any `SessionCharge` is edited after the fact
+- Re-runs charge engine chronologically for all sessions after the edited session's date
+- Rewrites `SessionCharge` amounts for all affected players; appends audit log entries
+- Runs in a transaction; admin sees a summary of what changed before confirming
+
+**Admin audit log viewer:**
+- `/admin/charges/audit` — filterable by player, session, date range
+
+**Commits:**
+1. Schema migration: `HourlyRate`, `SessionCharge`, `ChargeAuditLog`
+2. `HourlyRate` admin CRUD (`/admin/config/rates`)
+3. `src/lib/charging.ts` — computation engine + tests (various tier scenarios, threshold edge cases)
+4. Session charge proposal UI (propose → edit → confirm)
+5. `src/lib/cascade-recalc.ts` — cascade engine + tests
+6. Cascade trigger on charge edit + confirmation dialog showing what will change
+7. Audit log writes throughout
+8. Audit log viewer UI
+
+---
+
+#### 7. Match results
+
+**New model:** `Match(id, sessionId, teamAPlayerIds String[], teamBPlayerIds String[], scoreA Int, scoreB Int, createdAt)`
+
+Winning team stays; next match teams are composed by admin from session attendees. Multiple matches per session. Teams editable after recording (players leave early, switch teams, etc.).
+
+**Admin UI** on session detail page:
+- “New match” → pick team A players, team B players from session attendees → record score
+- Match history list for the session; edit any match
+
+**Commits:**
+1. Schema migration: `Match` model
+2. Match creation UI + action
+3. Score entry + match edit UI
+
+---
+
+#### 8. Balanced team selection
+
+**Algorithm (`src/lib/team-balance.ts`):**
+- Input: N players (≤15) with rank and positions; unranked use config default rank
+- Goal: 3 teams, equal size (or ±1), total rank per team as close as possible, ideally 1 player per position per team
+- Generate 3 distinct options using different random seeds / perturbations of the optimal split
+- Output: 3 team configurations with rank sums per team
+
+**Admin UI** on session detail:
+- “Generate teams” → 3 options shown side by side with rank totals
+- Each option copyable as formatted text (for WhatsApp poll)
+
+**Commits:**
+1. `src/lib/team-balance.ts` — algorithm + tests
+2. Admin UI: team generation + display + copy
+
+---
+
+#### 9. Precedence-based waitlist (UI completion)
+
+- Waitlist on session detail already sorted (step 2); this step wires precedence scores in
+- “Promote” button next to each waitlisted player → moves to confirmed, triggers WA notification (step 4)
+- If session is past auto-close window, promote is admin-only
+
+**Commits:**
+1. Wire precedence score into waitlist sort query
+2. Manual promote action + WA notification trigger
+
+---
+
+### Platform (pre-production)
+
+1. **Data reliability** — automated Postgres backups + tested restore; migration discipline.
+2. **Operations** — runbook, monitoring on `/api/health`, uptime alerts.
+3. **Security** — CSP, Redis rate limits for multi-replica if needed, CAPTCHA if abuse appears.
+4. **Launch checklist** — env vars set, DB migrated, smoke test all flows, rollback plan.
+
+---
+
+*Last updated: Mar 2026 — Full feature roadmap drafted: config system, session enhancements (location/time/RSVP enforcement/admin management), user auth (phone+OTP via WhatsApp/password, Israeli ID, isAdmin bridge), WhatsApp integration (Baileys), payments (method, computed balance, financial dashboard, municipality export), charging (hourly rates, session charge engine, cascade recalc, audit log), match results, balanced team selection, precedence-based waitlist. PWA deferred. Touch UX complete.*
