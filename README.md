@@ -104,17 +104,21 @@ brew install cloudflared
 **Start the production server and tunnel:**
 ```bash
 npm run build
-npm start &
-cloudflared tunnel --url http://localhost:3000
+npm run startweb
 ```
 
-Cloudflare prints a public HTTPS URL (e.g. `https://some-words.trycloudflare.com`). Open it on your phone.
+`npm run startweb` starts the server in the background (PID saved to `.next.pid`) and then runs cloudflared in the foreground. Cloudflare prints a public HTTPS URL (e.g. `https://some-words.trycloudflare.com`). Open it on your phone.
+
+If the server is already running, just open a tunnel:
+```bash
+npm run web
+```
 
 > **Notes:**
-> - Always use the production build (`npm start`), not `npm run dev`, when testing over a tunnel — see the dev vs production note above.
+> - Always use the production build (`npm start` / `npm run startweb`), not `npm run dev`, when testing over a tunnel — see the dev vs production note above.
 > - Quick tunnels have no uptime guarantee and are intended for short-lived testing only.
 > - The URL changes each time you start a new tunnel.
-> - To stop: `Ctrl+C` the cloudflared process.
+> - To stop the tunnel: `Ctrl+C`. To stop the server: `npm stop`.
 
 ## Health check
 
@@ -167,7 +171,10 @@ Optional environment variables:
 |--------|-------------|
 | `npm run dev` | Development server (desktop only — see note above) |
 | `npm run build` | Production build |
-| `npm start` | Production server (required for mobile / tunnel testing) |
+| `npm start` | Production server — writes PID to `.next.pid` (required for mobile / tunnel testing) |
+| `npm stop` | Kill the running production server (reads `.next.pid`) |
+| `npm run web` | Expose the already-running server via a Cloudflare quick tunnel |
+| `npm run startweb` | Start the production server in the background, then open a Cloudflare tunnel |
 | `npm test` | Vitest (unit tests) |
 | `npm run test:watch` | Vitest watch mode |
 | `npm run test:coverage` | Vitest with coverage |

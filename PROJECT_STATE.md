@@ -108,6 +108,7 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 
 - **`GET /api/health`** — JSON; 200 if DB answers `SELECT 1`, else 503 (generic body, no secrets).
 - **Docker**: `docker-compose.yml` (`db` + `app`), `Dockerfile`, `docker-entrypoint.sh` runs `prisma migrate deploy` then `next start`.
+- **Process management**: `npm start` writes PID to `.next.pid`; `npm stop` kills it by PID (project-scoped, won't affect other projects). `npm run web` opens a Cloudflare quick tunnel; `npm run startweb` does both (server in background, tunnel in foreground).
 - **Seeds**: deterministic `prisma/seed.ts` (`npm run db:seed`); random QA script `scripts/seed-random.ts` (`npm run db:seed:random`) with env guards — see README.
 - **CI**: GitHub Actions workflow above; confirm runs in the repo **Actions** tab after push.
 
@@ -201,4 +202,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Players list UX: row hover, click-to-edit, inline balance with colour coding, delete cursor fix. Bug fix: balance input switched from `type="number"` to `type="text"` — number inputs silently drop the `-` sign during intermediate typing states, causing wrong values on negative entry. Import: RFC 4180 quoted-field CSV parser, Israeli date formats (D.M.YY / D.M.YYYY), positions column, conflict-review step (skip/overwrite per row), `checkPlayerConflictsAction`; 30 CSV tests. Previous: session timezone fix + duplicate guard. Next focus: PWA (manifest + service worker).*
+*Last updated: Mar 2026 — Added `npm stop` (PID-file-based, project-scoped), `npm run web` (cloudflared tunnel), `npm run startweb` (server + tunnel). Previous: Players list UX, balance input fix, CSV import improvements. Next focus: PWA (manifest + service worker).*

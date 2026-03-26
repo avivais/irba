@@ -22,6 +22,7 @@
 
 # misc
 .DS_Store
+.next.pid
 *.pem
 
 # debug

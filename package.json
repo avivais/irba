@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start & echo $! > .next.pid && wait $!",
+    "stop": "kill $(cat .next.pid 2>/dev/null) 2>/dev/null; rm -f .next.pid; true",
+    "web": "cloudflared tunnel --url http://localhost:3000",
+    "startweb": "npm start & cloudflared tunnel --url http://localhost:3000",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
