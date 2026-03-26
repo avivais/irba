@@ -31,3 +31,32 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* ── Mobile touch UX ──────────────────────────────────────────────────────── */
+
+/* Remove the default grey/blue tap flash on iOS & Android */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Eliminate the 300 ms double-tap-to-zoom delay on touch devices */
+a,
+button,
+label,
+select,
+input[type="button"],
+input[type="submit"],
+input[type="checkbox"],
+input[type="radio"] {
+  touch-action: manipulation;
+}
+
+/* Press feedback — scale + fade for buttons, fade for links */
+button:not(:disabled):active {
+  opacity: 0.75;
+  transform: scale(0.97);
+}
+
+a:active {
+  opacity: 0.72;
+}
