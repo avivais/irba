@@ -120,11 +120,11 @@ export function parsePlayerForm(
   // Parse balance (optional int, allow negative)
   let balance = 0;
   if (parsed.data.balance !== undefined && parsed.data.balance.trim() !== "") {
-    const b = parseInt(parsed.data.balance, 10);
-    if (isNaN(b)) {
+    const trimmed = parsed.data.balance.trim();
+    if (!/^-?\d+$/.test(trimmed)) {
       return { ok: false, errors: { balance: "נא להזין מספר שלם" } };
     }
-    balance = b;
+    balance = parseInt(trimmed, 10);
   }
 
   const isAdmin = parsed.data.isAdmin === "on";

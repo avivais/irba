@@ -155,6 +155,13 @@ describe("parsePlayerForm", () => {
     expect(result.errors.balance).toBeTruthy();
   });
 
+  it("rejects a balance with trailing garbage like '009 9003 83983'", () => {
+    const result = parsePlayerForm({ ...BASE, balance: "009 9003 83983" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.balance).toBeTruthy();
+  });
+
   it("allows a negative balance", () => {
     const result = parsePlayerForm({ ...BASE, balance: "-50" });
     expect(result.ok).toBe(true);

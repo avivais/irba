@@ -80,6 +80,8 @@ export function PlayerForm(props: Props) {
   const [showSaved, setShowSaved] = useState(false);
   // Custom confirm dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Track which submit button was clicked so we show the spinner on the right one
+  const [submittingButton, setSubmittingButton] = useState<"save" | "return" | null>(null);
 
   // Dirty tracking
   const lastSavedRef = useRef({
@@ -138,6 +140,11 @@ export function PlayerForm(props: Props) {
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
   }, [isEdit]);
+
+  // Reset submitting button tracking when the action finishes
+  useEffect(() => {
+    if (!pending) setSubmittingButton(null);
+  }, [pending]);
 
   // Detect save-in-place success
   const prevStateRef = useRef<PlayerActionState>(initialState);
@@ -542,10 +549,11 @@ export function PlayerForm(props: Props) {
               type="submit"
               name="returnToList"
               value="false"
+              onClick={() => setSubmittingButton("save")}
               disabled={pending || !formValid}
               className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus:ring-zinc-300/50"
             >
-              {pending ? (
+              {pending && submittingButton === "save" ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                   שומר…
@@ -559,10 +567,18 @@ export function PlayerForm(props: Props) {
               type="submit"
               name="returnToList"
               value="true"
+              onClick={() => setSubmittingButton("return")}
               disabled={pending || !formValid}
               className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              שמור וחזור לרשימה
+              {pending && submittingButton === "return" ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  שומר…
+                </>
+              ) : (
+                "שמור וחזור לרשימה"
+              )}
             </button>
           </div>
         ) : (
