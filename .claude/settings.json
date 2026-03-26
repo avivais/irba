@@ -17,7 +17,17 @@
       "Bash(grep -n \"name:\" /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/players/[id]/edit/page.tsx)",
       "Bash(cat /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/players/[id]/edit/page.tsx)",
       "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/import/players/actions.ts)",
-      "Bash(/Users/avivais/Development/irba/prisma/migrations/20260326015000_drop_player_name/migration.sql:*)"
+      "Bash(/Users/avivais/Development/irba/prisma/migrations/20260326015000_drop_player_name/migration.sql:*)",
+      "Read(//tmp/**)",
+      "Read(//Users/avivais/**)",
+      "Read(//Users/avivais/Development/irba/**)",
+      "Read(//proc/**)",
+      "Read(//private/tmp/**)",
+      "Bash(curl -s http://localhost:3000/ -o /dev/null -w %{http_code})",
+      "Bash(curl -s http://localhost:8080/metrics)",
+      "Bash(curl -s http://localhost:2000/metrics)",
+      "Bash(curl -s http://localhost:2019/metrics)",
+      "Bash(curl -s http://localhost:8081/quicktunnel)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]"
