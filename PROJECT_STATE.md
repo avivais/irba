@@ -20,7 +20,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 | Package manager | **npm** (lockfile: `package-lock.json`) |
 | CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets placeholder `DATABASE_URL`, `RSVP_SESSION_SECRET`, and `ADMIN_SESSION_SECRET` so Prisma / Next build load without Postgres in CI. |
 | Admin auth (MVP) | **Password + HttpOnly JWT session** — `ADMIN_SESSION_SECRET`, `ADMIN_PASSWORD_HASH` (bcrypt), cookie `irba_admin_session`, default 14-day TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional). Separate from RSVP; shared `Secure` via [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts). |
-| PWA (goal) | Installable app: **manifest**, **service worker**, offline/cache strategy TBD — after core admin works on mobile web. |
+| PWA | Deferred indefinitely — app is fully server-dependent, offline adds no value, player base is small. |
 
 ## Repository
 
@@ -189,7 +189,7 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 2. ~~**Admin CRUD** for players + game sessions.~~ **Done** (list, add, edit, delete, open/close toggle).
 3. ~~**Precedence list ("רשימת קדימות")** — Prisma schema (year weights, aggregates, bonus/fine line items) + admin UI.~~ **Done** (schema, score calc, full CRUD UI).
 4. ~~**File import** — agree **CSV (or similar) templates** for payments / historical aggregates; no Sheets API in v1.~~ **Done** (players, aggregates, payments — file upload + paste; 24 CSV tests).
-5. **PWA** — manifest + service worker; ship after admin UX is solid on mobile Safari/Chrome.
+5. ~~**PWA**~~ — deferred indefinitely (see stack note above).
 
 **Platform:**
 
@@ -202,4 +202,4 @@ From the existing spreadsheet (screenshot on file): one row per player (name in 
 
 ---
 
-*Last updated: Mar 2026 — Touch UX complete: `active:` press states on every tappable element across the entire admin (buttons, links, nav cards, edit/delete/toggle/save/cancel — all with dark mode variants); Cancel button + dirty-guard confirm added to new player form (create mode), matching edit mode; popstate guard now active in both modes. Previous: mobile touch UX pass (tap highlight removal, 300 ms delay fix, scale+fade via globals.css, players list loading state). Next focus: PWA (manifest + service worker).*
+*Last updated: Mar 2026 — Touch UX complete: `active:` press states on every tappable element across the entire admin (buttons, links, nav cards, edit/delete/toggle/save/cancel — all with dark mode variants); Cancel button + dirty-guard confirm added to new player form (create mode), matching edit mode; popstate guard now active in both modes. PWA deferred indefinitely. Next focus: core missing features (session RSVP management, payments, charging, match results, balanced teams).*
