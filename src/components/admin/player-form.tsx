@@ -8,7 +8,7 @@ import {
   updatePlayerAction,
   type PlayerActionState,
 } from "@/app/admin/(protected)/players/actions";
-import { parsePlayerForm, POSITION_VALUES } from "@/lib/player-validation";
+import { parsePlayerForm, POSITION_VALUES, type PositionValue } from "@/lib/player-validation";
 
 type PlayerData = {
   id: string;
@@ -73,7 +73,7 @@ export function PlayerForm(props: Props) {
   const [playerKind, setPlayerKind] = useState<"REGISTERED" | "DROP_IN">(
     player?.playerKind ?? "DROP_IN",
   );
-  const [positions, setPositions] = useState<string[]>(player?.positions ?? []);
+  const [positions, setPositions] = useState<PositionValue[]>(player?.positions ?? []);
   const [rank, setRank] = useState(player?.rank != null ? String(player.rank) : "");
   const [balance, setBalance] = useState(String(player?.balance ?? 0));
   const [isAdmin, setIsAdmin] = useState(player?.isAdmin ?? false);
@@ -123,7 +123,7 @@ export function PlayerForm(props: Props) {
     name !== s.name ||
     playerKind !== s.playerKind ||
     positions.length !== s.positions.length ||
-    positions.some((p) => !(s.positions as string[]).includes(p)) ||
+    positions.some((p) => !s.positions.includes(p)) ||
     rank !== s.rank ||
     balance !== s.balance ||
     isAdmin !== s.isAdmin ||
