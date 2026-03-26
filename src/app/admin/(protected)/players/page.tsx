@@ -118,20 +118,22 @@ export default async function AdminPlayersPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="relative z-10 flex shrink-0 items-center gap-2">
+                {/* Actions — wrapper is pointer-events-none so empty space falls through to the overlay link */}
+                <div className="pointer-events-none relative z-10 flex shrink-0 items-center gap-2">
                   <Link
                     href={`/admin/players/${player.id}/edit`}
-                    className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="pointer-events-auto flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden />
                     עריכה
                   </Link>
-                  <PlayerDeleteButton
-                    id={player.id}
-                    playerName={getPlayerDisplayName(player)}
-                    attendanceCount={player._count.attendances}
-                  />
+                  <div className="pointer-events-auto">
+                    <PlayerDeleteButton
+                      id={player.id}
+                      playerName={getPlayerDisplayName(player)}
+                      attendanceCount={player._count.attendances}
+                    />
+                  </div>
                 </div>
               </li>
             ))}
