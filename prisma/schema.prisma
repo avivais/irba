@@ -116,3 +116,9 @@ model Payment {
   @@index([playerId])
   @@index([date])
 }
+
+model AppConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
