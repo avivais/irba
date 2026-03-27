@@ -1,27 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, Settings } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 import { getAllConfigs } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { ConfigForm } from "@/components/admin/config-form";
+import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-button";
 
 export const metadata: Metadata = { title: "הגדרות" };
 
 export const dynamic = "force-dynamic";
 
+function formatDate(d: Date): string {
+  return d.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function formatPrice(p: number): string {
+  return `₪${p % 1 === 0 ? p.toFixed(0) : p.toFixed(1)}`;
+}
+
 export default async function AdminConfigPage() {
-  const [values, currentRate] = await Promise.all([
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  const [values, rates] = await Promise.all([
     getAllConfigs(),
-    prisma.hourlyRate.findFirst({
-      where: { effectiveFrom: { lte: new Date() } },
-      orderBy: { effectiveFrom: "desc" },
-      select: { pricePerHour: true, effectiveFrom: true },
-    }),
+    prisma.hourlyRate.findMany({ orderBy: { effectiveFrom: "desc" } }),
   ]);
 
-  const rateLabel = currentRate
-    ? `₪${currentRate.pricePerHour % 1 === 0 ? currentRate.pricePerHour.toFixed(0) : currentRate.pricePerHour.toFixed(1)} / שעה`
-    : "לא הוגדר";
+  const currentRateId = rates.find((r) => r.effectiveFrom <= today)?.id ?? null;
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -39,24 +45,74 @@ export default async function AdminConfigPage() {
         </h1>
       </header>
 
-      {/* Hourly rate quick-link */}
-      <div className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl">
-        <Link
-          href="/admin/config/rates"
-          className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300 hover:shadow-md active:bg-zinc-100 active:border-zinc-300 focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:active:bg-zinc-800 dark:focus:ring-zinc-500/30"
-        >
-          <div>
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">תעריף שעתי</p>
-            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              תעריף נוכחי: <span className="font-medium text-zinc-700 dark:text-zinc-300">{rateLabel}</span>
-            </p>
-          </div>
-          <ChevronLeft className="h-5 w-5 shrink-0 text-zinc-400 dark:text-zinc-500" aria-hidden />
-        </Link>
-      </div>
+      <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
 
-      <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <ConfigForm values={values} />
+        {/* ── Hourly rates ────────────────────────────────── */}
+        <div className="mb-8 flex flex-col gap-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            תעריף שעתי
+          </h2>
+
+          {rates.length === 0 ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">לא הוגדרו תעריפים עדיין</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {rates.map((rate) => {
+                const isCurrent = rate.id === currentRateId;
+                return (
+                  <div
+                    key={rate.id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                      isCurrent
+                        ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
+                        : "border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/40"
+                    }`}
+                  >
+                    <div>
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {formatPrice(rate.pricePerHour)} / שעה
+                      </span>
+                      {isCurrent && (
+                        <span className="mr-2 rounded-full bg-green-600 px-2 py-0.5 text-xs font-semibold text-white dark:bg-green-500">
+                          נוכחי
+                        </span>
+                      )}
+                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        מ-{formatDate(rate.effectiveFrom)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Link
+                        href={`/admin/config/rates/${rate.id}/edit`}
+                        className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:active:bg-zinc-600"
+                      >
+                        ערוך
+                      </Link>
+                      <HourlyRateDeleteButton id={rate.id} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div>
+            <Link
+              href="/admin/config/rates/new"
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:active:bg-zinc-600"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              הוסף תעריף
+            </Link>
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-100 dark:border-zinc-800" />
+
+        {/* ── Config form ─────────────────────────────────── */}
+        <div className="mt-8">
+          <ConfigForm values={values} />
+        </div>
       </section>
     </div>
   );

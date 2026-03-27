@@ -13,7 +13,7 @@ export default function NewHourlyRatePage() {
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
       <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-center gap-3">
         <Link
-          href="/admin/config/rates"
+          href="/admin/config"
           className="text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white"
         >
           → חזרה לתעריפים

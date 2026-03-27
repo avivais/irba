@@ -46,8 +46,8 @@ export async function createRateAction(
 
   await prisma.hourlyRate.create({ data: { effectiveFrom, pricePerHour } });
 
-  revalidatePath("/admin/config/rates");
-  redirect("/admin/config/rates");
+  revalidatePath("/admin/config");
+  redirect("/admin/config");
 }
 
 export async function updateRateAction(
@@ -77,8 +77,8 @@ export async function updateRateAction(
     throw e;
   }
 
-  revalidatePath("/admin/config/rates");
-  redirect("/admin/config/rates");
+  revalidatePath("/admin/config");
+  redirect("/admin/config");
 }
 
 export async function deleteRateAction(
@@ -96,6 +96,6 @@ export async function deleteRateAction(
     } else throw e;
   }
 
-  revalidatePath("/admin/config/rates");
+  revalidatePath("/admin/config");
   return { ok: true, message: "התעריף נמחק" };
 }

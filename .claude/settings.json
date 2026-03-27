@@ -30,7 +30,8 @@
       "Bash(curl -s http://localhost:8081/quicktunnel)"
     ],
     "additionalDirectories": [
-      "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]"
+      "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]",
+      "/Users/avivais/Development/irba/src/app/admin/(protected)/config/rates/[id]/edit"
     ]
   }
 }
