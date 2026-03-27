@@ -3,8 +3,8 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { updateConfigAction, type ConfigActionState } from "@/app/admin/(protected)/config/actions";
-import { CONFIG } from "@/lib/config";
-import type { ConfigKey } from "@/lib/config";
+import { CONFIG } from "@/lib/config-keys";
+import type { ConfigKey } from "@/lib/config-keys";
 
 type Props = { values: Record<ConfigKey, string> };
 

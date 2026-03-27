@@ -21,7 +21,7 @@ export default async function AdminSessionsEditPage({ params }: Props) {
       <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-center gap-3">
         <Link
           href="/admin/sessions"
-          className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          className="text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white"
         >
           → חזרה לרשימה
         </Link>
@@ -39,6 +39,10 @@ export default async function AdminSessionsEditPage({ params }: Props) {
             date: session.date,
             maxPlayers: session.maxPlayers,
             isClosed: session.isClosed,
+            durationMinutes: session.durationMinutes,
+            locationName: session.locationName,
+            locationLat: session.locationLat,
+            locationLng: session.locationLng,
           }}
         />
       </section>

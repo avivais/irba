@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
+import { getAllConfigs, CONFIG } from "@/lib/config";
 
 /** Return the UTC start and end of the calendar day containing `date` in Israel timezone. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -30,6 +31,26 @@ async function requireAdmin(): Promise<void> {
   if (!subject) redirect("/admin/login");
 }
 
+/** Check whether any existing session is still running (endTime > now). */
+async function hasActiveSession(excludeId?: string): Promise<boolean> {
+  const configs = await getAllConfigs();
+  const defaultDuration = parseInt(configs[CONFIG.SESSION_DEFAULT_DURATION_MIN], 10);
+  const now = new Date();
+  // Look back up to 24h to find recently-started sessions
+  const candidates = await prisma.gameSession.findMany({
+    where: {
+      date: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      ...(excludeId ? { NOT: { id: excludeId } } : {}),
+    },
+    select: { id: true, date: true, durationMinutes: true },
+  });
+  return candidates.some((s) => {
+    const duration = s.durationMinutes ?? defaultDuration;
+    const endTime = new Date(s.date.getTime() + duration * 60 * 1000);
+    return endTime > now;
+  });
+}
+
 export async function createSessionAction(
   _prev: SessionActionState,
   formData: FormData,
@@ -40,6 +61,10 @@ export async function createSessionAction(
     date: formData.get("date")?.toString(),
     maxPlayers: formData.get("maxPlayers")?.toString(),
     isClosed: formData.get("isClosed")?.toString(),
+    durationMinutes: formData.get("durationMinutes")?.toString(),
+    locationName: formData.get("locationName")?.toString(),
+    locationLat: formData.get("locationLat")?.toString(),
+    locationLng: formData.get("locationLng")?.toString(),
   };
 
   const validation = parseSessionForm(raw);
@@ -48,7 +73,7 @@ export async function createSessionAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { date, maxPlayers } = validation.data;
+  const { date, maxPlayers, durationMinutes, locationName, locationLat, locationLng } = validation.data;
 
   const { gte, lt } = israelDayBounds(date);
   const existing = await prisma.gameSession.findFirst({
@@ -59,13 +84,34 @@ export async function createSessionAction(
     return { ok: false, message: "כבר קיים מפגש ביום זה" };
   }
 
+  if (await hasActiveSession()) {
+    return { ok: false, message: "לא ניתן לפתוח מפגש חדש לפני שהמפגש הנוכחי הסתיים" };
+  }
+
+  let newSessionId: string;
   try {
-    await prisma.gameSession.create({
-      data: { date, maxPlayers, isClosed: false },
+    const created = await prisma.gameSession.create({
+      data: { date, maxPlayers, isClosed: false, durationMinutes, locationName, locationLat, locationLng },
     });
+    newSessionId = created.id;
   } catch (e) {
     console.error("createSessionAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
+  }
+
+  // Auto-register the admin player
+  const adminPlayer = await prisma.player.findFirst({
+    where: { isAdmin: true },
+    select: { id: true },
+  });
+  if (adminPlayer) {
+    try {
+      await prisma.attendance.create({
+        data: { playerId: adminPlayer.id, gameSessionId: newSessionId },
+      });
+    } catch {
+      // If attendance already exists (shouldn't happen on create), ignore
+    }
   }
 
   revalidatePath("/admin/sessions");
@@ -83,6 +129,10 @@ export async function updateSessionAction(
     date: formData.get("date")?.toString(),
     maxPlayers: formData.get("maxPlayers")?.toString(),
     isClosed: formData.get("isClosed")?.toString(),
+    durationMinutes: formData.get("durationMinutes")?.toString(),
+    locationName: formData.get("locationName")?.toString(),
+    locationLat: formData.get("locationLat")?.toString(),
+    locationLng: formData.get("locationLng")?.toString(),
   };
 
   const validation = parseSessionForm(raw);
@@ -91,7 +141,7 @@ export async function updateSessionAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { date, maxPlayers, isClosed } = validation.data;
+  const { date, maxPlayers, isClosed, durationMinutes, locationName, locationLat, locationLng } = validation.data;
 
   const { gte, lt } = israelDayBounds(date);
   const existing = await prisma.gameSession.findFirst({
@@ -105,7 +155,7 @@ export async function updateSessionAction(
   try {
     await prisma.gameSession.update({
       where: { id },
-      data: { date, maxPlayers, isClosed },
+      data: { date, maxPlayers, isClosed, durationMinutes, locationName, locationLat, locationLng },
     });
   } catch (e) {
     if (

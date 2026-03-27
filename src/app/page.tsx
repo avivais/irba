@@ -1,4 +1,4 @@
-import { CalendarDays, Users } from "lucide-react";
+import { CalendarDays, MapPin, Users } from "lucide-react";
 import { CancelRsvpForm } from "@/components/cancel-rsvp-form";
 import { RsvpForm } from "@/components/rsvp-form";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -77,6 +77,50 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {game && (game.locationName || (game.locationLat && game.locationLng)) && (
+        <section
+          className="mx-auto mt-4 w-full max-w-lg md:max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+          aria-labelledby="game-location-heading"
+        >
+          <div className="flex items-start gap-3">
+            <MapPin
+              className="mt-0.5 h-6 w-6 shrink-0 text-blue-600 dark:text-blue-400"
+              aria-hidden
+            />
+            <div>
+              <h2 id="game-location-heading" className="text-lg font-semibold">
+                מיקום
+              </h2>
+              {game.locationName && (
+                <p className="mt-1 text-base text-zinc-700 dark:text-zinc-300">
+                  {game.locationName}
+                </p>
+              )}
+              {game.locationLat && game.locationLng && (
+                <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                  <a
+                    href={`https://www.google.com/maps?q=${game.locationLat},${game.locationLng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-700 active:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 dark:active:text-blue-100"
+                  >
+                    Google Maps ↗
+                  </a>
+                  <a
+                    href={`https://waze.com/ul?ll=${game.locationLat},${game.locationLng}&navigate=yes`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-700 active:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 dark:active:text-blue-100"
+                  >
+                    Waze ↗
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {game && !game.isClosed && (
         <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">

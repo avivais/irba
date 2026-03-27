@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CONFIG_DEFAULTS, type ConfigKey } from "@/lib/config";
+import { CONFIG_DEFAULTS, type ConfigKey } from "@/lib/config-keys";
 
 const dayOfWeek = z
   .string()

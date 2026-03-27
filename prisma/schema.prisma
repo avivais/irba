@@ -48,12 +48,16 @@ model Player {
 }
 
 model GameSession {
-  id         String   @id @default(cuid())
-  date       DateTime
-  maxPlayers Int      @default(15)
-  isClosed   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id              String   @id @default(cuid())
+  date            DateTime
+  maxPlayers      Int      @default(15)
+  isClosed        Boolean  @default(false)
+  durationMinutes Int?
+  locationName    String?
+  locationLat     Float?
+  locationLng     Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   attendances Attendance[]
 
@@ -121,4 +125,13 @@ model AppConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model HourlyRate {
+  id            String   @id @default(cuid())
+  effectiveFrom DateTime @db.Date
+  pricePerHour  Float
+  createdAt     DateTime @default(now())
+
+  @@index([effectiveFrom])
 }
