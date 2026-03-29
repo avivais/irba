@@ -38,10 +38,12 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### RSVP flow (public)
 
-- Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Shows **location card** with name + Google Maps / Waze links if session has lat/lng set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
+- Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Shows **location card** with name + Waze + Google Maps buttons + OpenStreetMap iframe minimap when lat/lng are set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
 - **Theme**: header `ThemeToggle` consistently positioned on the **left** (`end-0` in RTL) across all pages; root `ThemeProvider` in `layout.tsx` so all routes inherit the same behavior.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
-- Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
+- **RSVP window**: registration open until `session.date` (not the close window). `isRsvpOpen = !isClosed && now < session.date`. Close window (`rsvp_close_hours`) only affects cancellation for confirmed players.
+- **Cancellation rules**: waitlisted players can always cancel; confirmed players cannot cancel within the close window (`now >= session.date - closeHours * 3_600_000`). Amber notice shown when cancellation is blocked ("ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל").
+- Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`, checks player index vs maxPlayers + close window); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
 - **Cancel RSVP**: inline two-step confirmation (“האם לבטל את ההגעה?” + “כן, בטל” / “לא”) — no `window.confirm`. Success banner auto-dismisses after 3 s (tracked by state reference, not a boolean flag).
 - **RSVP success banner** (“נרשמת בהצלחה”) auto-dismisses after 3 s.
 - Lists: confirmed + waiting list; phones **masked** in UI; optional **”מזדמן”** badge for drop-ins.
@@ -70,16 +72,22 @@ Navigation cards to שחקנים, מפגשים, קדימות, ייבוא נתו�
 
 #### Sessions CRUD (`/admin/sessions`)
 
-- **List** (`/admin/sessions`): all sessions sorted newest-first; shows formatted date, attendance count / maxPlayers, open/closed badge, toggle / edit / delete actions.
-- **Add** (`/admin/sessions/new`): form with date (pre-filled to next occurrence of config default day/time), maxPlayers (default 15), durationMinutes (pre-filled from config), locationName/locationLat/locationLng (pre-filled from config). `nextDefaultSessionDateISO` in `session-validation.ts` computes the correct next slot (same-day only if session time is still upcoming, else next week).
-- **Edit** (`/admin/sessions/[id]/edit`): same fields plus isClosed checkbox; all location/duration fields editable. Map links (Google Maps + Waze) shown inline when lat+lng are set.
-- **Toggle open/close**: `SessionToggleButton` submits `toggleSessionAction` — flips `isClosed`, revalidates `/admin/sessions` and `/` (public page).
+- **List** (`/admin/sessions`): client component (`SessionList`); full-row invisible Link with loading spinner; row hover/active highlight. Shows date, attendance count / maxPlayers, status badge (**פתוח** / **סגור** / **ארכיון**). Row actions: archive/unarchive button + delete button. Filter bar: date range pickers (`from`/`to` URL params), "הצג ארכיון" checkbox, search/clear. Archived sessions excluded from `getNextGame()`.
+- **Archive**: `GameSession.isArchived Boolean @default(false)` (migration `20260329113136_add_session_archived`). `archiveSessionAction(id, archive)` in `sessions/actions.ts`. `SessionArchiveButton` component (`session-archive-button.tsx`) with Archive / ArchiveRestore icon.
+- **Add** (`/admin/sessions/new`): form with date (pre-filled to next occurrence of config default day/time), maxPlayers (default 15), durationMinutes (pre-filled from config), locationName/locationLat/locationLng (pre-filled from config). `nextDefaultSessionDateISO` in `session-validation.ts` computes the correct next slot (same-day only if session time is still upcoming, else next week). On create, redirects to `/admin/sessions/${newSessionId}`.
+- **Edit / detail** (`/admin/sessions/[id]`): **unified page** — replaces separate `/[id]/edit`. Header: back link + formatted date in h1 + archive/delete buttons. Session form card (always visible, success message shown inline). Attendance card: confirmed list + precedence-sorted waitlist + add-player form + quick drop-in form. Old `/[id]/edit` redirects here.
+- **`isClosed` toggle**: `toggleSessionAction` — blocks re-opening if `Date.now() >= session.date - rsvp_close_hours * 3_600_000 && Date.now() < session.date`. isClosed is a checkbox in the SessionForm.
 - **Delete**: guarded — blocked if session has any attendance records. `window.confirm` for empty sessions.
 - **Overlap guard**: `createSessionAction` rejects if any session started in the last 24 h is still running (`session.date + (durationMinutes ?? configDefault) > now`). Message: `"לא ניתן לפתוח מפגש חדש לפני שהמפגש הנוכחי הסתיים"`.
 - **Auto-register admin**: on session create, the player with `isAdmin=true` is automatically added as an attendee (if found).
-- **Server actions**: `createSessionAction`, `updateSessionAction`, `deleteSessionAction`, `toggleSessionAction` in `src/app/admin/(protected)/sessions/actions.ts`.
+- **Server actions**: `createSessionAction`, `updateSessionAction`, `deleteSessionAction`, `toggleSessionAction`, `archiveSessionAction` in `src/app/admin/(protected)/sessions/actions.ts`.
 - **Validation**: `src/lib/session-validation.ts` — `parseSessionForm` + `parseIsraelLocalDate` + `nextDefaultSessionDateISO`; tested in `src/lib/session-validation.test.ts`.
 - **Duplicate guard**: `createSessionAction` and `updateSessionAction` reject a session if another already exists on the same Israel calendar day; edit excludes the session being updated.
+- **Attendance management** (on `/admin/sessions/[id]`):
+  - Confirmed list + precedence-sorted waitlist (registered by score desc, drop-ins by createdAt asc).
+  - **Add registered player**: `SessionAddPlayerForm` — searchable dropdown from all players not yet attending.
+  - **Quick drop-in**: `SessionQuickDropInForm` — name + phone fields. On valid phone, calls `lookupPlayerByPhoneAction` (via `useTransition`) and shows inline status: **already_registered** (red, button disabled) / **existing_not_registered** (blue "שחקן קיים: [name]", name field hidden) / **new** (name field required). `quickAddDropInAction` uses `findUnique` + `create` — never modifies existing player data.
+  - **Remove player**: `SessionRemoveButton` with confirmation.
 
 #### Hourly rates (inline on `/admin/config`)
 
@@ -214,24 +222,26 @@ See "Config system" and "Hourly rates" sections under "What exists today".
 
 ---
 
-#### 2. Session enhancements *(partially done)*
+#### 2. Session enhancements ✅ DONE
 
-**Done:**
 - ✅ Schema migration: `durationMinutes`, `locationName`, `locationLat`, `locationLng` on `GameSession`
+- ✅ Schema migration: `isArchived Boolean @default(false)` on `GameSession`
 - ✅ Config integration: session create form pre-fills date/duration/location from `AppConfig`
 - ✅ Map links: Google Maps + Waze shown in admin form and on public page when lat/lng set
+- ✅ OpenStreetMap iframe minimap on public page location card
 - ✅ Session creation constraint: block if any session started in last 24h is still running
 - ✅ Auto-register admin (`isAdmin=true` player) on session create
+- ✅ RSVP enforcement: registration open until `session.date`; close window blocks cancel for confirmed only
+- ✅ Unified session detail/edit page (`/admin/sessions/[id]`)
+- ✅ Sessions list: row-click navigation, hover effect, archive filter, date range filter
+- ✅ Archive/unarchive sessions; archived excluded from public next-game
+- ✅ Admin session detail: attendee list + precedence-sorted waitlist
+- ✅ Add registered player to session (searchable dropdown)
+- ✅ Quick drop-in: phone lookup before submit, never overwrites existing player data
+- ✅ Remove player from session (with confirmation)
 
 **Remaining:**
-- [ ] Leaflet minimap on public page and admin form (OpenStreetMap, no API key)
-- [ ] RSVP enforcement: block attend if `now >= session.date - rsvp_close_hours`; UI indicator on public page
 - [ ] Manual waitlist promote action (admin only)
-
-**Done:**
-- ✅ Admin session detail page (`/admin/sessions/[id]`): attendee list + precedence-sorted waitlist
-- ✅ Add player to session (searchable dropdown from existing players, shows displayName + phone)
-- ✅ Remove player from session (with confirmation)
 
 ---
 
@@ -411,4 +421,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Mar 2026 — Config system complete. HourlyRate CRUD inline on config page. Session enhancements: location/duration fields, config pre-fill, map links, overlap guard, admin auto-register. Session detail page complete: attendee list, precedence-sorted waitlist, add/remove player. Remaining: RSVP enforcement, Leaflet minimap, manual waitlist promote.*
+*Last updated: Mar 2026 — Config system complete. HourlyRate CRUD inline on config page. Session enhancements complete: location/duration fields, config pre-fill, map links, OpenStreetMap minimap, overlap guard, admin auto-register, RSVP enforcement (registration until session start, cancel blocked for confirmed within close window), unified session detail page, sessions list with row-click/hover/archive/date-filter, quick drop-in with phone lookup (never overwrites existing player). Remaining: manual waitlist promote.*
