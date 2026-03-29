@@ -77,26 +77,24 @@ export default async function HomePage() {
         className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
         aria-labelledby="game-date-heading"
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-2 mb-2">
           <CalendarDays
-            className="mt-0.5 h-6 w-6 shrink-0 text-green-700 dark:text-green-500"
+            className="h-5 w-5 shrink-0 text-green-700 dark:text-green-500"
             aria-hidden
           />
-          <div>
-            <h2 id="game-date-heading" className="text-lg font-semibold">
-              מועד המפגש
-            </h2>
-            {game ? (
-              <p className="mt-1 text-base text-zinc-700 dark:text-zinc-300">
-                {formatGameDate(game.date)}
-              </p>
-            ) : (
-              <p className="mt-1 text-base text-zinc-600 dark:text-zinc-400">
-                אין מפגש מתוזמן
-              </p>
-            )}
-          </div>
+          <h2 id="game-date-heading" className="text-lg font-semibold">
+            מועד המפגש
+          </h2>
         </div>
+        {game ? (
+          <p className="text-base text-zinc-700 dark:text-zinc-300">
+            {formatGameDate(game.date)}
+          </p>
+        ) : (
+          <p className="text-base text-zinc-600 dark:text-zinc-400">
+            אין מפגש מתוזמן
+          </p>
+        )}
       </section>
 
       {game && (game.locationName || (game.locationLat && game.locationLng)) && (

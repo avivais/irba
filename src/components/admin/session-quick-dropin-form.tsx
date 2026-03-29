@@ -17,17 +17,25 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneBlurred, setPhoneBlurred] = useState(false);
 
-  const phoneDigits = phone.replace(/\D/g, "");
-  const isValid = name.trim().length > 0 && ISRAELI_MOBILE.test(phoneDigits);
+  const isPhoneValid = ISRAELI_MOBILE.test(phone);
+  const isValid = name.trim().length > 0 && isPhoneValid;
+  const showPhoneError = phoneBlurred && phone.length > 0 && !isPhoneValid;
 
   useEffect(() => {
     if (state.ok) {
       formRef.current?.reset();
       setName("");
       setPhone("");
+      setPhoneBlurred(false);
     }
   }, [state]);
+
+  function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
+    // Strip everything except digits
+    setPhone(e.target.value.replace(/\D/g, ""));
+  }
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-3">
@@ -52,8 +60,13 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
           placeholder="05XXXXXXXX"
           dir="ltr"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="min-w-0 w-36 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+          onChange={handlePhoneChange}
+          onBlur={() => setPhoneBlurred(true)}
+          className={`min-w-0 w-36 rounded-lg border px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 dark:text-zinc-100 ${
+            showPhoneError
+              ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/30 dark:border-red-500 dark:bg-red-950/20"
+              : "border-zinc-300 bg-white focus:border-zinc-500 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-800"
+          }`}
         />
         <button
           type="submit"
@@ -68,6 +81,11 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
           הוסף
         </button>
       </div>
+      {showPhoneError && (
+        <p className="text-xs text-red-600 dark:text-red-400">
+          מספר טלפון לא תקין — נדרש פורמט 05XXXXXXXX
+        </p>
+      )}
       {state.message && (
         <p
           role={state.ok ? "status" : "alert"}
