@@ -56,7 +56,10 @@ export default async function AdminSessionsPage() {
                 className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 {/* Session info */}
-                <div className="flex min-w-0 flex-col gap-0.5">
+                <Link
+                  href={`/admin/sessions/${session.id}`}
+                  className="flex min-w-0 flex-col gap-0.5 hover:opacity-80"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
                       {formatGameDate(session.date)}
@@ -76,7 +79,7 @@ export default async function AdminSessionsPage() {
                       {session._count.attendances} / {session.maxPlayers} נרשמים
                     </span>
                   </div>
-                </div>
+                </Link>
 
                 {/* Actions */}
                 <div className="flex shrink-0 flex-wrap items-center gap-2">

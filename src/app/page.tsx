@@ -4,6 +4,7 @@ import { RsvpForm } from "@/components/rsvp-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatGameDate } from "@/lib/format-date";
 import { getNextGame } from "@/lib/game";
+import { getConfigInt, CONFIG } from "@/lib/config";
 import { maskPhone } from "@/lib/mask-phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { prisma } from "@/lib/prisma";
@@ -17,8 +18,16 @@ export const metadata: Metadata = { title: "המפגש הבא" };
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const game = await getNextGame();
-  const sessionPlayerId = await getSessionPlayerId();
+  const [game, closeHours, sessionPlayerId] = await Promise.all([
+    getNextGame(),
+    getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
+    getSessionPlayerId(),
+  ]);
+
+  const isRsvpOpen =
+    game !== null &&
+    !game.isClosed &&
+    Date.now() < game.date.getTime() - closeHours * 3_600_000;
 
   const attendances = game
     ? await prisma.attendance.findMany({
@@ -122,10 +131,18 @@ export default async function HomePage() {
         </section>
       )}
 
-      {game && !game.isClosed && (
+      {game && isRsvpOpen && (
         <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
           <h2 className="sr-only">הרשמה</h2>
           <RsvpForm />
+        </section>
+      )}
+
+      {game && !isRsvpOpen && (
+        <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <p className="text-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            ההרשמה למפגש זה נסגרה
+          </p>
         </section>
       )}
 

@@ -205,6 +205,57 @@ export async function deleteSessionAction(
   return { ok: true, message: "המפגש נמחק" };
 }
 
+export async function addAttendanceAction(
+  sessionId: string,
+  _prev: SessionActionState,
+  formData: FormData,
+): Promise<SessionActionState> {
+  await requireAdmin();
+
+  const playerId = formData.get("playerId")?.toString();
+  if (!playerId) return { ok: false, message: "לא נבחר שחקן" };
+
+  try {
+    await prisma.attendance.create({
+      data: { playerId, gameSessionId: sessionId },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, message: "השחקן כבר רשום למפגש זה" };
+    }
+    console.error("addAttendanceAction failed", e);
+    return { ok: false, message: GENERIC_ERROR };
+  }
+
+  revalidatePath(`/admin/sessions/${sessionId}`);
+  revalidatePath("/");
+  return { ok: true, message: "השחקן נוסף" };
+}
+
+export async function removeAttendanceAction(
+  sessionId: string,
+  attendanceId: string,
+  _prev: SessionActionState,
+  _formData: FormData,
+): Promise<SessionActionState> {
+  await requireAdmin();
+
+  try {
+    await prisma.attendance.delete({ where: { id: attendanceId } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+      // Already removed — treat as success
+    } else {
+      console.error("removeAttendanceAction failed", e);
+      return { ok: false, message: GENERIC_ERROR };
+    }
+  }
+
+  revalidatePath(`/admin/sessions/${sessionId}`);
+  revalidatePath("/");
+  return { ok: true };
+}
+
 export async function toggleSessionAction(
   id: string,
   _prev: SessionActionState,

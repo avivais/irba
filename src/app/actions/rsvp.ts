@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { getNextGame } from "@/lib/game";
+import { getConfigInt, CONFIG } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { parseAttendFormFields } from "@/lib/rsvp-validation";
 import {
@@ -43,11 +44,16 @@ export async function attendAction(
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
-  const game = await getNextGame();
+  const [game, closeHours] = await Promise.all([
+    getNextGame(),
+    getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
+  ]);
   if (!game) {
     return { ok: false, message: "אין מפגש מתוזמן" };
   }
-  if (game.isClosed) {
+  const isRsvpOpen =
+    !game.isClosed && Date.now() < game.date.getTime() - closeHours * 3_600_000;
+  if (!isRsvpOpen) {
     return { ok: false, message: "ההרשמה למפגש סגורה" };
   }
 
@@ -58,7 +64,11 @@ export async function attendAction(
       const gameRow = await tx.gameSession.findUnique({
         where: { id: game.id },
       });
-      if (!gameRow || gameRow.isClosed) {
+      const txRsvpOpen =
+        gameRow &&
+        !gameRow.isClosed &&
+        Date.now() < gameRow.date.getTime() - closeHours * 3_600_000;
+      if (!txRsvpOpen) {
         throw new Error("GAME_CLOSED");
       }
 

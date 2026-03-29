@@ -296,24 +296,36 @@ export function SessionForm(props: Props) {
         </div>
 
         {hasLatLng && (
-          <div className="flex flex-wrap gap-3 text-sm">
-            <a
-              href={`https://www.google.com/maps?q=${locationLat},${locationLng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              Google Maps ↗
-            </a>
-            <a
-              href={`https://waze.com/ul?ll=${locationLat},${locationLng}&navigate=yes`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              Waze ↗
-            </a>
-          </div>
+          <>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <a
+                href={`https://www.google.com/maps?q=${locationLat},${locationLng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                Google Maps ↗
+              </a>
+              <a
+                href={`https://waze.com/ul?ll=${locationLat},${locationLng}&navigate=yes`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                Waze ↗
+              </a>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+              <iframe
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(locationLng) - 0.005},${parseFloat(locationLat) - 0.005},${parseFloat(locationLng) + 0.005},${parseFloat(locationLat) + 0.005}&layer=mapnik&marker=${locationLat},${locationLng}`}
+                width="100%"
+                height="200"
+                style={{ border: 0 }}
+                title="מפה"
+                loading="lazy"
+              />
+            </div>
+          </>
         )}
       </div>
 

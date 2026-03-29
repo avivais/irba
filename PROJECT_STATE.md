@@ -226,9 +226,12 @@ See "Config system" and "Hourly rates" sections under "What exists today".
 **Remaining:**
 - [ ] Leaflet minimap on public page and admin form (OpenStreetMap, no API key)
 - [ ] RSVP enforcement: block attend if `now >= session.date - rsvp_close_hours`; UI indicator on public page
-- [ ] Admin session detail page (`/admin/sessions/[id]`): attendee list + sorted waitlist view
-- [ ] Add player to session (searchable dropdown from existing players) + remove player actions
 - [ ] Manual waitlist promote action (admin only)
+
+**Done:**
+- ✅ Admin session detail page (`/admin/sessions/[id]`): attendee list + precedence-sorted waitlist
+- ✅ Add player to session (searchable dropdown from existing players, shows displayName + phone)
+- ✅ Remove player from session (with confirmation)
 
 ---
 
@@ -408,4 +411,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Mar 2026 — Config system complete (AppConfig + config-keys.ts client/server split). HourlyRate model + CRUD inline on config page. Session enhancements partially done: location/duration fields, config pre-fill, map links, overlap guard, admin auto-register. Remaining: session detail page, RSVP enforcement, Leaflet minimap.*
+*Last updated: Mar 2026 — Config system complete. HourlyRate CRUD inline on config page. Session enhancements: location/duration fields, config pre-fill, map links, overlap guard, admin auto-register. Session detail page complete: attendee list, precedence-sorted waitlist, add/remove player. Remaining: RSVP enforcement, Leaflet minimap, manual waitlist promote.*

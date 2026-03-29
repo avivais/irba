@@ -1,0 +1,256 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { CalendarDays, MapPin, Pencil, Users } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { formatGameDate } from "@/lib/format-date";
+import { getPlayerDisplayName } from "@/lib/player-display";
+import { computePrecedenceScores } from "@/lib/precedence";
+import { SessionToggleButton } from "@/components/admin/session-toggle-button";
+import { SessionRemoveAttendanceButton } from "@/components/admin/session-remove-attendance-button";
+import { SessionAddPlayerForm } from "@/components/admin/session-add-player-form";
+
+export const metadata: Metadata = { title: "פרטי מפגש" };
+export const dynamic = "force-dynamic";
+
+type Props = { params: Promise<{ id: string }> };
+
+export default async function AdminSessionDetailPage({ params }: Props) {
+  const { id } = await params;
+
+  const [session, yearWeights] = await Promise.all([
+    prisma.gameSession.findUnique({
+      where: { id },
+      include: {
+        attendances: {
+          orderBy: { createdAt: "asc" },
+          include: { player: true },
+        },
+      },
+    }),
+    prisma.yearWeight.findMany(),
+  ]);
+  if (!session) notFound();
+
+  const confirmed = session.attendances.slice(0, session.maxPlayers);
+  const waitlistRaw = session.attendances.slice(session.maxPlayers);
+  const attendingIds = new Set(session.attendances.map((a) => a.playerId));
+
+  // Sort waitlist: REGISTERED by precedence desc, DROP_IN by createdAt asc (already ordered)
+  const currentYear = new Date().getFullYear();
+  let waiting = waitlistRaw;
+  if (waitlistRaw.length > 0) {
+    const registeredWaiting = waitlistRaw.filter((a) => a.player.playerKind === "REGISTERED");
+    const dropinWaiting = waitlistRaw.filter((a) => a.player.playerKind === "DROP_IN");
+
+    if (registeredWaiting.length > 1 && yearWeights.length > 0) {
+      const playerIds = registeredWaiting.map((a) => a.playerId);
+      const [aggregates, adjustments, liveCounts] = await Promise.all([
+        prisma.playerYearAggregate.findMany({ where: { playerId: { in: playerIds } } }),
+        prisma.playerAdjustment.findMany({ where: { playerId: { in: playerIds } } }),
+        prisma.attendance.groupBy({
+          by: ["playerId"],
+          where: { playerId: { in: playerIds }, gameSession: { date: { gte: new Date(currentYear, 0, 1) } } },
+          _count: { id: true },
+        }),
+      ]);
+      const liveMap = new Map(liveCounts.map((r) => [r.playerId, r._count.id]));
+      const scored = computePrecedenceScores(
+        registeredWaiting.map((a) => ({
+          id: a.playerId,
+          playerName: getPlayerDisplayName(a.player),
+          aggregates: aggregates.filter((ag) => ag.playerId === a.playerId).map((ag) => ({ year: ag.year, count: ag.count })),
+          liveCount: liveMap.get(a.playerId) ?? 0,
+          adjustments: adjustments.filter((adj) => adj.playerId === a.playerId).map((adj) => ({ points: adj.points })),
+        })),
+        yearWeights,
+        currentYear,
+      );
+      const scoreMap = new Map(scored.map((r) => [r.playerId, r.totalScore]));
+      registeredWaiting.sort((a, b) => (scoreMap.get(b.playerId) ?? 0) - (scoreMap.get(a.playerId) ?? 0));
+    }
+    waiting = [...registeredWaiting, ...dropinWaiting];
+  }
+
+  const allPlayers = await prisma.player.findMany({
+    orderBy: [{ firstNameHe: "asc" }, { firstNameEn: "asc" }],
+    select: {
+      id: true,
+      firstNameHe: true, lastNameHe: true,
+      firstNameEn: true, lastNameEn: true,
+      nickname: true, phone: true,
+    },
+  });
+  const availablePlayers = allPlayers
+    .filter((p) => !attendingIds.has(p.id))
+    .map((p) => ({ id: p.id, displayName: getPlayerDisplayName(p), phone: p.phone }));
+
+  return (
+    <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
+      {/* Header */}
+      <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/sessions"
+            className="text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white"
+          >
+            → חזרה לרשימה
+          </Link>
+          <span className="text-zinc-300 dark:text-zinc-600">|</span>
+          <h1 className="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">
+            <CalendarDays className="h-5 w-5" aria-hidden />
+            פרטי מפגש
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <SessionToggleButton id={id} isClosed={session.isClosed} />
+          <Link
+            href={`/admin/sessions/${id}/edit`}
+            className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+            עריכה
+          </Link>
+        </div>
+      </header>
+
+      {/* Session info */}
+      <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            {formatGameDate(session.date)}
+          </span>
+          <span
+            className={`rounded px-2 py-0.5 text-sm font-medium ${
+              session.isClosed
+                ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+            }`}
+          >
+            {session.isClosed ? "סגור להרשמה" : "פתוח להרשמה"}
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <span>
+            {session.attendances.length} / {session.maxPlayers} נרשמים
+          </span>
+          {session.durationMinutes && (
+            <span>משך: {session.durationMinutes} דקות</span>
+          )}
+        </div>
+        {(session.locationName || (session.locationLat && session.locationLng)) && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+              {session.locationName}
+            </span>
+            {session.locationLat && session.locationLng && (
+              <span className="flex gap-3">
+                <a
+                  href={`https://www.google.com/maps?q=${session.locationLat},${session.locationLng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
+                >
+                  Google Maps ↗
+                </a>
+                <a
+                  href={`https://waze.com/ul?ll=${session.locationLat},${session.locationLng}&navigate=yes`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
+                >
+                  Waze ↗
+                </a>
+              </span>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Attendance */}
+      <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="mb-4 flex items-center gap-2">
+          <Users className="h-5 w-5 text-zinc-600 dark:text-zinc-400" aria-hidden />
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            משתתפים
+          </h2>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            ({confirmed.length}/{session.maxPlayers})
+          </span>
+        </div>
+
+        {confirmed.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">אין נרשמים עדיין.</p>
+        ) : (
+          <ol className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
+            {confirmed.map((row, index) => (
+              <li key={row.id} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="w-5 tabular-nums text-zinc-400 dark:text-zinc-500">
+                    {index + 1}.
+                  </span>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {getPlayerDisplayName(row.player)}
+                  </span>
+                  {row.player.playerKind === "DROP_IN" && (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                      מזדמן
+                    </span>
+                  )}
+                  <span className="tabular-nums text-zinc-400 dark:text-zinc-500">
+                    {row.player.phone}
+                  </span>
+                </span>
+                <SessionRemoveAttendanceButton
+                  sessionId={id}
+                  attendanceId={row.id}
+                  playerName={getPlayerDisplayName(row.player)}
+                />
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {waiting.length > 0 && (
+          <div className="mt-5">
+            <h3 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              רשימת המתנה ({waiting.length})
+            </h3>
+            <ol className="flex flex-col divide-y divide-amber-100 dark:divide-amber-900/30">
+              {waiting.map((row, index) => (
+                <li key={row.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="w-5 tabular-nums text-zinc-400 dark:text-zinc-500">
+                      {index + 1}.
+                    </span>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {getPlayerDisplayName(row.player)}
+                    </span>
+                    {row.player.playerKind === "DROP_IN" && (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                        מזדמן
+                      </span>
+                    )}
+                    <span className="tabular-nums text-zinc-400 dark:text-zinc-500">
+                      {row.player.phone}
+                    </span>
+                  </span>
+                  <SessionRemoveAttendanceButton
+                    sessionId={id}
+                    attendanceId={row.id}
+                    playerName={getPlayerDisplayName(row.player)}
+                  />
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+          <SessionAddPlayerForm sessionId={id} players={availablePlayers} />
+        </div>
+      </section>
+    </div>
+  );
+}
