@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
+import { getPlayerDisplayName } from "@/lib/player-display";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
 
@@ -53,7 +54,6 @@ export async function quickAddDropInAction(
 
   const name = formData.get("name")?.toString().trim() ?? "";
   const rawPhone = formData.get("phone")?.toString().trim() ?? "";
-  if (!name) return { ok: false, message: "נא להזין שם" };
   if (!rawPhone) return { ok: false, message: "נא להזין טלפון" };
 
   let phone: string;
@@ -72,25 +72,59 @@ export async function quickAddDropInAction(
   });
   if (!session) return { ok: false, message: "מפגש לא נמצא" };
 
-  try {
-    const player = await prisma.player.upsert({
-      where: { phone },
-      update: { firstNameHe: name },
-      create: { phone, firstNameHe: name, playerKind: "DROP_IN" },
-    });
-    await prisma.attendance.create({
-      data: { playerId: player.id, gameSessionId: sessionId },
-    });
-  } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { ok: false, message: "השחקן כבר רשום למפגש זה" };
-    }
-    throw e;
-  }
+  const existing = await prisma.player.findUnique({ where: { phone }, select: { id: true } });
+  if (!existing && !name) return { ok: false, message: "נא להזין שם" };
+  const playerId = existing
+    ? existing.id
+    : (await prisma.player.create({ data: { phone, firstNameHe: name, playerKind: "DROP_IN" }, select: { id: true } })).id;
+
+  const alreadyRegistered = await prisma.attendance.findFirst({
+    where: { playerId, gameSessionId: sessionId },
+    select: { id: true },
+  });
+  if (alreadyRegistered) return { ok: false, message: "השחקן כבר רשום למפגש זה" };
+
+  await prisma.attendance.create({ data: { playerId, gameSessionId: sessionId } });
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
   return { ok: true, message: "המזדמן נוסף" };
+}
+
+export type PhoneLookupResult =
+  | { status: "new" }
+  | { status: "existing_not_registered"; displayName: string }
+  | { status: "already_registered"; displayName: string };
+
+export async function lookupPlayerByPhoneAction(
+  sessionId: string,
+  rawPhone: string,
+): Promise<PhoneLookupResult> {
+  await requireAdmin();
+
+  let phone: string;
+  try {
+    phone = normalizePhone(rawPhone);
+  } catch {
+    return { status: "new" };
+  }
+
+  const player = await prisma.player.findUnique({
+    where: { phone },
+    select: { id: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true },
+  });
+  if (!player) return { status: "new" };
+
+  const displayName = getPlayerDisplayName(player);
+
+  const attending = await prisma.attendance.findFirst({
+    where: { playerId: player.id, gameSessionId: sessionId },
+    select: { id: true },
+  });
+
+  return attending
+    ? { status: "already_registered", displayName }
+    : { status: "existing_not_registered", displayName };
 }
 
 export async function removePlayerAction(
