@@ -104,23 +104,24 @@ export default async function HomePage() {
           className="mx-auto mt-4 w-full max-w-lg md:max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
           aria-labelledby="game-location-heading"
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-2 mb-3">
             <MapPin
-              className="mt-0.5 h-6 w-6 shrink-0 text-blue-600 dark:text-blue-400"
+              className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400"
               aria-hidden
             />
-            <div className="min-w-0 flex-1">
-              <h2 id="game-location-heading" className="text-lg font-semibold">
-                מיקום
-              </h2>
+            <h2 id="game-location-heading" className="text-lg font-semibold">
+              מיקום
+            </h2>
+          </div>
+          <div>
               {game.locationName && (
-                <p className="mt-1 text-base text-zinc-700 dark:text-zinc-300">
+                <p className="mb-3 text-base text-zinc-700 dark:text-zinc-300">
                   {game.locationName}
                 </p>
               )}
               {game.locationLat && game.locationLng && (
                 <>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <a
                       href={`https://waze.com/ul?ll=${game.locationLat},${game.locationLng}&navigate=yes`}
                       target="_blank"
@@ -150,7 +151,6 @@ export default async function HomePage() {
                   </div>
                 </>
               )}
-            </div>
           </div>
         </section>
       )}

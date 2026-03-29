@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
-import { normalizePhone } from "@/lib/phone";
+import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
 
@@ -56,8 +56,15 @@ export async function quickAddDropInAction(
   if (!name) return { ok: false, message: "נא להזין שם" };
   if (!rawPhone) return { ok: false, message: "נא להזין טלפון" };
 
-  const phone = normalizePhone(rawPhone);
-  if (!phone) return { ok: false, message: "מספר טלפון לא תקין (05XXXXXXXX)" };
+  let phone: string;
+  try {
+    phone = normalizePhone(rawPhone);
+  } catch (e) {
+    if (e instanceof PhoneValidationError) {
+      return { ok: false, message: "מספר טלפון לא תקין (05XXXXXXXX)" };
+    }
+    throw e;
+  }
 
   const session = await prisma.gameSession.findUnique({
     where: { id: sessionId },
