@@ -27,11 +27,22 @@
       "Bash(curl -s http://localhost:8080/metrics)",
       "Bash(curl -s http://localhost:2000/metrics)",
       "Bash(curl -s http://localhost:2019/metrics)",
-      "Bash(curl -s http://localhost:8081/quicktunnel)"
+      "Bash(curl -s http://localhost:8081/quicktunnel)",
+      "Bash(pkill -f next-server)",
+      "Bash(pkill -f 'npm run')",
+      "Bash(docker ps:*)",
+      "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/sessions/[id]/page.tsx)",
+      "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/sessions/page.tsx)",
+      "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/sessions/[id]/edit/page.tsx)",
+      "Bash(python3 -c \"import json,sys; runs=json.load\\(sys.stdin\\); [print\\(r[''''databaseId''''], r[''''name''''], r[''''status''''], r[''''conclusion'''']\\) for r in runs]\")",
+      "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/sessions/actions.ts)",
+      "Bash(sed -i '' 's/where: { date: { gte: now } }/where: { date: { gte: now }, isArchived: false }/' /Users/avivais/Development/irba/src/lib/game.ts)",
+      "Bash(sed -i '' 's|\\\\/\\\\*\\\\* Next upcoming game session \\(from now\\), regardless of isClosed status. \\\\*\\\\/|/** Next upcoming game session \\(from now\\), excluding archived sessions. */|' /Users/avivais/Development/irba/src/lib/game.ts)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]",
-      "/Users/avivais/Development/irba/src/app/admin/(protected)/config/rates/[id]/edit"
+      "/Users/avivais/Development/irba/src/app/admin/(protected)/config/rates/[id]/edit",
+      "/Users/avivais/Development/irba"
     ]
   }
 }

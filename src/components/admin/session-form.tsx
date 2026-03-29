@@ -129,6 +129,9 @@ export function SessionForm(props: Props) {
       ? state.message
       : null;
 
+  const successMessage =
+    !pending && state.ok && state.message ? state.message : null;
+
   return (
     <form
       action={formAction}
@@ -359,6 +362,15 @@ export function SessionForm(props: Props) {
           className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-900 dark:bg-red-950/50 dark:text-red-100"
         >
           {serverError}
+        </p>
+      )}
+
+      {successMessage && (
+        <p
+          role="status"
+          className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
+        >
+          {successMessage}
         </p>
       )}
 

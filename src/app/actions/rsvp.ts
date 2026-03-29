@@ -44,16 +44,13 @@ export async function attendAction(
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
-  const [game, closeHours] = await Promise.all([
-    getNextGame(),
-    getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
-  ]);
+  const game = await getNextGame();
   if (!game) {
     return { ok: false, message: "אין מפגש מתוזמן" };
   }
-  const isRsvpOpen =
-    !game.isClosed && Date.now() < game.date.getTime() - closeHours * 3_600_000;
-  if (!isRsvpOpen) {
+  // Allow registration until the session actually starts (not just the close window)
+  const now = Date.now();
+  if (game.isClosed || now >= game.date.getTime()) {
     return { ok: false, message: "ההרשמה למפגש סגורה" };
   }
 
@@ -64,11 +61,7 @@ export async function attendAction(
       const gameRow = await tx.gameSession.findUnique({
         where: { id: game.id },
       });
-      const txRsvpOpen =
-        gameRow &&
-        !gameRow.isClosed &&
-        Date.now() < gameRow.date.getTime() - closeHours * 3_600_000;
-      if (!txRsvpOpen) {
+      if (!gameRow || gameRow.isClosed || Date.now() >= gameRow.date.getTime()) {
         throw new Error("GAME_CLOSED");
       }
 
@@ -147,9 +140,36 @@ export async function cancelAttendanceAction(
     return { ok: false, message: "לא נמצאה הרשמה פעילה" };
   }
 
-  const game = await getNextGame();
+  const [game, closeHours] = await Promise.all([
+    getNextGame(),
+    getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
+  ]);
   if (!game) {
     return { ok: false, message: "אין מפגש מתוזמן" };
+  }
+
+  // Determine if player is confirmed or on the waitlist
+  const attendances = await prisma.attendance.findMany({
+    where: { gameSessionId: game.id },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, playerId: true },
+  });
+
+  const playerIndex = attendances.findIndex((a) => a.playerId === playerId);
+  if (playerIndex === -1) {
+    return { ok: false, message: "לא נמצאה הרשמה פעילה" };
+  }
+
+  const isConfirmed = playerIndex < game.maxPlayers;
+  const withinCloseWindow =
+    Date.now() >= game.date.getTime() - closeHours * 3_600_000;
+
+  // Confirmed players cannot cancel within the close window
+  if (isConfirmed && withinCloseWindow) {
+    return {
+      ok: false,
+      message: "ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל",
+    };
   }
 
   try {

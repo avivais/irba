@@ -52,6 +52,7 @@ model GameSession {
   date            DateTime
   maxPlayers      Int      @default(15)
   isClosed        Boolean  @default(false)
+  isArchived      Boolean  @default(false)
   durationMinutes Int?
   locationName    String?
   locationLat     Float?

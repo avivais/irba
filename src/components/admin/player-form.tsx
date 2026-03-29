@@ -153,7 +153,6 @@ export function PlayerForm(props: Props) {
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reset submitting button tracking when the action finishes

@@ -24,10 +24,13 @@ export default async function HomePage() {
     getSessionPlayerId(),
   ]);
 
+  const nowMs = new Date().getTime();
+
+  // Registration open until session starts (not just the close window)
   const isRsvpOpen =
     game !== null &&
     !game.isClosed &&
-    Date.now() < game.date.getTime() - closeHours * 3_600_000;
+    nowMs < game.date.getTime();
 
   const attendances = game
     ? await prisma.attendance.findMany({
@@ -41,9 +44,18 @@ export default async function HomePage() {
   const confirmed = attendances.slice(0, max);
   const waiting = attendances.slice(max);
 
-  const userIsAttending =
-    !!sessionPlayerId &&
-    attendances.some((a) => a.playerId === sessionPlayerId);
+  const userAttendance = sessionPlayerId
+    ? attendances.find((a) => a.playerId === sessionPlayerId)
+    : null;
+  const userIsAttending = !!userAttendance;
+
+  // Waitlisted players can always cancel; confirmed players cannot cancel within the close window
+  const userIsWaitlisted = userAttendance
+    ? attendances.indexOf(userAttendance) >= max
+    : false;
+  const withinCloseWindow =
+    game !== null && nowMs >= game.date.getTime() - closeHours * 3_600_000;
+  const canCancel = userIsAttending && (userIsWaitlisted || !withinCloseWindow);
 
   return (
     <div className="flex flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -97,7 +109,7 @@ export default async function HomePage() {
               className="mt-0.5 h-6 w-6 shrink-0 text-blue-600 dark:text-blue-400"
               aria-hidden
             />
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 id="game-location-heading" className="text-lg font-semibold">
                 מיקום
               </h2>
@@ -107,24 +119,36 @@ export default async function HomePage() {
                 </p>
               )}
               {game.locationLat && game.locationLng && (
-                <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                  <a
-                    href={`https://www.google.com/maps?q=${game.locationLat},${game.locationLng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline hover:text-blue-700 active:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 dark:active:text-blue-100"
-                  >
-                    Google Maps ↗
-                  </a>
-                  <a
-                    href={`https://waze.com/ul?ll=${game.locationLat},${game.locationLng}&navigate=yes`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline hover:text-blue-700 active:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 dark:active:text-blue-100"
-                  >
-                    Waze ↗
-                  </a>
-                </div>
+                <>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a
+                      href={`https://waze.com/ul?ll=${game.locationLat},${game.locationLng}&navigate=yes`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-600 active:bg-sky-700"
+                    >
+                      נווט עם Waze
+                    </a>
+                    <a
+                      href={`https://www.google.com/maps?q=${game.locationLat},${game.locationLng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    >
+                      Google Maps ↗
+                    </a>
+                  </div>
+                  <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <iframe
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${game.locationLng - 0.005},${game.locationLat - 0.005},${game.locationLng + 0.005},${game.locationLat + 0.005}&layer=mapnik&marker=${game.locationLat},${game.locationLng}`}
+                      width="100%"
+                      height="180"
+                      style={{ border: 0 }}
+                      title="מפה"
+                      loading="lazy"
+                    />
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -146,7 +170,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {game && userIsAttending && (
+      {userIsAttending && canCancel && (
         <section
           className="mx-auto mt-6 w-full max-w-lg md:max-w-2xl"
           aria-labelledby="cancel-heading"
@@ -155,6 +179,14 @@ export default async function HomePage() {
             ביטול הגעה
           </h2>
           <CancelRsvpForm />
+        </section>
+      )}
+
+      {userIsAttending && !canCancel && (
+        <section className="mx-auto mt-6 w-full max-w-lg md:max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30">
+          <p className="text-center text-sm text-amber-800 dark:text-amber-300">
+            ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל
+          </p>
         </section>
       )}
 

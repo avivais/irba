@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, Pencil, Users } from "lucide-react";
+import { CalendarDays, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatGameDate } from "@/lib/format-date";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePrecedenceScores } from "@/lib/precedence";
-import { SessionToggleButton } from "@/components/admin/session-toggle-button";
-import { SessionRemoveAttendanceButton } from "@/components/admin/session-remove-attendance-button";
+import { SessionForm } from "@/components/admin/session-form";
+import { SessionRemoveButton } from "@/components/admin/session-remove-button";
 import { SessionAddPlayerForm } from "@/components/admin/session-add-player-form";
+import { SessionQuickDropInForm } from "@/components/admin/session-quick-dropin-form";
+import { SessionArchiveButton } from "@/components/admin/session-archive-button";
+import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 
-export const metadata: Metadata = { title: "פרטי מפגש" };
+export const metadata: Metadata = { title: "עריכת מפגש" };
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
-export default async function AdminSessionDetailPage({ params }: Props) {
+export default async function AdminSessionPage({ params }: Props) {
   const { id } = await params;
 
   const [session, yearWeights] = await Promise.all([
@@ -26,6 +29,7 @@ export default async function AdminSessionDetailPage({ params }: Props) {
           orderBy: { createdAt: "asc" },
           include: { player: true },
         },
+        _count: { select: { attendances: true } },
       },
     }),
     prisma.yearWeight.findMany(),
@@ -85,6 +89,18 @@ export default async function AdminSessionDetailPage({ params }: Props) {
     .filter((p) => !attendingIds.has(p.id))
     .map((p) => ({ id: p.id, displayName: getPlayerDisplayName(p), phone: p.phone }));
 
+  const sessionData = {
+    id: session.id,
+    date: session.date,
+    maxPlayers: session.maxPlayers,
+    isClosed: session.isClosed,
+    durationMinutes: session.durationMinutes,
+    locationName: session.locationName,
+    locationLat: session.locationLat,
+    locationLng: session.locationLng,
+  };
+
+
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
       {/* Header */}
@@ -99,73 +115,18 @@ export default async function AdminSessionDetailPage({ params }: Props) {
           <span className="text-zinc-300 dark:text-zinc-600">|</span>
           <h1 className="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">
             <CalendarDays className="h-5 w-5" aria-hidden />
-            פרטי מפגש
+            {formatGameDate(session.date)}
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <SessionToggleButton id={id} isClosed={session.isClosed} />
-          <Link
-            href={`/admin/sessions/${id}/edit`}
-            className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-          >
-            <Pencil className="h-3.5 w-3.5" aria-hidden />
-            עריכה
-          </Link>
+          <SessionArchiveButton id={id} isArchived={session.isArchived} />
+          <SessionDeleteButton id={id} attendanceCount={session._count.attendances} />
         </div>
       </header>
 
-      {/* Session info */}
+      {/* Session form */}
       <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            {formatGameDate(session.date)}
-          </span>
-          <span
-            className={`rounded px-2 py-0.5 text-sm font-medium ${
-              session.isClosed
-                ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-            }`}
-          >
-            {session.isClosed ? "סגור להרשמה" : "פתוח להרשמה"}
-          </span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
-          <span>
-            {session.attendances.length} / {session.maxPlayers} נרשמים
-          </span>
-          {session.durationMinutes && (
-            <span>משך: {session.durationMinutes} דקות</span>
-          )}
-        </div>
-        {(session.locationName || (session.locationLat && session.locationLng)) && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-              {session.locationName}
-            </span>
-            {session.locationLat && session.locationLng && (
-              <span className="flex gap-3">
-                <a
-                  href={`https://www.google.com/maps?q=${session.locationLat},${session.locationLng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
-                >
-                  Google Maps ↗
-                </a>
-                <a
-                  href={`https://waze.com/ul?ll=${session.locationLat},${session.locationLng}&navigate=yes`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
-                >
-                  Waze ↗
-                </a>
-              </span>
-            )}
-          </div>
-        )}
+        <SessionForm mode="edit" session={sessionData} />
       </section>
 
       {/* Attendance */}
@@ -202,7 +163,7 @@ export default async function AdminSessionDetailPage({ params }: Props) {
                     {row.player.phone}
                   </span>
                 </span>
-                <SessionRemoveAttendanceButton
+                <SessionRemoveButton
                   sessionId={id}
                   attendanceId={row.id}
                   playerName={getPlayerDisplayName(row.player)}
@@ -236,7 +197,7 @@ export default async function AdminSessionDetailPage({ params }: Props) {
                       {row.player.phone}
                     </span>
                   </span>
-                  <SessionRemoveAttendanceButton
+                  <SessionRemoveButton
                     sessionId={id}
                     attendanceId={row.id}
                     playerName={getPlayerDisplayName(row.player)}
@@ -247,8 +208,11 @@ export default async function AdminSessionDetailPage({ params }: Props) {
           </div>
         )}
 
-        <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <div className="mt-5 space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
           <SessionAddPlayerForm sessionId={id} players={availablePlayers} />
+          <div className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
+            <SessionQuickDropInForm sessionId={id} />
+          </div>
         </div>
       </section>
     </div>

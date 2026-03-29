@@ -1,17 +1,37 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, Plus, Pencil } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatGameDate } from "@/lib/format-date";
-import { SessionDeleteButton } from "@/components/admin/session-delete-button";
-import { SessionToggleButton } from "@/components/admin/session-toggle-button";
+import { SessionList } from "@/components/admin/session-list";
 
 export const metadata: Metadata = { title: "מפגשים" };
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSessionsPage() {
+type SearchParams = { from?: string; to?: string; archived?: string };
+
+export default async function AdminSessionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const sp = await searchParams;
+  const showArchived = sp.archived === "1";
+  const fromDate = sp.from ? new Date(sp.from) : undefined;
+  const toDate = sp.to ? new Date(sp.to + "T23:59:59") : undefined;
+
   const sessions = await prisma.gameSession.findMany({
+    where: {
+      isArchived: showArchived ? true : false,
+      ...(fromDate || toDate
+        ? {
+            date: {
+              ...(fromDate ? { gte: fromDate } : {}),
+              ...(toDate ? { lte: toDate } : {}),
+            },
+          }
+        : {}),
+    },
     orderBy: { date: "desc" },
     include: { _count: { select: { attendances: true } } },
   });
@@ -42,66 +62,63 @@ export default async function AdminSessionsPage() {
         </Link>
       </header>
 
+      {/* Filters */}
+      <form
+        method="GET"
+        className="mx-auto mt-5 w-full max-w-2xl md:max-w-4xl flex flex-wrap items-end gap-3"
+      >
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">מתאריך</label>
+          <input
+            name="from"
+            type="date"
+            defaultValue={sp.from ?? ""}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">עד תאריך</label>
+          <input
+            name="to"
+            type="date"
+            defaultValue={sp.to ?? ""}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+          <input
+            name="archived"
+            type="checkbox"
+            value="1"
+            defaultChecked={showArchived}
+            className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+          />
+          הצג ארכיון
+        </label>
+        <button
+          type="submit"
+          className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          חפש
+        </button>
+        {(sp.from || sp.to || showArchived) && (
+          <Link
+            href="/admin/sessions"
+            className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            נקה
+          </Link>
+        )}
+      </form>
+
       {/* Session list */}
-      <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl">
+      <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl">
         {sessions.length === 0 ? (
           <p className="text-center text-zinc-500 dark:text-zinc-400">
-            אין מפגשים במערכת עדיין.
+            אין מפגשים להצגה.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
-            {sessions.map((session) => (
-              <li
-                key={session.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                {/* Session info */}
-                <Link
-                  href={`/admin/sessions/${session.id}`}
-                  className="flex min-w-0 flex-col gap-0.5 hover:opacity-80"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {formatGameDate(session.date)}
-                    </span>
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-xs font-normal ${
-                        session.isClosed
-                          ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                          : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                      }`}
-                    >
-                      {session.isClosed ? "סגור" : "פתוח"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
-                    <span>
-                      {session._count.attendances} / {session.maxPlayers} נרשמים
-                    </span>
-                  </div>
-                </Link>
-
-                {/* Actions */}
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <SessionToggleButton
-                    id={session.id}
-                    isClosed={session.isClosed}
-                  />
-                  <Link
-                    href={`/admin/sessions/${session.id}/edit`}
-                    className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
-                  >
-                    <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    עריכה
-                  </Link>
-                  <SessionDeleteButton
-                    id={session.id}
-                    attendanceCount={session._count.attendances}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <SessionList sessions={sessions} />
         )}
       </section>
     </div>

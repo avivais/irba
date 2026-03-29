@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
-import { getAllConfigs, CONFIG } from "@/lib/config";
+import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
 
 /** Return the UTC start and end of the calendar day containing `date` in Israel timezone. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -115,7 +115,7 @@ export async function createSessionAction(
   }
 
   revalidatePath("/admin/sessions");
-  redirect("/admin/sessions");
+  redirect(`/admin/sessions/${newSessionId}`);
 }
 
 export async function updateSessionAction(
@@ -168,8 +168,10 @@ export async function updateSessionAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  revalidatePath(`/admin/sessions/${id}`);
   revalidatePath("/admin/sessions");
-  redirect("/admin/sessions");
+  revalidatePath("/");
+  return { ok: true, message: "נשמר בהצלחה" };
 }
 
 export async function deleteSessionAction(
@@ -202,7 +204,32 @@ export async function deleteSessionAction(
   }
 
   revalidatePath("/admin/sessions");
+  revalidatePath("/");
   return { ok: true, message: "המפגש נמחק" };
+}
+
+export async function archiveSessionAction(
+  id: string,
+  archive: boolean,
+  _prev: SessionActionState,
+  _formData: FormData,
+): Promise<SessionActionState> {
+  await requireAdmin();
+
+  try {
+    await prisma.gameSession.update({
+      where: { id },
+      data: { isArchived: archive },
+    });
+  } catch (e) {
+    console.error("archiveSessionAction failed", e);
+    return { ok: false, message: GENERIC_ERROR };
+  }
+
+  revalidatePath("/admin/sessions");
+  revalidatePath(`/admin/sessions/${id}`);
+  revalidatePath("/");
+  return { ok: true, message: archive ? "המפגש הועבר לארכיון" : "המפגש שוחזר מהארכיון" };
 }
 
 export async function addAttendanceAction(
@@ -263,16 +290,30 @@ export async function toggleSessionAction(
 ): Promise<SessionActionState> {
   await requireAdmin();
 
-  const session = await prisma.gameSession.findUnique({
-    where: { id },
-    select: { isClosed: true },
-  });
+  const [session, closeHours] = await Promise.all([
+    prisma.gameSession.findUnique({
+      where: { id },
+      select: { isClosed: true, date: true },
+    }),
+    getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
+  ]);
 
   if (!session) {
     return { ok: false, message: "מפגש לא נמצא" };
   }
 
   const newClosed = !session.isClosed;
+
+  // Block re-opening a session that is within the RSVP close window
+  if (!newClosed) {
+    const windowStart = session.date.getTime() - closeHours * 3_600_000;
+    if (Date.now() >= windowStart && Date.now() < session.date.getTime()) {
+      return {
+        ok: false,
+        message: `לא ניתן לפתוח מחדש מפגש שנמצא בחלון סגירת ההרשמה (${closeHours} שעות לפני המפגש)`,
+      };
+    }
+  }
 
   try {
     await prisma.gameSession.update({
@@ -285,6 +326,7 @@ export async function toggleSessionAction(
   }
 
   revalidatePath("/admin/sessions");
+  revalidatePath(`/admin/sessions/${id}`);
   revalidatePath("/");
   return { ok: true, message: newClosed ? "המפגש נסגר" : "המפגש נפתח" };
 }
