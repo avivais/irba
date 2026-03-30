@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LogOut, Users, CalendarDays, Trophy, FileUp, Settings } from "lucide-react";
+import { LogOut, Users, CalendarDays, FileUp, Settings } from "lucide-react";
 import { adminLogoutAction } from "@/app/admin/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -37,7 +37,7 @@ export default function AdminHomePage() {
           <div>
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">שחקנים</p>
             <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              הוסף, ערוך ומחק שחקנים
+              שחקנים, קדימות ומשקלות
             </p>
           </div>
         </Link>
@@ -56,21 +56,6 @@ export default function AdminHomePage() {
             </p>
           </div>
         </Link>
-        <Link
-          href="/admin/precedence"
-          className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md active:bg-zinc-100 active:border-zinc-300 focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:active:bg-zinc-800 dark:active:border-zinc-600 dark:focus:ring-zinc-500/30"
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
-            <Trophy className="h-5 w-5 text-zinc-700 dark:text-zinc-300" aria-hidden />
-          </span>
-          <div>
-            <p className="font-semibold text-zinc-900 dark:text-zinc-100">קדימות</p>
-            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              רשימת קדימות ומשקלות
-            </p>
-          </div>
-        </Link>
-
         <Link
           href="/admin/import"
           className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md active:bg-zinc-100 active:border-zinc-300 focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:active:bg-zinc-800 dark:active:border-zinc-600 dark:focus:ring-zinc-500/30"

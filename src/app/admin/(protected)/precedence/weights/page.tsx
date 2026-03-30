@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Scale, Plus, Pencil } from "lucide-react";
+import { Scale, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { YearWeightDeleteButton } from "@/components/admin/year-weight-delete-button";
+import { YearWeightList } from "@/components/admin/year-weight-list";
 
 export const metadata: Metadata = { title: "משקלות" };
 export const dynamic = "force-dynamic";
@@ -15,10 +15,10 @@ export default async function AdminWeightsPage() {
       <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/precedence"
+            href="/admin/players"
             className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
-            → חזרה לקדימות
+            → חזרה לשחקנים
           </Link>
           <span className="text-zinc-300 dark:text-zinc-600">|</span>
           <h1 className="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">
@@ -47,36 +47,7 @@ export default async function AdminWeightsPage() {
             </Link>
           </p>
         ) : (
-          <ul className="flex flex-col divide-y rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            {weights.map((w) => (
-              <li
-                key={w.year}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {w.year}
-                  </span>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                    משקל:{" "}
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                      ×{w.weight % 1 === 0 ? w.weight.toFixed(1) : w.weight}
-                    </span>
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Link
-                    href={`/admin/precedence/weights/${w.year}/edit`}
-                    className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    עריכה
-                  </Link>
-                  <YearWeightDeleteButton year={w.year} />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <YearWeightList weights={weights} />
         )}
       </section>
     </div>

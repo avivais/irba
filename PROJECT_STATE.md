@@ -59,13 +59,13 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 #### Admin home (`/admin`)
 
-Navigation cards to שחקנים, מפגשים, קדימות, ייבוא נתונים, and הגדרות sections; logout button. All nav cards and the logout button have `active:` press states.
+Navigation cards to שחקנים, מפגשים, ייבוא נתונים, and הגדרות sections (קדימות card removed — merged into שחקנים); logout button. All nav cards and the logout button have `active:` press states.
 
-#### Players CRUD (`/admin/players`)
+#### Players CRUD (`/admin/players`) — unified with Precedence
 
-- **List** (`/admin/players`): all players sorted by name; shows full phone (unmasked), kind badge (**קבוע** / **מזדמן**), positions (comma-separated English shorthands, e.g. `PG, SF`), attendance count, **balance** (coloured: red = negative, green = positive), edit link, delete button. Row hover/active highlight; clicking anywhere on the row navigates to edit. **Loading state** (`PlayerList` client component, `src/components/admin/player-list.tsx`): clicking a row or edit button immediately replaces the action area with a spinner and freezes the list (invisible `z-30` overlay, `cursor-wait`) until navigation completes.
+- **List** (`/admin/players`): all players **sorted by precedence score descending**; ranked #1…N on the left. Shows kind badge (**קבוע** / **מזדמן**), positions, phone, balance (coloured; formatted `₪N` / `-₪N` with `dir="ltr"` so minus/₪ always on correct side), current-year attendance with fraction `(attended/total sessions)`, and total precedence score inline in the subscript. Edit button + delete button; full-row click navigates to edit. **משקלות** button in header links to `/admin/precedence/weights`. Loading state: spinner + freeze overlay (`PlayerList` client component, `src/components/admin/player-list.tsx`).
 - **Add** (`/admin/players/new`): form with phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin, nickname, name fields (He/En), birthdate. Balance field uses `type="text"` + `inputMode="numeric"` (not `type="number"`) — browsers drop intermediate `-` in number inputs. **Cancel button** (red, outside form) + **back button** (→ חזרה לרשימה) at top of form — both trigger dirty-guard confirm dialog when any field has been touched. Popstate guard active for create mode.
-- **Edit** (`/admin/players/[id]/edit`): same form; phone disabled. Dual save buttons: **שמור שינויים** (stay) + **שמור וחזור לרשימה**. Cancel button + back button with dirty-guard confirm. Popstate guard active.
+- **Edit** (`/admin/players/[id]/edit`): player name + precedence rank/score shown in header (`מקום N · ניקוד X`). Same player form; phone disabled. Dual save buttons: **שמור שינויים** (stay) + **שמור וחזור לרשימה**. Cancel button + back button with dirty-guard confirm. Popstate guard active. **Precedence sections below the form:** current-year live attendance (read-only, auto-counted), historical aggregates (upsert/delete per year), bonuses/fines (adjustments) with add/edit/delete.
 - **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
 - **Server actions**: `createPlayerAction`, `updatePlayerAction`, `deletePlayerAction` in `src/app/admin/(protected)/players/actions.ts`. All call `requireAdmin()` (session guard) before any DB access.
 - **Validation**: `src/lib/player-validation.ts` — `parsePlayerForm` with per-field Zod + phone normalization; tested in `src/lib/player-validation.test.ts`.
@@ -119,7 +119,7 @@ Navigation cards to שחקנים, מפגשים, קדימות, ייבוא נתו�
 | `default_player_rank` | `50` | Rank for players with no rank set |
 | `match_win_score` | `12` | Points to win a match |
 
-#### Precedence list — רשימת קדימות (`/admin/precedence`)
+#### Precedence — רשימת קדימות (unified into `/admin/players`)
 
 **Data model** (migration `20260323180203_precedence`):
 - **`YearWeight`**: calendar `year` (Int, PK) → `weight` (Float). Controls how much each past year counts.
@@ -132,12 +132,12 @@ score = Σ(aggregate.count × yearWeight) + liveCurrentYearCount × currentYearW
 ```
 Current year is auto-counted from live `Attendance` records; no `PlayerYearAggregate` row needed for it.
 
-**Admin UI:**
-- **`/admin/precedence`** — ranked list of all players with total score + breakdown (aggregates, live count, adjustments); links to player detail.
-- **`/admin/precedence/weights`** — year weights CRUD (list, new, edit, delete).
-- **`/admin/precedence/[playerId]`** — player detail page: inline aggregate upsert per year, adjustments list with add/edit/delete.
-- **`/admin/precedence/[playerId]/adjustments/new`** and **`.../[adjId]/edit`** — adjustment forms (date, points, description).
-- **Server actions**: in `src/app/admin/(protected)/precedence/[playerId]/actions.ts` and `weights/actions.ts`.
+**Admin UI (merged into players):**
+- **`/admin/players`** — players list sorted by precedence score; `/admin/precedence` redirects here.
+- **`/admin/players/[id]/edit`** — player edit page includes full precedence editing (aggregates + adjustments); `/admin/precedence/[playerId]` redirects here.
+- **`/admin/precedence/weights`** — year weights CRUD (list with row-click/hover like players list, new, edit, delete). Back link → `/admin/players`. Component: `YearWeightList` (`src/components/admin/year-weight-list.tsx`).
+- **`/admin/precedence/[playerId]/adjustments/new`** and **`.../[adjId]/edit`** — adjustment forms (date, points, description); back link → `/admin/players/[id]/edit`.
+- **Server actions**: in `src/app/admin/(protected)/precedence/[playerId]/actions.ts` (aggregate upsert/delete, adjustment create/update/delete — all revalidate and redirect to `/admin/players/[id]/edit`) and `weights/actions.ts`.
 - **Validation**: `src/lib/adjustment-validation.ts`, `src/lib/year-weight-validation.ts`; tested in `src/lib/precedence.test.ts` (10 cases).
 
 ### Security / abuse (MVP)
@@ -421,4 +421,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Mar 2026 — Config system complete. HourlyRate CRUD inline on config page. Session enhancements complete: location/duration fields, config pre-fill, map links, OpenStreetMap minimap, overlap guard, admin auto-register, RSVP enforcement (registration until session start, cancel blocked for confirmed within close window), unified session detail page, sessions list with row-click/hover/archive/date-filter, quick drop-in with phone lookup (never overwrites existing player). Remaining: manual waitlist promote.*
+*Last updated: Mar 2026 — Config system complete. HourlyRate CRUD inline on config page. Session enhancements complete: location/duration fields, config pre-fill, map links, OpenStreetMap minimap, overlap guard, admin auto-register, RSVP enforcement (registration until session start, cancel blocked for confirmed within close window), unified session detail page, sessions list with row-click/hover/archive/date-filter, quick drop-in with phone lookup (never overwrites existing player). Players list and precedence list unified: `/admin/players` now sorts by precedence score, shows current-year attendance with fraction + total score inline; player edit page includes full precedence editing (aggregates + adjustments) with rank/score in header. `/admin/precedence` and `/admin/precedence/[playerId]` redirect to the unified pages. Weights list styled with row-click/hover. Remaining: manual waitlist promote.*

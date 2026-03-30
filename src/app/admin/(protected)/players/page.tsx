@@ -1,19 +1,61 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Users, Plus } from "lucide-react";
+import { Users, Plus, Settings2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { computePrecedenceScores } from "@/lib/precedence";
+import { getPlayerDisplayName } from "@/lib/player-display";
 import { PlayerList } from "@/components/admin/player-list";
 
 export const metadata: Metadata = { title: "שחקנים" };
 
 export const dynamic = "force-dynamic";
 
-
 export default async function AdminPlayersPage() {
-  const players = await prisma.player.findMany({
-    orderBy: [{ firstNameHe: "asc" }, { firstNameEn: "asc" }, { nickname: "asc" }],
-    include: { _count: { select: { attendances: true } } },
-  });
+  const currentYear = new Date().getFullYear();
+  const yearStart = new Date(currentYear, 0, 1);
+  const yearEnd = new Date(currentYear + 1, 0, 1);
+
+  const [players, yearWeights, liveAttendances, totalSessions] = await Promise.all([
+    prisma.player.findMany({
+      include: {
+        _count: { select: { attendances: true } },
+        yearAggregates: true,
+        adjustments: true,
+      },
+    }),
+    prisma.yearWeight.findMany({ orderBy: { year: "asc" } }),
+    prisma.attendance.findMany({
+      where: { gameSession: { date: { gte: yearStart, lt: yearEnd } } },
+      select: { playerId: true },
+    }),
+    prisma.gameSession.count({
+      where: { date: { gte: yearStart, lt: yearEnd } },
+    }),
+  ]);
+
+  const liveCountMap = new Map<string, number>();
+  for (const a of liveAttendances) {
+    liveCountMap.set(a.playerId, (liveCountMap.get(a.playerId) ?? 0) + 1);
+  }
+
+  const precedenceRows = computePrecedenceScores(
+    players.map((p) => ({
+      id: p.id,
+      playerName: getPlayerDisplayName(p),
+      aggregates: p.yearAggregates,
+      liveCount: liveCountMap.get(p.id) ?? 0,
+      adjustments: p.adjustments,
+    })),
+    yearWeights,
+    currentYear,
+  );
+
+  // Sort players by precedence score (precedenceRows is already sorted desc)
+  const sortedPlayers = precedenceRows.map((row) =>
+    players.find((p) => p.id === row.playerId)!,
+  );
+
+  const liveCountByPlayerId = Object.fromEntries(liveCountMap);
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -32,23 +74,38 @@ export default async function AdminPlayersPage() {
             שחקנים
           </h1>
         </div>
-        <Link
-          href="/admin/players/new"
-          className="flex min-h-10 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          הוסף שחקן
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/precedence/weights"
+            className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <Settings2 className="h-4 w-4" aria-hidden />
+            משקלות
+          </Link>
+          <Link
+            href="/admin/players/new"
+            className="flex min-h-10 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            הוסף שחקן
+          </Link>
+        </div>
       </header>
 
       {/* Player list */}
       <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl">
-        {players.length === 0 ? (
+        {sortedPlayers.length === 0 ? (
           <p className="text-center text-zinc-500 dark:text-zinc-400">
             אין שחקנים במערכת עדיין.
           </p>
         ) : (
-          <PlayerList players={players} />
+          <PlayerList
+            players={sortedPlayers}
+            precedenceRows={precedenceRows}
+            currentYear={currentYear}
+            liveCountByPlayerId={liveCountByPlayerId}
+            totalSessions={totalSessions}
+          />
         )}
       </section>
     </div>

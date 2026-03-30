@@ -65,8 +65,8 @@ export async function upsertAggregateAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
-  revalidatePath("/admin/precedence");
-  revalidatePath(`/admin/precedence/${playerId}`);
+  revalidatePath("/admin/players");
+  revalidatePath(`/admin/players/${playerId}/edit`);
   return { ok: true };
 }
 
@@ -94,8 +94,8 @@ export async function deleteAggregateAction(
     }
   }
 
-  revalidatePath("/admin/precedence");
-  revalidatePath(`/admin/precedence/${playerId}`);
+  revalidatePath("/admin/players");
+  revalidatePath(`/admin/players/${playerId}/edit`);
   return { ok: true };
 }
 
@@ -131,9 +131,9 @@ export async function createAdjustmentAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
-  revalidatePath("/admin/precedence");
-  revalidatePath(`/admin/precedence/${playerId}`);
-  redirect(`/admin/precedence/${playerId}`);
+  revalidatePath("/admin/players");
+  revalidatePath(`/admin/players/${playerId}/edit`);
+  redirect(`/admin/players/${playerId}/edit`);
 }
 
 export async function updateAdjustmentAction(
@@ -172,9 +172,9 @@ export async function updateAdjustmentAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
-  revalidatePath("/admin/precedence");
-  revalidatePath(`/admin/precedence/${playerId}`);
-  redirect(`/admin/precedence/${playerId}`);
+  revalidatePath("/admin/players");
+  revalidatePath(`/admin/players/${playerId}/edit`);
+  redirect(`/admin/players/${playerId}/edit`);
 }
 
 export async function deleteAdjustmentAction(
@@ -199,7 +199,7 @@ export async function deleteAdjustmentAction(
     }
   }
 
-  revalidatePath("/admin/precedence");
-  revalidatePath(`/admin/precedence/${playerId}`);
+  revalidatePath("/admin/players");
+  revalidatePath(`/admin/players/${playerId}/edit`);
   return { ok: true };
 }

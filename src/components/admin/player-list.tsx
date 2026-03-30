@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Pencil, Loader2 } from "lucide-react";
 import { PlayerDeleteButton } from "@/components/admin/player-delete-button";
 import { getPlayerDisplayName } from "@/lib/player-display";
+import type { PrecedenceRow } from "@/lib/precedence";
 
 type Player = {
   id: string;
@@ -27,11 +28,35 @@ const KIND_LABEL: Record<string, string> = {
   DROP_IN: "מזדמן",
 };
 
-export function PlayerList({ players }: { players: Player[] }) {
+function formatScore(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(1);
+}
+
+function formatBalance(balance: number): string {
+  const abs = Math.abs(balance);
+  return balance < 0 ? `-₪${abs}` : `₪${abs}`;
+}
+
+type Props = {
+  players: Player[];
+  precedenceRows: PrecedenceRow[];
+  currentYear: number;
+  liveCountByPlayerId: Record<string, number>;
+  totalSessions: number;
+};
+
+export function PlayerList({
+  players,
+  precedenceRows,
+  currentYear,
+  liveCountByPlayerId,
+  totalSessions,
+}: Props) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
+  const precedenceMap = new Map(precedenceRows.map((r) => [r.playerId, r]));
+
   return (
-    // Wrapper must be `relative` so the freeze overlay is contained here
     <div className="relative">
       {/* Invisible overlay — blocks all clicks while a row is loading */}
       {loadingId && (
@@ -39,8 +64,10 @@ export function PlayerList({ players }: { players: Player[] }) {
       )}
 
       <ul className="flex flex-col divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
-        {players.map((player) => {
+        {players.map((player, idx) => {
           const isLoading = loadingId === player.id;
+          const prec = precedenceMap.get(player.id);
+          const liveCount = liveCountByPlayerId[player.id] ?? 0;
 
           return (
             <li
@@ -57,61 +84,81 @@ export function PlayerList({ players }: { players: Player[] }) {
                 onClick={() => setLoadingId(player.id)}
               />
 
-              {/* Player info */}
-              <div className="pointer-events-none relative z-10 flex min-w-0 flex-col gap-0.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {getPlayerDisplayName(player)}
-                  </span>
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-xs font-normal ${
-                      player.playerKind === "REGISTERED"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
-                        : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
-                    }`}
-                  >
-                    {KIND_LABEL[player.playerKind]}
-                  </span>
-                  {player.positions.length > 0 && (
-                    <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                      {player.positions.join(", ")}
+              {/* Left: rank + player info */}
+              <div className="pointer-events-none relative z-10 flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 w-6 shrink-0 text-center text-sm font-bold text-zinc-400 dark:text-zinc-500">
+                  {idx + 1}
+                </span>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {getPlayerDisplayName(player)}
                     </span>
-                  )}
-                  {player.isAdmin && (
-                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
-                      מנהל
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-xs font-normal ${
+                        player.playerKind === "REGISTERED"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                          : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+                      }`}
+                    >
+                      {KIND_LABEL[player.playerKind]}
                     </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-sm text-zinc-500 tabular-nums dark:text-zinc-400">
-                  <span dir="ltr">{player.phone}</span>
-                  <span>·</span>
-                  <span>{player._count.attendances} נוכחויות</span>
-                  <span>·</span>
-                  <span
-                    className={
-                      player.balance < 0
-                        ? "text-red-500 dark:text-red-400"
-                        : player.balance > 0
-                          ? "text-green-600 dark:text-green-400"
-                          : undefined
-                    }
-                  >
-                    יתרה {player.balance}₪
-                  </span>
-                  {player.rank != null && (
-                    <>
-                      <span>·</span>
-                      <span>דירוג {player.rank}</span>
-                    </>
-                  )}
+                    {player.positions.length > 0 && (
+                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                        {player.positions.join(", ")}
+                      </span>
+                    )}
+                    {player.isAdmin && (
+                      <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
+                        מנהל
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+                    <span dir="ltr">{player.phone}</span>
+                    <span>·</span>
+                    <span
+                      className={
+                        player.balance < 0
+                          ? "text-red-500 dark:text-red-400"
+                          : player.balance > 0
+                            ? "text-green-600 dark:text-green-400"
+                            : undefined
+                      }
+                    >
+                      יתרה{" "}
+                      <span dir="ltr">{formatBalance(player.balance)}</span>
+                    </span>
+                    {prec && (
+                      <>
+                        <span>·</span>
+                        <span>
+                          {currentYear}:{" "}
+                          <span dir="ltr" className="text-zinc-600 dark:text-zinc-300">
+                            {liveCount}
+                            {totalSessions > 0 && (
+                              <span className="text-zinc-400 dark:text-zinc-500">
+                                {" "}({liveCount}/{totalSessions})
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <span>·</span>
+                        <span>
+                          ניקוד:{" "}
+                          <span dir="ltr" className="font-medium text-zinc-700 dark:text-zinc-200">
+                            {formatScore(prec.totalScore)}
+                          </span>
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Actions — wrapper is pointer-events-none so empty space falls through to overlay */}
+              {/* Right: actions */}
               <div className="pointer-events-none relative z-10 flex shrink-0 items-center gap-2">
                 {isLoading ? (
-                  /* Spinner replaces action buttons while this row navigates */
                   <div className="flex min-h-9 items-center px-3">
                     <Loader2
                       className="h-4 w-4 animate-spin text-zinc-400 dark:text-zinc-500"

@@ -22,7 +22,7 @@ export default async function NewAdjustmentPage({ params }: Props) {
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
       <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-center gap-3">
         <Link
-          href={`/admin/precedence/${playerId}`}
+          href={`/admin/players/${playerId}/edit`}
           className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
           → חזרה ל{getPlayerDisplayName(player)}
