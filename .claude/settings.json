@@ -37,7 +37,8 @@
       "Bash(python3 -c \"import json,sys; runs=json.load\\(sys.stdin\\); [print\\(r[''''databaseId''''], r[''''name''''], r[''''status''''], r[''''conclusion'''']\\) for r in runs]\")",
       "Bash(cat -n /Users/avivais/Development/irba/src/app/admin/\\\\\\(protected\\\\\\)/sessions/actions.ts)",
       "Bash(sed -i '' 's/where: { date: { gte: now } }/where: { date: { gte: now }, isArchived: false }/' /Users/avivais/Development/irba/src/lib/game.ts)",
-      "Bash(sed -i '' 's|\\\\/\\\\*\\\\* Next upcoming game session \\(from now\\), regardless of isClosed status. \\\\*\\\\/|/** Next upcoming game session \\(from now\\), excluding archived sessions. */|' /Users/avivais/Development/irba/src/lib/game.ts)"
+      "Bash(sed -i '' 's|\\\\/\\\\*\\\\* Next upcoming game session \\(from now\\), regardless of isClosed status. \\\\*\\\\/|/** Next upcoming game session \\(from now\\), excluding archived sessions. */|' /Users/avivais/Development/irba/src/lib/game.ts)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]",
