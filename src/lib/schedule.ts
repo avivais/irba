@@ -106,10 +106,11 @@ export function nextScheduledSession(
     hour12: false,
   }).formatToParts(guess);
 
+  // Some ICU versions emit "24" for midnight with hour12:false — normalise to 0–23.
   const guessHour = parseInt(
     verifyParts.find((p) => p.type === "hour")?.value ?? "0",
     10,
-  );
+  ) % 24;
   const guessMin = parseInt(
     verifyParts.find((p) => p.type === "minute")?.value ?? "0",
     10,
@@ -135,7 +136,7 @@ export function nextScheduledSession(
   const finalHour = parseInt(
     finalParts.find((p) => p.type === "hour")?.value ?? "0",
     10,
-  );
+  ) % 24;
   const finalMin = parseInt(
     finalParts.find((p) => p.type === "minute")?.value ?? "0",
     10,
