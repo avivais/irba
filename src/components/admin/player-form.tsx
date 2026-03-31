@@ -508,31 +508,20 @@ export function PlayerForm(props: Props) {
           </div>
         </div>
 
-        {/* Birthdate — native picker with Israeli-format overlay */}
+        {/* Birthdate */}
         <div className="flex flex-col gap-1">
           <label htmlFor="player-birthdate" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             תאריך לידה
             <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
           </label>
-          <div className="relative">
-            {/* Native date input — transparent, sits on top to capture all interaction */}
-            <input
-              id="player-birthdate"
-              name="birthdate"
-              type="date"
-              value={birthdate}
-              onChange={(e) => { onFieldChange(setBirthdate, e.target.value); }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            {/* Visible display in Israeli format */}
-            <div className={`${inputBase} ${inputNormal} pointer-events-none`}>
-              {birthdate ? (
-                formatIsraeliDate(birthdate)
-              ) : (
-                <span className="text-zinc-400 dark:text-zinc-500">לא מוגדר</span>
-              )}
-            </div>
-          </div>
+          <input
+            id="player-birthdate"
+            name="birthdate"
+            type="date"
+            value={birthdate}
+            onChange={(e) => { onFieldChange(setBirthdate, e.target.value); }}
+            className={`${inputBase} ${inputNormal}`}
+          />
         </div>
 
         {serverError && (
