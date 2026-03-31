@@ -84,10 +84,10 @@ export default async function AdminPlayersPage() {
           </Link>
           <Link
             href="/admin/players/new"
-            className="flex min-h-10 items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
+            aria-label="הוסף שחקן"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
           >
-            <Plus className="h-4 w-4" aria-hidden />
-            הוסף שחקן
+            <Plus className="h-5 w-5" aria-hidden />
           </Link>
         </div>
       </header>

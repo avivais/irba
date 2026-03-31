@@ -28,10 +28,10 @@ export default async function AdminWeightsPage() {
         </div>
         <Link
           href="/admin/precedence/weights/new"
-          className="flex min-h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          aria-label="הוסף שנה"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
         >
-          <Plus className="h-4 w-4" aria-hidden />
-          הוסף שנה
+          <Plus className="h-5 w-5" aria-hidden />
         </Link>
       </header>
 
