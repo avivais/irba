@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { checkDatabase } from "@/lib/health";
 import { NextResponse } from "next/server";
 
