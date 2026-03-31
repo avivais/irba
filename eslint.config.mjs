@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate Node.js service — not part of the Next.js app:
+    "wa/**",
   ]),
 ]);
 
