@@ -85,3 +85,33 @@ sudo mkdir -p /opt/irba && sudo chown ubuntu:ubuntu /opt/irba
 cd /opt/irba && git clone <repo-url> . && cp .env.example .env
 # edit .env with real secrets, then run ./scripts/deploy.sh
 ```
+
+## Backup
+
+**Manual backup:**
+
+```bash
+ssh -i "$HOME/.ssh/VaisenKey.pem" ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com /opt/irba/scripts/backup.sh
+```
+
+**List backups:**
+
+```bash
+ls -lh /opt/irba/backups/
+```
+
+**Restore from backup:**
+
+```bash
+# Stop app, restore, restart
+docker compose stop app
+gunzip -c /opt/irba/backups/<file>.sql.gz | docker exec -i irba-db-1 psql -U irba irba
+docker compose start app
+```
+
+**Cron setup (run once on EC2):**
+
+```bash
+# Add to crontab -e:
+0 3 * * * /opt/irba/scripts/backup.sh >> /opt/irba/backups/backup.log 2>&1
+```
