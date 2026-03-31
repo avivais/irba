@@ -13,7 +13,7 @@ export default async function AdminProtectedLayout({
   return (
     <div className="flex min-h-full flex-col">
       {children}
-      <footer className="mt-auto py-4 text-center text-xs text-zinc-300 dark:text-zinc-700">
+      <footer className="mt-auto py-4 text-center text-xs text-zinc-300 dark:text-zinc-700" dir="ltr">
         {process.env.NEXT_PUBLIC_COMMIT_HASH ?? "dev"}
         {process.env.NEXT_PUBLIC_COMMIT_DATE && (
           <span> · {process.env.NEXT_PUBLIC_COMMIT_DATE}</span>
