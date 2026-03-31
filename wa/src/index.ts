@@ -1,5 +1,6 @@
 import makeWASocket, {
   DisconnectReason,
+  fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } from "@whiskeysockets/baileys";
 import express, { Request, Response } from "express";
@@ -34,12 +35,15 @@ function toJid(phone: string): string {
 
 async function connectToWhatsApp(): Promise<void> {
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_PATH);
+  const { version } = await fetchLatestBaileysVersion();
 
   sock = makeWASocket({
+    version,
     auth: state,
     // Suppress Baileys' internal verbose logger — we use pino.
     logger: pino({ level: "silent" }),
     printQRInTerminal: false, // we handle QR ourselves
+    browser: ["Ubuntu", "Chrome", "110.0.5481.177"],
   });
 
   sock.ev.on("creds.update", saveCreds);
