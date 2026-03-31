@@ -7,6 +7,7 @@ import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
+import { computePromoteTimestamp } from "@/lib/waitlist";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
 
@@ -125,6 +126,38 @@ export async function lookupPlayerByPhoneAction(
   return attending
     ? { status: "already_registered", displayName }
     : { status: "existing_not_registered", displayName };
+}
+
+export async function promoteWaitlistAction(
+  sessionId: string,
+  attendanceId: string,
+  _prev: SessionAttendanceState,
+  _formData: FormData,
+): Promise<SessionAttendanceState> {
+  await requireAdmin();
+
+  const session = await prisma.gameSession.findUnique({
+    where: { id: sessionId },
+    select: {
+      maxPlayers: true,
+      attendances: { orderBy: { createdAt: "asc" }, select: { id: true, createdAt: true } },
+    },
+  });
+  if (!session) return { ok: false, message: "מפגש לא נמצא" };
+
+  const newTimestamp = computePromoteTimestamp(session.attendances, session.maxPlayers, attendanceId);
+  if (newTimestamp === null) {
+    return { ok: false, message: "השחקן כבר ברשימת המשתתפים" };
+  }
+
+  await prisma.attendance.update({
+    where: { id: attendanceId },
+    data: { createdAt: newTimestamp },
+  });
+
+  revalidatePath(`/admin/sessions/${sessionId}`);
+  revalidatePath("/");
+  return { ok: true, message: "השחקן קודם בהצלחה" };
 }
 
 export async function removePlayerAction(
