@@ -12,6 +12,7 @@ import { SessionAddPlayerForm } from "@/components/admin/session-add-player-form
 import { SessionQuickDropInForm } from "@/components/admin/session-quick-dropin-form";
 import { SessionArchiveButton } from "@/components/admin/session-archive-button";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
+import { SessionPromoteButton } from "@/components/admin/session-promote-button";
 
 export const metadata: Metadata = { title: "עריכת מפגש" };
 export const dynamic = "force-dynamic";
@@ -197,11 +198,18 @@ export default async function AdminSessionPage({ params }: Props) {
                       {row.player.phone}
                     </span>
                   </span>
-                  <SessionRemoveButton
-                    sessionId={id}
-                    attendanceId={row.id}
-                    playerName={getPlayerDisplayName(row.player)}
-                  />
+                  <span className="flex items-center gap-1">
+                    <SessionPromoteButton
+                      sessionId={id}
+                      attendanceId={row.id}
+                      playerName={getPlayerDisplayName(row.player)}
+                    />
+                    <SessionRemoveButton
+                      sessionId={id}
+                      attendanceId={row.id}
+                      playerName={getPlayerDisplayName(row.player)}
+                    />
+                  </span>
                 </li>
               ))}
             </ol>
