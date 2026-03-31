@@ -13,6 +13,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Dummy DATABASE_URL prevents module-level throw in prisma.ts during next build.
 # The real URL is injected at runtime via docker-compose env.
 ENV DATABASE_URL="postgresql://build:placeholder@localhost:5432/build"
+ARG COMMIT_HASH=dev
+ENV NEXT_PUBLIC_COMMIT_HASH=$COMMIT_HASH
 RUN npx prisma generate
 RUN npm run build
 
