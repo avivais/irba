@@ -14,7 +14,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # The real URL is injected at runtime via docker-compose env.
 ENV DATABASE_URL="postgresql://build:placeholder@localhost:5432/build"
 ARG COMMIT_HASH=dev
+ARG COMMIT_DATE=
 ENV NEXT_PUBLIC_COMMIT_HASH=$COMMIT_HASH
+ENV NEXT_PUBLIC_COMMIT_DATE=$COMMIT_DATE
 RUN npx prisma generate
 RUN npm run build
 

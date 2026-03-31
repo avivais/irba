@@ -9,5 +9,5 @@ echo "==> Running pre-deploy backup..."
 ssh -i "$SSH_KEY" "$HOST" "/opt/irba/scripts/backup.sh || echo 'Warning: backup failed, continuing deploy'"
 
 echo "==> Deploying IRBA to production..."
-ssh -i "$SSH_KEY" "$HOST" "cd /opt/irba && git pull && COMMIT_HASH=\$(git rev-parse --short HEAD) docker compose build && docker compose up -d && docker compose ps"
+ssh -i "$SSH_KEY" "$HOST" "cd /opt/irba && git pull && COMMIT_HASH=\$(git rev-parse --short HEAD) COMMIT_DATE=\$(git log -1 --format='%ci' | cut -c1-16) docker compose build && docker compose up -d && docker compose ps"
 echo "==> Done. Check https://irba.sportgroup.cl/api/health"

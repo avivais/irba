@@ -18,6 +18,7 @@ services:
       context: .
       args:
         COMMIT_HASH: ${COMMIT_HASH:-dev}
+        COMMIT_DATE: ${COMMIT_DATE:-}
     env_file:
       - .env
     ports:
