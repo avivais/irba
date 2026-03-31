@@ -43,7 +43,7 @@ function ilParts(d: Date) {
     year: parseInt(get("year")),
     month: parseInt(get("month")),
     day: parseInt(get("day")),
-    hour: parseInt(get("hour")),
+    hour: parseInt(get("hour")) % 24, // some ICU versions emit "24" for midnight
     minute: parseInt(get("minute")),
     weekday: get("weekday"),
   };
