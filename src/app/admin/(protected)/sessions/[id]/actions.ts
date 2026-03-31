@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePromoteTimestamp } from "@/lib/waitlist";
+import { sendWaMessage } from "@/lib/wa-notify";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
 
@@ -150,13 +151,26 @@ export async function promoteWaitlistAction(
     return { ok: false, message: "השחקן כבר ברשימת המשתתפים" };
   }
 
-  await prisma.attendance.update({
-    where: { id: attendanceId },
-    data: { createdAt: newTimestamp },
-  });
+  const [attendance] = await Promise.all([
+    prisma.attendance.update({
+      where: { id: attendanceId },
+      data: { createdAt: newTimestamp },
+      select: { player: { select: { phone: true } }, gameSession: { select: { date: true } } },
+    }),
+  ]);
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
+
+  // Notify promoted player (best-effort)
+  const dateStr = attendance.gameSession.date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  void sendWaMessage(attendance.player.phone, `עברת מרשימת ההמתנה לרשימת המשתתפים במפגש ${dateStr}!`);
+
   return { ok: true, message: "השחקן קודם בהצלחה" };
 }
 

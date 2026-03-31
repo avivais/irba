@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAllConfigs, CONFIG } from "@/lib/config";
 import { nextScheduledSession } from "@/lib/schedule";
+import { sendWaMessage } from "@/lib/wa-notify";
 
 /** UTC start and end of the Israel calendar day containing `date`. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -72,7 +73,19 @@ export async function GET(request: Request) {
     },
   });
 
-  // 8. TODO: send WA notification to all active REGISTERED players (Step 4B)
+  // 8. Notify all active REGISTERED players (best-effort, non-blocking)
+  const players = await prisma.player.findMany({
+    where: { playerKind: "REGISTERED", isAdmin: false },
+    select: { phone: true },
+  });
+  const dateStr = nextSession.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const message = `ההרשמה למפגש ${dateStr} פתוחה! כנסו ל-irba.sportgroup.cl להירשם`;
+  await Promise.allSettled(players.map((p) => sendWaMessage(p.phone, message)));
 
-  return NextResponse.json({ created: true, sessionId: session.id });
+  return NextResponse.json({ created: true, sessionId: session.id, notified: players.length });
 }
