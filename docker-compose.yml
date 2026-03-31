@@ -27,5 +27,13 @@ services:
       db:
         condition: service_healthy
 
+  wa:
+    build: ./wa
+    restart: unless-stopped
+    volumes:
+      - /opt/irba/wa-session:/app/session
+    environment:
+      WA_SESSION_PATH: /app/session
+
 volumes:
   postgres_data:
