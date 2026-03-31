@@ -117,6 +117,62 @@ export function ConfigForm({ values }: Props) {
         </div>
       </section>
 
+      {/* ── Schedule ────────────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>לוח זמנים</SectionTitle>
+
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <input
+            type="checkbox"
+            name={CONFIG.SESSION_SCHEDULE_ENABLED}
+            value="true"
+            defaultChecked={values[CONFIG.SESSION_SCHEDULE_ENABLED] === "true"}
+            className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+          />
+          הפעל יצירת מפגשים אוטומטית
+        </label>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="יום בשבוע" error={errors[CONFIG.SESSION_SCHEDULE_DAY]}>
+            <select
+              name={CONFIG.SESSION_SCHEDULE_DAY}
+              defaultValue={values[CONFIG.SESSION_SCHEDULE_DAY]}
+              className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_DAY] ? inputError : inputNormal}`}
+            >
+              {DAYS.map((day, i) => (
+                <option key={i} value={String(i)}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="שעת המפגש" hint="HH:MM" error={errors[CONFIG.SESSION_SCHEDULE_TIME]}>
+            <input
+              type="time"
+              name={CONFIG.SESSION_SCHEDULE_TIME}
+              defaultValue={values[CONFIG.SESSION_SCHEDULE_TIME]}
+              className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_TIME] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field
+            label="שעות לפני המפגש לפתיחת הרשמה"
+            hint="1–168"
+            error={errors[CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE]}
+          >
+            <input
+              type="number"
+              name={CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE}
+              defaultValue={values[CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE]}
+              min={1}
+              max={168}
+              className={`${inputBase} ${errors[CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+      </section>
+
       {/* ── Location ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>מיקום ברירת מחדל</SectionTitle>

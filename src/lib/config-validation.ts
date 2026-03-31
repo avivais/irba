@@ -9,6 +9,22 @@ const timeHHMM = z
   .string()
   .regex(/^\d{2}:\d{2}$/, "פורמט שעה: HH:MM");
 
+const scheduleTime = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/, "פורמט שעה: HH:MM")
+  .refine((v) => {
+    const [hh, mm] = v.split(":").map(Number);
+    return hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59;
+  }, "שעה לא תקינה");
+
+const autoCreateHours = z
+  .string()
+  .regex(/^\d+$/, "חייב להיות מספר שלם")
+  .refine((v) => {
+    const n = parseInt(v, 10);
+    return n >= 1 && n <= 168;
+  }, "חייב להיות בין 1 ל-168");
+
 const positiveInt = (label: string) =>
   z.string().regex(/^\d+$/, `${label} חייב להיות מספר חיובי`).refine(
     (v) => parseInt(v, 10) > 0,
@@ -34,10 +50,14 @@ const rankDefault = z
   }, "דירוג חייב להיות בין 1 ל-100");
 
 export const configSchema = z.object({
-  session_default_day:          dayOfWeek,
-  session_default_time:         timeHHMM,
-  session_default_duration_min: positiveInt("משך המפגש"),
-  rsvp_close_hours:             nonNegativeInt("חלון הרשמה"),
+  session_default_day:              dayOfWeek,
+  session_default_time:             timeHHMM,
+  session_default_duration_min:     positiveInt("משך המפגש"),
+  rsvp_close_hours:                 nonNegativeInt("חלון הרשמה"),
+  session_schedule_enabled:         z.enum(["true", "false"]),
+  session_schedule_day:             dayOfWeek,
+  session_schedule_time:            scheduleTime,
+  session_auto_create_hours_before: autoCreateHours,
   location_name:                z.string().max(200),
   location_lat:                 optionalFloat,
   location_lng:                 optionalFloat,

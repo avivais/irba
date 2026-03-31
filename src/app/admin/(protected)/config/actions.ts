@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
-import { setConfigs } from "@/lib/config";
+import { setConfigs, CONFIG } from "@/lib/config";
 import { parseConfigForm } from "@/lib/config-validation";
 import type { ConfigKey } from "@/lib/config";
 
@@ -28,6 +28,8 @@ export async function updateConfigAction(
   for (const key of formData.keys()) {
     raw[key] = formData.get(key)?.toString() ?? "";
   }
+  // Checkboxes omit their key when unchecked — supply the "off" value explicitly.
+  raw[CONFIG.SESSION_SCHEDULE_ENABLED] ??= "false";
 
   const parsed = parseConfigForm(raw);
   if (!parsed.ok) {
