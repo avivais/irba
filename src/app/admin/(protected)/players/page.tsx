@@ -50,10 +50,14 @@ export default async function AdminPlayersPage() {
     currentYear,
   );
 
-  // Sort players by precedence score (precedenceRows is already sorted desc)
-  const sortedPlayers = precedenceRows.map((row) =>
+  // Sort players by precedence score (precedenceRows is already sorted desc), admin pinned first
+  const sortedByPrecedence = precedenceRows.map((row) =>
     players.find((p) => p.id === row.playerId)!,
   );
+  const sortedPlayers = [
+    ...sortedByPrecedence.filter((p) => p.isAdmin),
+    ...sortedByPrecedence.filter((p) => !p.isAdmin),
+  ];
 
   const liveCountByPlayerId = Object.fromEntries(liveCountMap);
 

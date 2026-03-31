@@ -87,7 +87,7 @@ export function PlayerList({
               {/* Left: rank + player info */}
               <div className="pointer-events-none relative z-10 flex min-w-0 items-start gap-3">
                 <span className="mt-0.5 w-6 shrink-0 text-center text-sm font-bold text-zinc-400 dark:text-zinc-500">
-                  {idx + 1}
+                  {player.isAdmin ? "" : idx}
                 </span>
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
@@ -116,40 +116,44 @@ export function PlayerList({
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                     <span dir="ltr">{player.phone}</span>
-                    <span>·</span>
-                    <span
-                      className={
-                        player.balance < 0
-                          ? "text-red-500 dark:text-red-400"
-                          : player.balance > 0
-                            ? "text-green-600 dark:text-green-400"
-                            : undefined
-                      }
-                    >
-                      יתרה{" "}
-                      <span dir="ltr">{formatBalance(player.balance)}</span>
-                    </span>
-                    {prec && (
+                    {!player.isAdmin && (
                       <>
                         <span>·</span>
-                        <span>
-                          {currentYear}:{" "}
-                          <span dir="ltr" className="text-zinc-600 dark:text-zinc-300">
-                            {liveCount}
-                            {totalSessions > 0 && (
-                              <span className="text-zinc-400 dark:text-zinc-500">
-                                {" "}({liveCount}/{totalSessions})
+                        <span
+                          className={
+                            player.balance < 0
+                              ? "text-red-500 dark:text-red-400"
+                              : player.balance > 0
+                                ? "text-green-600 dark:text-green-400"
+                                : undefined
+                          }
+                        >
+                          יתרה{" "}
+                          <span dir="ltr">{formatBalance(player.balance)}</span>
+                        </span>
+                        {prec && (
+                          <>
+                            <span>·</span>
+                            <span>
+                              {currentYear}:{" "}
+                              <span dir="ltr" className="text-zinc-600 dark:text-zinc-300">
+                                {liveCount}
+                                {totalSessions > 0 && (
+                                  <span className="text-zinc-400 dark:text-zinc-500">
+                                    {" "}({liveCount}/{totalSessions})
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </span>
-                        </span>
-                        <span>·</span>
-                        <span>
-                          ניקוד:{" "}
-                          <span dir="ltr" className="font-medium text-zinc-700 dark:text-zinc-200">
-                            {formatScore(prec.totalScore)}
-                          </span>
-                        </span>
+                            </span>
+                            <span>·</span>
+                            <span>
+                              ניקוד:{" "}
+                              <span dir="ltr" className="font-medium text-zinc-700 dark:text-zinc-200">
+                                {formatScore(prec.totalScore)}
+                              </span>
+                            </span>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
