@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
 import {
   createPlayerAction,
   updatePlayerAction,
@@ -46,6 +46,12 @@ function formatIsraeliDate(iso: string): string {
   return `${parseInt(day)}.${parseInt(month)}.${year}`;
 }
 
+function parseIsraeliDate(text: string): string | null {
+  const m = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
 export function PlayerForm(props: Props) {
   const isEdit = props.mode === "edit";
   const player = isEdit ? props.player : null;
@@ -74,6 +80,10 @@ export function PlayerForm(props: Props) {
   const [birthdate, setBirthdate] = useState(
     player?.birthdate ? new Date(player.birthdate).toISOString().slice(0, 10) : "",
   );
+  const [birthdateDisplay, setBirthdateDisplay] = useState(
+    player?.birthdate ? formatIsraeliDate(new Date(player.birthdate).toISOString().slice(0, 10)) : "",
+  );
+  const hiddenDateRef = useRef<HTMLInputElement>(null);
 
   const [phoneBlurred, setPhoneBlurred] = useState(false);
   const [suppressServerError, setSuppressServerError] = useState(false);
@@ -510,18 +520,55 @@ export function PlayerForm(props: Props) {
 
         {/* Birthdate */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="player-birthdate" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="player-birthdate-display" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             תאריך לידה
             <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
           </label>
-          <input
-            id="player-birthdate"
-            name="birthdate"
-            type="date"
-            value={birthdate}
-            onChange={(e) => { onFieldChange(setBirthdate, e.target.value); }}
-            className={`${inputBase} ${inputNormal}`}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              id="player-birthdate-display"
+              type="text"
+              inputMode="numeric"
+              value={birthdateDisplay}
+              onChange={(e) => {
+                const text = e.target.value;
+                setBirthdateDisplay(text);
+                const iso = parseIsraeliDate(text);
+                if (iso) {
+                  onFieldChange(setBirthdate, iso);
+                } else if (!text) {
+                  onFieldChange(setBirthdate, "");
+                }
+              }}
+              placeholder="d.m.yyyy"
+              className={`${inputBase} ${inputNormal} flex-1`}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                try { hiddenDateRef.current?.showPicker(); }
+                catch { hiddenDateRef.current?.focus(); }
+              }}
+              className="flex h-[50px] w-[50px] flex-shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-500 shadow-sm transition hover:bg-zinc-50 hover:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              aria-label="פתח לוח שנה"
+            >
+              <Calendar className="h-5 w-5" aria-hidden />
+            </button>
+            <input
+              ref={hiddenDateRef}
+              name="birthdate"
+              type="date"
+              value={birthdate}
+              onChange={(e) => {
+                const val = e.target.value;
+                onFieldChange(setBirthdate, val);
+                setBirthdateDisplay(val ? formatIsraeliDate(val) : "");
+              }}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
         </div>
 
         {serverError && (
