@@ -6,8 +6,8 @@ import {
 } from "./admin-password-env";
 
 describe("envSafeValue", () => {
-  it("escapes dollars with backslash inside single quotes", () => {
-    expect(envSafeValue("$2b$12$abc")).toBe("'\\$2b\\$12\\$abc'");
+  it("wraps in single quotes without escaping dollars", () => {
+    expect(envSafeValue("$2b$12$abc")).toBe("'$2b$12$abc'");
   });
 
   it("passes through values without dollars", () => {
@@ -34,7 +34,7 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     const before = `ADMIN_PASSWORD_HASH=""\nFOO=1\nADMIN_PASSWORD_HASH="$2b$old"\n`;
     const h = "$2b$12$newhashhere";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `FOO=1\nADMIN_PASSWORD_HASH='\\$2b\\$12\\$newhashhere'\n`,
+      `FOO=1\nADMIN_PASSWORD_HASH='$2b$12$newhashhere'\n`,
     );
   });
 
@@ -42,7 +42,7 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     const before = `FOO=1\nADMIN_PASSWORD_HASH="old"\nBAR=2\n`;
     const h = "$2b$12$newhashhere";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `FOO=1\nBAR=2\nADMIN_PASSWORD_HASH='\\$2b\\$12\\$newhashhere'\n`,
+      `FOO=1\nBAR=2\nADMIN_PASSWORD_HASH='$2b$12$newhashhere'\n`,
     );
   });
 
@@ -50,7 +50,7 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     const before = "  ADMIN_PASSWORD_HASH=\n";
     const h = "$2b$x";
     expect(applyAdminPasswordHashToEnvContent(before, h)).toBe(
-      `ADMIN_PASSWORD_HASH='\\$2b\\$x'\n`,
+      `ADMIN_PASSWORD_HASH='$2b$x'\n`,
     );
   });
 
@@ -72,10 +72,10 @@ describe("applyAdminPasswordHashToEnvContent", () => {
     );
   });
 
-  it("end-to-end: bcrypt hash produces correct escaped line", () => {
+  it("end-to-end: bcrypt hash stored as single-quoted literal (no escaping)", () => {
     const hash = "$2b$12$EFtUpe0HXH3eamEggwZUOe7BKtdObROR5j1gCx3ScoeGGj5fM5312";
     expect(applyAdminPasswordHashToEnvContent("", hash)).toBe(
-      `ADMIN_PASSWORD_HASH='\\$2b\\$12\\$EFtUpe0HXH3eamEggwZUOe7BKtdObROR5j1gCx3ScoeGGj5fM5312'\n`,
+      `ADMIN_PASSWORD_HASH='$2b$12$EFtUpe0HXH3eamEggwZUOe7BKtdObROR5j1gCx3ScoeGGj5fM5312'\n`,
     );
   });
 });

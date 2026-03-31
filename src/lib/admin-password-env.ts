@@ -1,19 +1,14 @@
 const KEY = "ADMIN_PASSWORD_HASH";
 
 /**
- * Wraps value for `.env` so Next.js (dotenv + dotenv-expand) preserves `$` literally.
+ * Wraps value for `.env` in single quotes so dotenv reads it literally.
  *
- * dotenv-expand runs on **parsed** values regardless of quote style: bare `$X`
- * is treated as variable interpolation. The only escape dotenv-expand honours
- * is `\$`, which `_resolveEscapeSequences` converts back to `$`.
- *
- * Single-quoted dotenv values are literal (no `\n` expansion, etc.), so
- * writing `'\$2b\$12\$...'` in the file gives dotenv the parsed string
- * `\$2b\$12\$...`, which dotenv-expand then resolves to `$2b$12$...`.
+ * Single-quoted dotenv values are parsed as-is — no variable expansion,
+ * no escape processing. `$` characters in bcrypt hashes are safe as-is.
+ * Any single quotes inside the value are handled with shell-style escaping.
  */
 export function envSafeValue(value: string): string {
-  const escaped = value.replace(/\$/g, "\\$");
-  return `'${escaped.replace(/'/g, "'\\''")}'`;
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 /**
