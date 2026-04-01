@@ -1,12 +1,20 @@
 "use client";
 
-import { useActionState } from "react";
-import { Loader2 } from "lucide-react";
+import { useActionState, useState } from "react";
+import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
+import Link from "next/link";
 import { updateConfigAction, type ConfigActionState } from "@/app/admin/(protected)/config/actions";
+import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-button";
 import { CONFIG } from "@/lib/config-keys";
 import type { ConfigKey } from "@/lib/config-keys";
 
-type Props = { values: Record<ConfigKey, string> };
+type HourlyRate = { id: string; effectiveFrom: Date; pricePerHour: number };
+
+type Props = {
+  values: Record<ConfigKey, string>;
+  rates: HourlyRate[];
+  currentRateId: string | null;
+};
 
 const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
@@ -52,11 +60,20 @@ function Field({
   );
 }
 
+function formatRateDate(d: Date): string {
+  return d.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function formatRatePrice(p: number): string {
+  return `₪${p % 1 === 0 ? p.toFixed(0) : p.toFixed(1)}`;
+}
+
 const initialState: ConfigActionState = { ok: false };
 
-export function ConfigForm({ values }: Props) {
+export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
+  const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
 
   return (
     <form action={formAction} className="flex flex-col gap-8">
@@ -234,37 +251,6 @@ export function ConfigForm({ values }: Props) {
         )}
       </section>
 
-      {/* ── Charging ────────────────────────────────────── */}
-      <section className="flex flex-col gap-4">
-        <SectionTitle>חיוב</SectionTitle>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="מחיר מזדמן" hint="₪ לכל מפגש" error={errors[CONFIG.DROPIN_CHARGE]}>
-            <input
-              type="number"
-              name={CONFIG.DROPIN_CHARGE}
-              defaultValue={values[CONFIG.DROPIN_CHARGE]}
-              min={1}
-              className={`${inputBase} ${errors[CONFIG.DROPIN_CHARGE] ? inputError : inputNormal}`}
-            />
-          </Field>
-
-          <Field
-            label="סף חוב"
-            hint="₪ — מעל סף זה שחקן קבוע מחויב כמזדמן"
-            error={errors[CONFIG.DEBT_THRESHOLD]}
-          >
-            <input
-              type="number"
-              name={CONFIG.DEBT_THRESHOLD}
-              defaultValue={values[CONFIG.DEBT_THRESHOLD]}
-              min={0}
-              className={`${inputBase} ${errors[CONFIG.DEBT_THRESHOLD] ? inputError : inputNormal}`}
-            />
-          </Field>
-        </div>
-      </section>
-
       {/* ── Players ─────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>שחקנים</SectionTitle>
@@ -300,6 +286,130 @@ export function ConfigForm({ values }: Props) {
               min={1}
               max={100}
               className={`${inputBase} ${errors[CONFIG.MATCH_WIN_SCORE] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+      </section>
+
+      {/* ── Hourly rates (outside the form submit — links + delete) ── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>תעריף שעתי</SectionTitle>
+
+        {rates.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">לא הוגדרו תעריפים עדיין</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {/* Current rate — always visible */}
+            {rates.filter((r) => r.id === currentRateId).map((rate) => (
+              <div
+                key={rate.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800 dark:bg-green-950/30"
+              >
+                <div>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {formatRatePrice(rate.pricePerHour)} / שעה
+                  </span>
+                  <span className="mr-2 rounded-full bg-green-600 px-2 py-0.5 text-xs font-semibold text-white dark:bg-green-500">
+                    נוכחי
+                  </span>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    מ-{formatRateDate(rate.effectiveFrom)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Link
+                    href={`/admin/config/rates/${rate.id}/edit`}
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:active:bg-zinc-600"
+                  >
+                    ערוך
+                  </Link>
+                  <HourlyRateDeleteButton id={rate.id} />
+                </div>
+              </div>
+            ))}
+
+            {/* Historical rates — collapsible */}
+            {rates.filter((r) => r.id !== currentRateId).length > 0 && (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRatesHistoryOpen((v) => !v)}
+                  className="flex items-center gap-1.5 self-start text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                >
+                  {ratesHistoryOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {ratesHistoryOpen ? "הסתר היסטוריה" : `הצג היסטוריה (${rates.filter((r) => r.id !== currentRateId).length})`}
+                </button>
+
+                {ratesHistoryOpen && rates.filter((r) => r.id !== currentRateId).map((rate) => (
+                  <div
+                    key={rate.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/40"
+                  >
+                    <div>
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {formatRatePrice(rate.pricePerHour)} / שעה
+                      </span>
+                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        מ-{formatRateDate(rate.effectiveFrom)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Link
+                        href={`/admin/config/rates/${rate.id}/edit`}
+                        className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:active:bg-zinc-600"
+                      >
+                        ערוך
+                      </Link>
+                      <HourlyRateDeleteButton id={rate.id} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div>
+          <Link
+            href="/admin/config/rates/new"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:active:bg-zinc-600"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            הוסף תעריף
+          </Link>
+        </div>
+      </section>
+
+      {/* ── Charging ────────────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>חיוב</SectionTitle>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="מחיר מזדמן" hint="₪ לכל מפגש" error={errors[CONFIG.DROPIN_CHARGE]}>
+            <input
+              type="number"
+              name={CONFIG.DROPIN_CHARGE}
+              defaultValue={values[CONFIG.DROPIN_CHARGE]}
+              min={1}
+              className={`${inputBase} ${errors[CONFIG.DROPIN_CHARGE] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field
+            label="סף חוב"
+            hint="₪ — מעל סף זה שחקן קבוע מחויב כמזדמן"
+            error={errors[CONFIG.DEBT_THRESHOLD]}
+          >
+            <input
+              type="number"
+              name={CONFIG.DEBT_THRESHOLD}
+              defaultValue={values[CONFIG.DEBT_THRESHOLD]}
+              min={0}
+              className={`${inputBase} ${errors[CONFIG.DEBT_THRESHOLD] ? inputError : inputNormal}`}
             />
           </Field>
         </div>
