@@ -49,6 +49,21 @@ const rankDefault = z
     return n >= 1 && n <= 100;
   }, "דירוג חייב להיות בין 1 ל-100");
 
+const enabledFlag = z.enum(["true", "false"]);
+
+const waTemplate = z
+  .string()
+  .min(1, "תבנית לא יכולה להיות ריקה")
+  .max(500, "תבנית ארוכה מדי (מקסימום 500 תווים)");
+
+const waGroupJid = z
+  .string()
+  .max(50)
+  .refine(
+    (v) => v === "" || /^\d+@g\.us$/.test(v),
+    'מזהה קבוצה לא תקין — פורמט: XXXXXXXXXX@g.us'
+  );
+
 export const configSchema = z.object({
   session_default_day:              dayOfWeek,
   session_default_time:             timeHHMM,
@@ -65,6 +80,17 @@ export const configSchema = z.object({
   debt_threshold:               nonNegativeInt("סף חוב"),
   default_player_rank:          rankDefault,
   match_win_score:              positiveInt("ניקוד ניצחון"),
+  wa_group_jid:                          waGroupJid,
+  wa_notify_session_open_enabled:        enabledFlag,
+  wa_notify_session_open_template:       waTemplate,
+  wa_notify_session_close_enabled:       enabledFlag,
+  wa_notify_session_close_template:      waTemplate,
+  wa_notify_player_registered_enabled:   enabledFlag,
+  wa_notify_player_registered_template:  waTemplate,
+  wa_notify_player_cancelled_enabled:    enabledFlag,
+  wa_notify_player_cancelled_template:   waTemplate,
+  wa_notify_waitlist_promote_enabled:    enabledFlag,
+  wa_notify_waitlist_promote_template:   waTemplate,
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

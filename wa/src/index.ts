@@ -130,6 +130,56 @@ app.post("/send", async (req: Request<object, object, SendBody>, res: Response) 
   }
 });
 
+interface SendGroupBody {
+  groupId?: unknown;
+  message?: unknown;
+}
+
+app.post("/send-group", async (req: Request<object, object, SendGroupBody>, res: Response) => {
+  const { groupId, message } = req.body;
+
+  if (typeof groupId !== "string" || typeof message !== "string") {
+    res.status(400).json({ error: "groupId and message are required strings" });
+    return;
+  }
+
+  if (!isReady || sock === null) {
+    logger.warn({ groupId }, "Send-group attempted while not ready");
+    res.status(503).json({ error: "WhatsApp not connected" });
+    return;
+  }
+
+  logger.info({ groupId }, "Sending WhatsApp group message");
+
+  try {
+    await sock.sendMessage(groupId, { text: message });
+    logger.info({ groupId }, "Group message sent successfully");
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    logger.error({ err, groupId }, "Failed to send group message");
+    res.status(503).json({ error: "Send failed" });
+  }
+});
+
+app.get("/groups", async (_req: Request, res: Response) => {
+  if (!isReady || sock === null) {
+    res.status(503).json({ error: "WhatsApp not connected" });
+    return;
+  }
+
+  try {
+    const groups = await sock.groupFetchAllParticipating();
+    const list = Object.entries(groups).map(([id, meta]) => ({
+      id,
+      subject: meta.subject,
+    }));
+    res.status(200).json(list);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch groups");
+    res.status(503).json({ error: "Failed to fetch groups" });
+  }
+});
+
 const PORT = 3100;
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "HTTP server listening");

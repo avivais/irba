@@ -22,6 +22,18 @@ export const CONFIG = {
   DEFAULT_PLAYER_RANK:          "default_player_rank",          // used when rank is null
   // Matches
   MATCH_WIN_SCORE:              "match_win_score",              // points to win a match
+  // WhatsApp notifications
+  WA_GROUP_JID:                          "wa_group_jid",                          // group JID for broadcasts, e.g. "XXXXXXXXXX@g.us"
+  WA_NOTIFY_SESSION_OPEN_ENABLED:        "wa_notify_session_open_enabled",        // "true" | "false"
+  WA_NOTIFY_SESSION_OPEN_TEMPLATE:       "wa_notify_session_open_template",
+  WA_NOTIFY_SESSION_CLOSE_ENABLED:       "wa_notify_session_close_enabled",       // "true" | "false"
+  WA_NOTIFY_SESSION_CLOSE_TEMPLATE:      "wa_notify_session_close_template",
+  WA_NOTIFY_PLAYER_REGISTERED_ENABLED:   "wa_notify_player_registered_enabled",   // "true" | "false"
+  WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE:  "wa_notify_player_registered_template",
+  WA_NOTIFY_PLAYER_CANCELLED_ENABLED:    "wa_notify_player_cancelled_enabled",    // "true" | "false"
+  WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE:   "wa_notify_player_cancelled_template",
+  WA_NOTIFY_WAITLIST_PROMOTE_ENABLED:    "wa_notify_waitlist_promote_enabled",    // "true" | "false"
+  WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE:   "wa_notify_waitlist_promote_template",
 } as const;
 
 export type ConfigKey = (typeof CONFIG)[keyof typeof CONFIG];
@@ -42,4 +54,15 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   debt_threshold:               "10",
   default_player_rank:          "50",
   match_win_score:              "12",
+  wa_group_jid:                          "",
+  wa_notify_session_open_enabled:        "true",
+  wa_notify_session_open_template:       "ההרשמה למפגש {date} פתוחה! כנסו ל-irba.sportgroup.cl להירשם",
+  wa_notify_session_close_enabled:       "false",
+  wa_notify_session_close_template:      "ההרשמה למפגש {date} נסגרה",
+  wa_notify_player_registered_enabled:   "false",
+  wa_notify_player_registered_template:  "{player_name} נרשם למפגש {date} ({status})",
+  wa_notify_player_cancelled_enabled:    "false",
+  wa_notify_player_cancelled_template:   "{player_name} ביטל הרשמה למפגש {date}",
+  wa_notify_waitlist_promote_enabled:    "true",
+  wa_notify_waitlist_promote_template:   "עברת מרשימת ההמתנה לרשימת המשתתפים במפגש {date}!",
 };

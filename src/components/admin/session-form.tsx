@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import {
   createSessionAction,
   updateSessionAction,
@@ -27,6 +27,10 @@ type SessionDefaults = {
   locationName: string;
   locationLat: string;
   locationLng: string;
+  waNotify: {
+    sessionOpenEnabled: boolean;
+    sessionOpenTemplate: string;
+  };
 };
 
 type Props =
@@ -86,6 +90,15 @@ export function SessionForm(props: Props) {
   const [dateBlurred, setDateBlurred] = useState(false);
   const [maxPlayersBlurred, setMaxPlayersBlurred] = useState(false);
   const [durationBlurred, setDurationBlurred] = useState(false);
+
+  // WA notification override — create mode only
+  const [waOpen, setWaOpen] = useState(false);
+  const [waSessionOpenEnabled, setWaSessionOpenEnabled] = useState(
+    defaults?.waNotify?.sessionOpenEnabled ?? true,
+  );
+  const [waSessionOpenTemplate, setWaSessionOpenTemplate] = useState(
+    defaults?.waNotify?.sessionOpenTemplate ?? "",
+  );
 
   const validation = parseSessionForm({
     date,
@@ -353,6 +366,60 @@ export function SessionForm(props: Props) {
           >
             מפגש סגור להרשמה
           </label>
+        </div>
+      )}
+
+      {/* WA notification override — create mode only */}
+      {!isEdit && (
+        <div className="flex flex-col gap-0 rounded-lg border border-zinc-200 dark:border-zinc-700">
+          <button
+            type="button"
+            onClick={() => setWaOpen((v) => !v)}
+            className="flex items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 active:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 rounded-lg"
+          >
+            <span>התראות וואטסאפ</span>
+            {waOpen ? (
+              <ChevronUp className="h-4 w-4 text-zinc-400" aria-hidden />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-zinc-400" aria-hidden />
+            )}
+          </button>
+
+          {waOpen && (
+            <div className="flex flex-col gap-4 border-t border-zinc-200 px-4 pb-4 pt-3 dark:border-zinc-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={waSessionOpenEnabled}
+                  onChange={(e) => setWaSessionOpenEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+                />
+                שלח התראת פתיחת מפגש לקבוצה
+              </label>
+              <input
+                type="hidden"
+                name="wa_override_session_open_enabled"
+                value={waSessionOpenEnabled ? "true" : "false"}
+              />
+
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  תבנית הודעה
+                </label>
+                <textarea
+                  name="wa_override_session_open_template"
+                  value={waSessionOpenTemplate}
+                  onChange={(e) => setWaSessionOpenTemplate(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  className={`${inputBase} resize-y ${inputNormal}`}
+                />
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                  משתנה זמין: {"{date}"}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

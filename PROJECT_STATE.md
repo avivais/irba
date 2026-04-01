@@ -165,29 +165,41 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 
 ### WhatsApp sidecar (`wa/`)
 
-Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on internal port 3100. Next.js POSTs to `http://wa:3100/send`; if `wa` is down, the call is best-effort (logs, doesn't throw).
+Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on internal port 3100. Next.js POSTs to sidecar endpoints; if `wa` is down, calls are best-effort (logs, doesn't throw).
 
 - `GET /status` → `{ ready: boolean }` — health probe
-- `POST /send` → `{ to: "05xxxxxxxx", message: "text" }` — sends WA message
+- `POST /send` → `{ to: "05xxxxxxxx", message: "text" }` — individual DM
+- `POST /send-group` → `{ groupId: "XXXXXXXXXX@g.us", message: "text" }` — group broadcast
+- `GET /groups` → `[{ id, subject }]` — list groups the bot is in (for JID discovery)
 - Phone normalization: `05xxxxxxxx → 972xxxxxxxx@s.whatsapp.net`
 - Session persisted to `/opt/irba/wa-session/` (bind-mounted volume); survives deploys
 - First run: QR printed to stdout → admin scans once with dedicated WA account
 - Controlled by `WA_NOTIFY_ENABLED=true` env var (default off; set `true` on EC2)
 
-**`src/lib/wa-notify.ts`** — thin client; no-ops in dev, 5 s timeout, swallows errors.
+**`src/lib/wa-notify.ts`** — typed notification dispatcher; `renderTemplate` for `{placeholder}` substitution; per-type high-level functions route to group or individual DM.
+
+**Notification config** — all settings in `AppConfig` (admin-editable at `/admin/config` → "וואטסאפ" section):
+- `wa_group_jid` — group JID for broadcasts (format `XXXXXXXXXX@g.us`; leave empty to disable group notifications)
+- Per event: `wa_notify_{type}_enabled` + `wa_notify_{type}_template`
+- Master kill switch: `WA_NOTIFY_ENABLED` env var
 
 **Notification triggers:**
-| Trigger | Recipients | Message |
-|---------|-----------|---------|
-| Session auto-created (cron) | All active REGISTERED players (non-admin) | "ההרשמה למפגש [date] פתוחה! כנסו ל-irba.sportgroup.cl להירשם" |
-| Admin promotes waitlisted player | The promoted player | "עברת מרשימת ההמתנה לרשימת המשתתפים במפגש [date]!" |
+| Trigger | Recipient | Default on |
+|---------|-----------|-----------|
+| Session open (auto-create cron or manual create) | WA group broadcast | ✅ |
+| Session closed (admin toggle) | WA group broadcast | ❌ |
+| Player registered (public RSVP) | WA group broadcast | ❌ |
+| Player cancelled (public RSVP) | WA group broadcast | ❌ |
+| Admin promotes waitlisted player | Individual DM to player | ✅ |
+
+**Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
 
 ### Auto-create cron (`GET /api/cron/auto-create`)
 
 Idempotent endpoint called hourly by EC2 cron. Bearer-token auth (`CRON_SECRET`). Logic:
 1. Check `SESSION_SCHEDULE_ENABLED=true` in AppConfig
 2. Compute next scheduled session datetime (`src/lib/schedule.ts` — DST-safe via `Intl.DateTimeFormat`)
-3. If `now >= sessionTime - autoCreateHours` and no session exists for that Israel day → create session + notify all REGISTERED players
+3. If `now >= sessionTime - autoCreateHours` and no session exists for that Israel day → create session + notify WA group (if `wa_notify_session_open_enabled` and `wa_group_jid` set)
 4. Otherwise → `{ created: false, reason }` (idempotent)
 
 EC2 cron: `0 * * * * curl -s -H "Authorization: Bearer ..." https://irba.sportgroup.cl/api/cron/auto-create`
@@ -317,17 +329,19 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 ---
 
-#### 4. WhatsApp integration *(Baileys)* — **PARTIALLY DONE**
+#### 4. WhatsApp integration *(Baileys)* — **MOSTLY DONE**
 
 **Done (production):**
-- ✅ Baileys sidecar service (`wa/`) — Express on port 3100, session persistence, QR auth
-- ✅ `src/lib/wa-notify.ts` — best-effort client, `WA_NOTIFY_ENABLED` guard
-- ✅ Session auto-create notification → all REGISTERED players
-- ✅ Waitlist promotion notification → promoted player
+- ✅ Baileys sidecar service (`wa/`) — Express on port 3100, session persistence, QR auth; `POST /send-group` + `GET /groups` added
+- ✅ `src/lib/wa-notify.ts` — typed dispatcher, `renderTemplate`, per-event notify functions
+- ✅ Configurable notification system — admin-editable toggles + templates + group JID in `/admin/config`
+- ✅ Session open notification → WA group broadcast (cron + manual create, with per-session override)
+- ✅ Session close notification → WA group broadcast
+- ✅ Player registered/cancelled → WA group broadcast (with confirmed/waitlisted status)
+- ✅ Waitlist promotion notification → individual DM to promoted player
 
 **Remaining:**
 - OTP delivery (requires user auth — step 3)
-- Admin RSVP/cancel alert
 
 ---
 
@@ -457,4 +471,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Mar 2026 — **Production live + UI polish + ops hardening.** App live at `https://irba.sportgroup.cl` with 20 registered players imported. Docker: standalone mode (`exec node server.js`) + `init: true` (tini PID 1) eliminates zombie node processes. Cron hits `http://localhost:3004` directly (no external round-trip). Logs: timestamped cron entries, daily logrotate for `cron.log` + `backup.log`, Docker logs capped via daemon.json. Next: smoke-test end-to-end, configure session schedule in admin config, set up uptime monitoring, create admin player (Avi Vaisenberger, `isAdmin=true`), then user auth (step 3).*
+*Last updated: Apr 2026 — **WA notification config system shipped.** Configurable per-event toggles, editable templates, WA group broadcast support (sidecar gains `POST /send-group` + `GET /groups`), per-session override on session create form. All 5 notification types wired. Admin player created. Next: configure `wa_group_jid` in `/admin/config`, configure session schedule, set up uptime monitoring, then user auth (step 3).*

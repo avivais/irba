@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAllConfigs, CONFIG } from "@/lib/config";
 import { nextScheduledSession } from "@/lib/schedule";
-import { sendWaMessage } from "@/lib/wa-notify";
+import { notifySessionOpen } from "@/lib/wa-notify";
 
 /** UTC start and end of the Israel calendar day containing `date`. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -75,19 +75,14 @@ export async function GET(request: Request) {
     },
   });
 
-  // 8. Notify all active REGISTERED players (best-effort, non-blocking)
-  const players = await prisma.player.findMany({
-    where: { playerKind: "REGISTERED", isAdmin: false },
-    select: { phone: true },
-  });
+  // 8. Notify the WA group that the session is open (best-effort, non-blocking)
   const dateStr = nextSession.toLocaleDateString("he-IL", {
     timeZone: "Asia/Jerusalem",
     weekday: "long",
     day: "numeric",
     month: "long",
   });
-  const message = `ההרשמה למפגש ${dateStr} פתוחה! כנסו ל-irba.sportgroup.cl להירשם`;
-  await Promise.allSettled(players.map((p) => sendWaMessage(p.phone, message)));
+  void notifySessionOpen(dateStr, configs);
 
-  return NextResponse.json({ created: true, sessionId: session.id, notified: players.length });
+  return NextResponse.json({ created: true, sessionId: session.id });
 }

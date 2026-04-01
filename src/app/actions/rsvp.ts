@@ -12,6 +12,9 @@ import {
   getClientIpFromHeaders,
 } from "@/lib/rate-limit";
 import { getSessionPlayerId, setRsvpSessionCookie } from "@/lib/rsvp-session";
+import { getAllConfigs } from "@/lib/config";
+import { notifyPlayerRegistered, notifyPlayerCancelled } from "@/lib/wa-notify";
+import { getPlayerDisplayName } from "@/lib/player-display";
 
 export type RsvpActionState = { ok: boolean; message?: string };
 
@@ -121,6 +124,22 @@ export async function attendAction(
   }
 
   await setRsvpSessionCookie(playerId);
+
+  // Notify the WA group (best-effort, fire-and-forget)
+  const [configs, attendanceCount] = await Promise.all([
+    getAllConfigs(),
+    prisma.attendance.count({ where: { gameSessionId: game.id } }),
+  ]);
+  const isConfirmed = attendanceCount <= game.maxPlayers;
+  const status = isConfirmed ? "מאושר" : "רשימת המתנה";
+  const dateStr = game.date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  void notifyPlayerRegistered(dateStr, name, status, configs);
+
   revalidatePath("/");
   return { ok: true, message: "נרשמת בהצלחה" };
 }
@@ -172,6 +191,17 @@ export async function cancelAttendanceAction(
     };
   }
 
+  let playerName = "שחקן";
+  try {
+    const player = await prisma.player.findUnique({
+      where: { id: playerId },
+      select: { firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true },
+    });
+    if (player) playerName = getPlayerDisplayName(player);
+  } catch {
+    // non-critical — name lookup failure should not block cancel
+  }
+
   try {
     await prisma.attendance.deleteMany({
       where: {
@@ -183,6 +213,16 @@ export async function cancelAttendanceAction(
     console.error("cancelAttendanceAction failed");
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  // Notify the WA group (best-effort, fire-and-forget)
+  const dateStr = game.date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const configs = await getAllConfigs();
+  void notifyPlayerCancelled(dateStr, playerName, configs);
 
   revalidatePath("/");
   return { ok: true, message: "ביטלת את ההרשמה" };

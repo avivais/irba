@@ -7,6 +7,7 @@ import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
 import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
+import { notifySessionOpen, notifySessionClose } from "@/lib/wa-notify";
 
 /** Return the UTC start and end of the calendar day containing `date` in Israel timezone. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -113,6 +114,25 @@ export async function createSessionAction(
       // If attendance already exists (shouldn't happen on create), ignore
     }
   }
+
+  // Notify WA group of new session (best-effort, fire-and-forget)
+  // Per-session override: form may supply wa_override_session_open_enabled / wa_override_session_open_template
+  const configs = await getAllConfigs();
+  const overrideEnabledRaw = formData.get("wa_override_session_open_enabled")?.toString();
+  const overrideTemplate = formData.get("wa_override_session_open_template")?.toString()?.trim();
+  const waOverride = overrideEnabledRaw !== undefined
+    ? {
+        enabled: overrideEnabledRaw === "true",
+        template: overrideTemplate || configs[CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE],
+      }
+    : undefined;
+  const dateStr = date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  void notifySessionOpen(dateStr, configs, waOverride);
 
   revalidatePath("/admin/sessions");
   redirect(`/admin/sessions/${newSessionId}`);
@@ -328,5 +348,18 @@ export async function toggleSessionAction(
   revalidatePath("/admin/sessions");
   revalidatePath(`/admin/sessions/${id}`);
   revalidatePath("/");
+
+  // Notify WA group when session is closed (best-effort, fire-and-forget)
+  if (newClosed) {
+    const configs = await getAllConfigs();
+    const dateStr = session.date.toLocaleDateString("he-IL", {
+      timeZone: "Asia/Jerusalem",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    void notifySessionClose(dateStr, configs);
+  }
+
   return { ok: true, message: newClosed ? "המפגש נסגר" : "המפגש נפתח" };
 }

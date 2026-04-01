@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePromoteTimestamp } from "@/lib/waitlist";
-import { sendWaMessage } from "@/lib/wa-notify";
+import { notifyWaitlistPromote } from "@/lib/wa-notify";
+import { getAllConfigs } from "@/lib/config";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
 
@@ -155,7 +156,10 @@ export async function promoteWaitlistAction(
     prisma.attendance.update({
       where: { id: attendanceId },
       data: { createdAt: newTimestamp },
-      select: { player: { select: { phone: true } }, gameSession: { select: { date: true } } },
+      select: {
+        player: { select: { phone: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true } },
+        gameSession: { select: { date: true } },
+      },
     }),
   ]);
 
@@ -169,7 +173,9 @@ export async function promoteWaitlistAction(
     day: "numeric",
     month: "long",
   });
-  void sendWaMessage(attendance.player.phone, `עברת מרשימת ההמתנה לרשימת המשתתפים במפגש ${dateStr}!`);
+  const playerName = getPlayerDisplayName(attendance.player);
+  const configs = await getAllConfigs();
+  void notifyWaitlistPromote(attendance.player.phone, dateStr, playerName, configs);
 
   return { ok: true, message: "השחקן קודם בהצלחה" };
 }

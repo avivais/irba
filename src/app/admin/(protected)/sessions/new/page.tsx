@@ -21,6 +21,10 @@ export default async function AdminSessionsNewPage() {
     locationName: configs[CONFIG.LOCATION_NAME],
     locationLat: configs[CONFIG.LOCATION_LAT],
     locationLng: configs[CONFIG.LOCATION_LNG],
+    waNotify: {
+      sessionOpenEnabled: configs[CONFIG.WA_NOTIFY_SESSION_OPEN_ENABLED] === "true",
+      sessionOpenTemplate: configs[CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE],
+    },
   };
 
   return (

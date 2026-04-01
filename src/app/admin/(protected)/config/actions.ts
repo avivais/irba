@@ -30,6 +30,11 @@ export async function updateConfigAction(
   }
   // Checkboxes omit their key when unchecked — supply the "off" value explicitly.
   raw[CONFIG.SESSION_SCHEDULE_ENABLED] ??= "false";
+  raw[CONFIG.WA_NOTIFY_SESSION_OPEN_ENABLED] ??= "false";
+  raw[CONFIG.WA_NOTIFY_SESSION_CLOSE_ENABLED] ??= "false";
+  raw[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_ENABLED] ??= "false";
+  raw[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_ENABLED] ??= "false";
+  raw[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_ENABLED] ??= "false";
 
   const parsed = parseConfigForm(raw);
   if (!parsed.ok) {
