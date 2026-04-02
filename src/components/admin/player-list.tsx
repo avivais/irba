@@ -115,7 +115,15 @@ export function PlayerList({
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
-                    <span dir="ltr">{player.phone}</span>
+                    <a
+                      href={`https://wa.me/${player.phone}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      dir="ltr"
+                      className="hover:text-green-600 hover:underline dark:hover:text-green-400"
+                    >
+                      {player.phone}
+                    </a>
                     {!player.isAdmin && (
                       <>
                         <span>·</span>

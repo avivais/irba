@@ -63,7 +63,7 @@ Navigation cards to שחקנים, מפגשים, ייבוא נתונים, and ה�
 
 #### Players CRUD (`/admin/players`) — unified with Precedence
 
-- **List** (`/admin/players`): all players **sorted by precedence score descending**; ranked #1…N on the left. Shows kind badge (**קבוע** / **מזדמן**), positions, phone, balance (coloured; formatted `₪N` / `-₪N` with `dir="ltr"` so minus/₪ always on correct side), current-year attendance with fraction `(attended/total sessions)`, and total precedence score inline in the subscript. Edit button + delete button; full-row click navigates to edit. **משקלות** button in header links to `/admin/precedence/weights`. **Add player** button is a circular `+` icon (no label) — saves space on mobile. Same circular `+` pattern used across sessions and weights list pages. Loading state: spinner + freeze overlay (`PlayerList` client component, `src/components/admin/player-list.tsx`).
+- **List** (`/admin/players`): all players **sorted by precedence score descending**; ranked #1…N on the left. Shows kind badge (**קבוע** / **מזדמן**), positions, phone (clickable `wa.me` link — opens WA DM in new tab), balance (coloured; formatted `₪N` / `-₪N` with `dir="ltr"` so minus/₪ always on correct side), current-year attendance with fraction `(attended/total sessions)`, and total precedence score inline in the subscript. Edit button + delete button; full-row click navigates to edit. **משקלות** button in header links to `/admin/precedence/weights`. **Add player** button is a circular `+` icon (no label) — saves space on mobile. Same circular `+` pattern used across sessions and weights list pages. Loading state: spinner + freeze overlay (`PlayerList` client component, `src/components/admin/player-list.tsx`).
 - **Add** (`/admin/players/new`): form with phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin, nickname, name fields (He/En), birthdate. Balance field uses `type="text"` + `inputMode="numeric"` (not `type="number"`) — browsers drop intermediate `-` in number inputs. **Birthdate**: dual-input pattern — visible text input displaying `dd.mm.yyyy` (Israeli format) + hidden `type="date"` input for canonical `YYYY-MM-DD`; calendar icon button calls `hiddenRef.showPicker()` to open native date picker. Picker works on desktop Chrome and mobile iOS; display always shows Israeli format regardless of browser locale. **Cancel button** (red, outside form) + **back button** (→ חזרה לרשימה) at top of form — both trigger dirty-guard confirm dialog when any field has been touched. Popstate guard active for create mode.
 - **Edit** (`/admin/players/[id]/edit`): player name + precedence rank/score shown in header (`מקום N · ניקוד X`). Same player form; phone disabled. Dual save buttons: **שמור שינויים** (stay) + **שמור וחזור לרשימה**. Cancel button + back button with dirty-guard confirm. Popstate guard active. **Precedence sections below the form:** current-year live attendance (read-only, auto-counted), historical aggregates (upsert/delete per year), bonuses/fines (adjustments) with add/edit/delete.
 - **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
@@ -170,7 +170,7 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 - `GET /status` → `{ ready: boolean }` — health probe
 - `POST /send` → `{ to: "05xxxxxxxx", message: "text" }` — individual DM
 - `POST /send-group` → `{ groupId: "XXXXXXXXXX@g.us", message: "text" }` — group broadcast
-- `GET /groups` → `[{ id, subject }]` — list groups the bot is in (for JID discovery)
+- `GET /groups` → `[{ id, subject }]` — list groups the bot is in; used by admin group-search UI
 - Phone normalization: `05xxxxxxxx → 972xxxxxxxx@s.whatsapp.net`
 - Session persisted to `/opt/irba/wa-session/` (bind-mounted volume); survives deploys
 - First run: QR printed to stdout → admin scans once with dedicated WA account
@@ -179,7 +179,7 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 **`src/lib/wa-notify.ts`** — typed notification dispatcher; `renderTemplate` for `{placeholder}` substitution; per-type high-level functions route to group or individual DM.
 
 **Notification config** — all settings in `AppConfig` (admin-editable at `/admin/config` → "וואטסאפ" section):
-- `wa_group_jid` — group JID for broadcasts (format `XXXXXXXXXX@g.us`; leave empty to disable group notifications)
+- `wa_group_jid` — group JID for broadcasts (format `XXXXXXXXXX@g.us`; leave empty to disable group notifications). **"חפש קבוצה"** button in the config form fetches the group list from the sidecar (`/groups`), shows a filterable inline picker, and fills the JID field on click — no manual JID extraction needed.
 - Per event: `wa_notify_{type}_enabled` + `wa_notify_{type}_template`
 - Master kill switch: `WA_NOTIFY_ENABLED` env var
 
@@ -193,6 +193,8 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 | Admin promotes waitlisted player | Individual DM to player | ✅ |
 
 **Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
+
+**Manual group send** — `/admin/config` WA section (visible only when `wa_group_jid` is set) has a free-text textarea + "שלח" button (`sendWaGroupMessageAction`). Calls the sidecar directly (bypasses `WA_NOTIFY_ENABLED` kill switch) — useful for ad-hoc messages and smoke-testing the pipeline.
 
 ### Auto-create cron (`GET /api/cron/auto-create`)
 

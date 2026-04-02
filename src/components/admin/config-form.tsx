@@ -1,9 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, Search } from "lucide-react";
 import Link from "next/link";
-import { updateConfigAction, type ConfigActionState } from "@/app/admin/(protected)/config/actions";
+import {
+  updateConfigAction,
+  sendWaGroupMessageAction,
+  fetchWaGroupsAction,
+  type ConfigActionState,
+  type SendWaActionState,
+  type WaGroup,
+} from "@/app/admin/(protected)/config/actions";
 import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-button";
 import { CONFIG } from "@/lib/config-keys";
 import type { ConfigKey } from "@/lib/config-keys";
@@ -74,6 +81,31 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
+  const initialSendState: SendWaActionState = { ok: false, message: "" };
+  const [sendState, sendDispatch, sendPending] = useActionState(
+    sendWaGroupMessageAction,
+    initialSendState,
+  );
+  const [groupJidValue, setGroupJidValue] = useState(values[CONFIG.WA_GROUP_JID]);
+  const [waGroups, setWaGroups] = useState<WaGroup[] | null>(null);
+  const [groupFilter, setGroupFilter] = useState("");
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState("");
+
+  async function handleFetchGroups() {
+    setGroupsLoading(true);
+    setGroupsError("");
+    setGroupsOpen(true);
+    const result = await fetchWaGroupsAction();
+    setGroupsLoading(false);
+    if (result.ok) {
+      setWaGroups(result.groups);
+      setGroupFilter("");
+    } else {
+      setGroupsError(result.message);
+    }
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-8">
@@ -419,21 +451,97 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       <section className="flex flex-col gap-4">
         <SectionTitle>וואטסאפ</SectionTitle>
 
-        <Field
-          label="מזהה קבוצה (Group JID)"
-          hint="XXXXXXXXXX@g.us — הבוט חייב להיות חבר בקבוצה"
-          error={errors[CONFIG.WA_GROUP_JID]}
-        >
-          <input
-            type="text"
-            name={CONFIG.WA_GROUP_JID}
-            defaultValue={values[CONFIG.WA_GROUP_JID]}
-            maxLength={50}
-            placeholder="1234567890-1234567890@g.us"
-            className={`${inputBase} ${errors[CONFIG.WA_GROUP_JID] ? inputError : inputNormal}`}
-            dir="ltr"
-          />
-        </Field>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            מזהה קבוצה (Group JID)
+            <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">
+              (XXXXXXXXXX@g.us — הבוט חייב להיות חבר בקבוצה)
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              name={CONFIG.WA_GROUP_JID}
+              value={groupJidValue}
+              onChange={(e) => setGroupJidValue(e.target.value)}
+              maxLength={50}
+              placeholder="1234567890-1234567890@g.us"
+              className={`flex-1 ${inputBase} ${errors[CONFIG.WA_GROUP_JID] ? inputError : inputNormal}`}
+              dir="ltr"
+            />
+            <button
+              type="button"
+              onClick={handleFetchGroups}
+              disabled={groupsLoading}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 active:bg-zinc-100 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              {groupsLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Search className="h-4 w-4" aria-hidden />
+              )}
+              חפש קבוצה
+            </button>
+          </div>
+          {errors[CONFIG.WA_GROUP_JID] && (
+            <p className="text-xs text-red-600 dark:text-red-400">
+              {errors[CONFIG.WA_GROUP_JID]}
+            </p>
+          )}
+          {groupsOpen && (
+            <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              {groupsError ? (
+                <p className="text-sm text-red-600 dark:text-red-400">{groupsError}</p>
+              ) : waGroups ? (
+                <>
+                  <input
+                    type="text"
+                    placeholder="סנן לפי שם…"
+                    value={groupFilter}
+                    onChange={(e) => setGroupFilter(e.target.value)}
+                    className={`${inputBase} ${inputNormal} text-sm`}
+                    autoFocus
+                  />
+                  <ul className="flex max-h-52 flex-col gap-0.5 overflow-y-auto">
+                    {waGroups
+                      .filter((g) =>
+                        g.subject.toLowerCase().includes(groupFilter.toLowerCase()),
+                      )
+                      .map((g) => (
+                        <li key={g.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGroupJidValue(g.id);
+                              setGroupsOpen(false);
+                            }}
+                            className="flex w-full items-center justify-between gap-3 rounded px-2 py-1.5 text-right hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          >
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                              {g.subject}
+                            </span>
+                            <span
+                              className="text-xs text-zinc-400 dark:text-zinc-500"
+                              dir="ltr"
+                            >
+                              {g.id}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    {waGroups.filter((g) =>
+                      g.subject.toLowerCase().includes(groupFilter.toLowerCase()),
+                    ).length === 0 && (
+                      <li className="px-2 py-1.5 text-sm text-zinc-400 dark:text-zinc-500">
+                        לא נמצאו קבוצות
+                      </li>
+                    )}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
 
         {/* Session open */}
         <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
@@ -561,6 +669,49 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           </Field>
         </div>
       </section>
+
+      {/* ── WA Send to Group ────────────────────────────── */}
+      {values[CONFIG.WA_GROUP_JID] && (
+        <section className="flex flex-col gap-4">
+          <SectionTitle>שליחת הודעה לקבוצה</SectionTitle>
+          <form action={sendDispatch} className="flex flex-col gap-3">
+            <Field label="הודעה">
+              <textarea
+                name="message"
+                rows={3}
+                maxLength={1000}
+                className={`${inputBase} resize-y ${inputNormal}`}
+              />
+            </Field>
+            <button
+              type="submit"
+              disabled={sendPending}
+              className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50 sm:w-auto"
+            >
+              {sendPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  שולח…
+                </>
+              ) : (
+                "שלח"
+              )}
+            </button>
+            {sendState.message && (
+              <p
+                role={sendState.ok ? "status" : "alert"}
+                className={
+                  sendState.ok
+                    ? "rounded-md bg-green-50 px-3 py-2 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
+                    : "rounded-md bg-red-50 px-3 py-2 text-sm text-red-900 dark:bg-red-950/50 dark:text-red-100"
+                }
+              >
+                {sendState.message}
+              </p>
+            )}
+          </form>
+        </section>
+      )}
 
       {/* ── Feedback ────────────────────────────────────── */}
       {state.ok && state.message && (
