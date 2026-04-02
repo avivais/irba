@@ -4,7 +4,9 @@ import makeWASocket, {
   useMultiFileAuthState,
 } from "@whiskeysockets/baileys";
 import express, { Request, Response } from "express";
+import { promises as fs } from "fs";
 import pino from "pino";
+import QRCode from "qrcode";
 import qrcode from "qrcode-terminal";
 import { Boom } from "@hapi/boom";
 
@@ -20,6 +22,8 @@ const SESSION_PATH = process.env.WA_SESSION_PATH ?? "./session";
 // Tracks whether the WA socket is currently connected and ready to send.
 let isReady = false;
 let sock: ReturnType<typeof makeWASocket> | null = null;
+// Latest QR code as a data URL (null when not pending or already scanned).
+let currentQr: string | null = null;
 
 /**
  * Normalise an Israeli phone number to the JID format expected by Baileys.
@@ -54,10 +58,14 @@ async function connectToWhatsApp(): Promise<void> {
     if (qr) {
       logger.info("Scan the QR code below to link WhatsApp:");
       qrcode.generate(qr, { small: true });
+      QRCode.toDataURL(qr).then((dataUrl) => {
+        currentQr = dataUrl;
+      }).catch(() => {});
     }
 
     if (connection === "open") {
       isReady = true;
+      currentQr = null;
       logger.info("WhatsApp connection established");
     }
 
@@ -159,6 +167,27 @@ app.post("/send-group", async (req: Request<object, object, SendGroupBody>, res:
     logger.error({ err, groupId }, "Failed to send group message");
     res.status(503).json({ error: "Send failed" });
   }
+});
+
+app.get("/qr", (_req: Request, res: Response) => {
+  res.json({ qr: currentQr });
+});
+
+app.post("/logout", async (_req: Request, res: Response) => {
+  isReady = false;
+  currentQr = null;
+  try {
+    await sock?.logout();
+  } catch {
+    // ignore — socket may already be dead
+  }
+  sock = null;
+  await fs.rm(SESSION_PATH, { recursive: true, force: true });
+  logger.info("Logged out and session cleared — reconnecting for new QR");
+  connectToWhatsApp().catch((err) =>
+    logger.error({ err }, "Reconnect after logout failed"),
+  );
+  res.json({ ok: true });
 });
 
 app.get("/groups", async (_req: Request, res: Response) => {

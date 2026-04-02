@@ -47,6 +47,37 @@ export async function updateConfigAction(
   return { ok: true, message: "ההגדרות נשמרו בהצלחה" };
 }
 
+export type WaStatusResult = { ready: boolean; qr: string | null };
+
+export async function fetchWaStatusAction(): Promise<WaStatusResult> {
+  await requireAdmin();
+  try {
+    const [statusRes, qrRes] = await Promise.all([
+      fetch("http://wa:3100/status", { cache: "no-store" }),
+      fetch("http://wa:3100/qr", { cache: "no-store" }),
+    ]);
+    const { ready } = (await statusRes.json()) as { ready: boolean };
+    const { qr } = (await qrRes.json()) as { qr: string | null };
+    return { ready, qr: qr ?? null };
+  } catch {
+    return { ready: false, qr: null };
+  }
+}
+
+export async function logoutWaAction(): Promise<SendWaActionState> {
+  await requireAdmin();
+  try {
+    const res = await fetch("http://wa:3100/logout", {
+      method: "POST",
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, message: "שגיאה בהתנתקות" };
+    return { ok: true, message: "התנתק בהצלחה" };
+  } catch {
+    return { ok: false, message: "הבוט אינו זמין" };
+  }
+}
+
 export type WaGroup = { id: string; subject: string };
 export type FetchWaGroupsResult =
   | { ok: true; groups: WaGroup[] }
