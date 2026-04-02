@@ -57,8 +57,9 @@ export async function fetchWaGroupsAction(): Promise<FetchWaGroupsResult> {
   try {
     const res = await fetch("http://wa:3100/groups", { cache: "no-store" });
     if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      return { ok: false, message: body.error ?? "שגיאה בקבלת הקבוצות" };
+      const message =
+        res.status === 503 ? "הבוט לא מחובר לוואטסאפ" : "שגיאה בקבלת הקבוצות";
+      return { ok: false, message };
     }
     const groups = (await res.json()) as WaGroup[];
     return { ok: true, groups: groups.sort((a, b) => a.subject.localeCompare(b.subject)) };
