@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LogOut, MessageCircle, RefreshCw } from "lucide-react";
 import {
   fetchWaStatusAction,
@@ -13,43 +13,42 @@ export function WaBotStatus() {
   const [status, setStatus] = useState<Status>("loading");
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchStatus = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refresh() {
+      const result = await fetchWaStatusAction();
+      if (!cancelled) {
+        setStatus(result.ready ? "ready" : "disconnected");
+        setQr(result.qr);
+      }
+    }
+
+    void refresh();
+    // Poll every 15 s so QR stays fresh as Baileys regenerates it every ~30 s.
+    const id = setInterval(() => { void refresh(); }, 15_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  async function handleRefresh() {
+    setBusy(true);
     const result = await fetchWaStatusAction();
     setStatus(result.ready ? "ready" : "disconnected");
     setQr(result.qr);
-  }, []);
-
-  // Poll every 15 s while disconnected so QR refreshes as Baileys regenerates it.
-  useEffect(() => {
-    void fetchStatus();
-  }, [fetchStatus]);
-
-  useEffect(() => {
-    if (status === "disconnected") {
-      intervalRef.current = setInterval(() => void fetchStatus(), 15_000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [status, fetchStatus]);
+    setBusy(false);
+  }
 
   async function handleLogout() {
     setBusy(true);
     await logoutWaAction();
-    await fetchStatus();
-    setBusy(false);
-  }
-
-  async function handleRefresh() {
-    setBusy(true);
-    await fetchStatus();
+    const result = await fetchWaStatusAction();
+    setStatus(result.ready ? "ready" : "disconnected");
+    setQr(result.qr);
     setBusy(false);
   }
 
@@ -110,10 +109,10 @@ export function WaBotStatus() {
         </div>
       </div>
 
-      {/* QR code */}
+      {/* QR code — shown when disconnected and QR is available */}
       {status === "disconnected" && qr && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
-          {/* QR is a data URL — render on white background so scanner works in dark mode */}
+          {/* White background so QR is scannable in dark mode */}
           <div className="rounded-lg bg-white p-2 shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qr} alt="QR Code לחיבור וואטסאפ" width={180} height={180} />
