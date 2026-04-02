@@ -122,7 +122,7 @@ export function WaBotStatus() {
         </div>
       )}
 
-      {status === "disconnected" && !qr && status !== "loading" && (
+      {status === "disconnected" && !qr && (
         <p className="text-center text-sm text-zinc-400 dark:text-zinc-500">
           ממתין לקוד QR…
         </p>
