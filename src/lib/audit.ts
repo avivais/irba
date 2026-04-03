@@ -44,6 +44,7 @@ export type AuditAction =
   | "PLAYER_OTP_SENT"
   | "PLAYER_OTP_VERIFIED"
   | "PLAYER_PASSWORD_SET"
+  | "PLAYER_PASSWORD_CHANGE"
   | "PLAYER_PASSWORD_RESET";
 
 export type AuditParams = {

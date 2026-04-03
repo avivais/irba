@@ -52,7 +52,16 @@ ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
   docker compose ps
 REMOTE
 
-# ── 5. Health check ────────────────────────────────────────────────────────────
+# ── 5. Migrate ─────────────────────────────────────────────────────────────────
+step "MIGRATE"
+log "Applying pending database migrations..."
+ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
+  set -euo pipefail
+  cd /opt/irba
+  docker exec irba-app-1 npx prisma migrate deploy
+REMOTE
+
+# ── 6. Health check ────────────────────────────────────────────────────────────
 step "HEALTH CHECK"
 log "Waiting 5s for app to start..."
 sleep 5

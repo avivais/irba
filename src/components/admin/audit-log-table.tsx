@@ -151,21 +151,21 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
   return (
     <>
       <tr
-        className={`border-b border-zinc-100 transition-colors dark:border-zinc-800 ${expanded ? "bg-zinc-50 dark:bg-zinc-800/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"}`}
+        onClick={hasDetails ? () => setExpanded((v) => !v) : undefined}
+        className={`border-b border-zinc-100 transition-colors dark:border-zinc-800 ${hasDetails ? "cursor-pointer" : ""} ${expanded ? "bg-zinc-50 dark:bg-zinc-800/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"}`}
       >
         {/* Expand toggle */}
         <td className="w-8 py-2.5 pl-3 pr-1">
           {hasDetails ? (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-              aria-label={expanded ? "כווץ" : "הרחב"}
+            <span
+              aria-hidden
+              className="flex h-6 w-6 items-center justify-center rounded text-zinc-400"
             >
               {expanded
                 ? <ChevronDown className="h-3.5 w-3.5" />
                 : <ChevronRight className="h-3.5 w-3.5" />
               }
-            </button>
+            </span>
           ) : (
             <span className="flex h-6 w-6 items-center justify-center">
               <span className="h-1 w-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />

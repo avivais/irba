@@ -528,6 +528,68 @@ export async function confirmPasswordResetAction(
   redirect("/profile");
 }
 
+// ── Change password (from profile) ───────────────────────────────────────────
+
+/**
+ * Allows a logged-in player to set or change their password.
+ * If the player already has a password, currentPassword must be correct.
+ */
+export async function changePasswordAction(
+  _prev: PlayerAuthState,
+  formData: FormData,
+): Promise<PlayerAuthState> {
+  const playerId = await getPlayerSessionPlayerId();
+  if (!playerId) {
+    return { ok: false, message: "לא מחובר. נא להתחבר שוב." };
+  }
+
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { passwordHash: true },
+  });
+  if (!player) {
+    return { ok: false, message: "לא מחובר. נא להתחבר שוב." };
+  }
+
+  // If player already has a password, verify the current one first
+  if (player.passwordHash) {
+    const currentPassword = formData.get("currentPassword");
+    if (!currentPassword || typeof currentPassword !== "string") {
+      return { ok: false, message: "נא להזין את הסיסמה הנוכחית" };
+    }
+    const match = await compare(currentPassword, player.passwordHash);
+    if (!match) {
+      return { ok: false, message: "הסיסמה הנוכחית שגויה" };
+    }
+  }
+
+  const parsedPassword = passwordSchema.safeParse(formData.get("newPassword"));
+  if (!parsedPassword.success) {
+    return { ok: false, message: parsedPassword.error.issues[0]?.message };
+  }
+
+  const confirmPassword = formData.get("confirmPassword");
+  if (parsedPassword.data !== confirmPassword) {
+    return { ok: false, message: "הסיסמאות אינן תואמות" };
+  }
+
+  const passwordHash = await hash(parsedPassword.data, 10);
+  await prisma.player.update({
+    where: { id: playerId },
+    data: { passwordHash },
+  });
+
+  const isFirstTime = !player.passwordHash;
+  writeAuditLog({
+    actor: playerId,
+    action: isFirstTime ? "PLAYER_PASSWORD_SET" : "PLAYER_PASSWORD_CHANGE",
+    entityType: "Player",
+    entityId: playerId,
+  });
+
+  return { ok: true, message: isFirstTime ? "הסיסמה הוגדרה בהצלחה" : "הסיסמה עודכנה בהצלחה" };
+}
+
 // ── Logout ────────────────────────────────────────────────────────────────────
 
 export async function playerLogoutAction(): Promise<void> {
@@ -539,5 +601,5 @@ export async function playerLogoutAction(): Promise<void> {
     entityId: playerId ?? undefined,
   });
   await clearPlayerSessionCookie();
-  redirect("/login");
+  redirect("/");
 }

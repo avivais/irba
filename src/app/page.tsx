@@ -2,6 +2,7 @@ import { CalendarDays, MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import { CancelRsvpForm } from "@/components/cancel-rsvp-form";
 import { RsvpForm } from "@/components/rsvp-form";
+import { PlayerLoginForm } from "@/components/player-login-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatGameDate } from "@/lib/format-date";
 import { getNextGame } from "@/lib/game";
@@ -38,6 +39,7 @@ export default async function HomePage() {
           lastNameEn: true,
           nickname: true,
           phone: true,
+          isAdmin: true,
         },
       })
     : null;
@@ -116,6 +118,17 @@ export default async function HomePage() {
             >
               אזור אישי
             </Link>
+            {authenticatedPlayer.isAdmin && (
+              <>
+                <span aria-hidden>·</span>
+                <Link
+                  href="/admin"
+                  className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-200"
+                >
+                  ניהול
+                </Link>
+              </>
+            )}
           </div>
         )}
       </header>
@@ -197,6 +210,13 @@ export default async function HomePage() {
                 </>
               )}
           </div>
+        </section>
+      )}
+
+      {!authenticatedPlayer && (
+        <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
+          <h2 className="sr-only">כניסה לחשבון</h2>
+          <PlayerLoginForm />
         </section>
       )}
 

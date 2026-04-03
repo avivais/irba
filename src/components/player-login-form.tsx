@@ -193,7 +193,7 @@ export function PlayerLoginForm() {
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
               <input type="checkbox" name="rememberMe" className="rounded" />
-              זכור אותי (30 יום)
+              זכור אותי
             </label>
             {errorMsg && <ErrorBanner message={errorMsg} />}
             <button type="submit" disabled={otpReqPending} className={btnPrimary}>
@@ -243,7 +243,7 @@ export function PlayerLoginForm() {
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
               <input type="checkbox" name="rememberMe" className="rounded" />
-              זכור אותי (30 יום)
+              זכור אותי
             </label>
             {errorMsg && <ErrorBanner message={errorMsg} />}
             <button type="submit" disabled={pwLoginPending} className={btnPrimary}>
@@ -307,7 +307,7 @@ export function PlayerLoginForm() {
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
           <input type="checkbox" name="rememberMe" className="rounded" />
-          זכור אותי (30 יום)
+          זכור אותי
         </label>
         {errorMsg && <ErrorBanner message={errorMsg} />}
         <button

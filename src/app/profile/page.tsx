@@ -6,6 +6,7 @@ import { getPlayerSession } from "@/lib/player-session";
 import { playerLogoutAction } from "@/app/actions/player-auth";
 import { prisma } from "@/lib/prisma";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ChangePasswordForm } from "@/components/change-password-form";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
@@ -51,13 +52,14 @@ function formatSessionDate(date: Date): string {
 
 export default async function ProfilePage() {
   const session = await getPlayerSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/");
 
   const player = await prisma.player.findUnique({
     where: { id: session.playerId },
     select: {
       id: true,
       phone: true,
+      passwordHash: true,
       firstNameHe: true,
       lastNameHe: true,
       firstNameEn: true,
@@ -85,7 +87,7 @@ export default async function ProfilePage() {
     },
   });
 
-  if (!player) redirect("/login");
+  if (!player) redirect("/");
 
   const displayName = getDisplayName(player);
   const { text: balanceText, color: balanceColor } = formatBalance(
@@ -154,6 +156,18 @@ export default async function ProfilePage() {
               ))}
             </ul>
           )}
+        </section>
+
+        {/* Change password */}
+        <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
+              {player.passwordHash ? "שינוי סיסמה" : "הגדרת סיסמה"}
+            </h2>
+          </div>
+          <div className="px-5 py-4">
+            <ChangePasswordForm hasPassword={!!player.passwordHash} />
+          </div>
         </section>
 
         {/* Actions */}

@@ -4,7 +4,7 @@ import { cookieSecure } from "@/lib/cookie-secure";
 
 export const PLAYER_COOKIE_NAME = "irba_player_session";
 
-const SESSION_30D_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_REMEMBERED_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 years
 const SESSION_12H_SECONDS = 60 * 60 * 12;
 
 function jwtIssuer(): string {
@@ -42,7 +42,7 @@ export async function setPlayerSessionCookie(
 ): Promise<void> {
   const issuer = jwtIssuer();
   const audience = jwtAudience();
-  const expSeconds = rememberMe ? SESSION_30D_SECONDS : SESSION_12H_SECONDS;
+  const expSeconds = rememberMe ? SESSION_REMEMBERED_SECONDS : SESSION_12H_SECONDS;
   const exp = Math.floor(Date.now() / 1000) + expSeconds;
 
   const token = await new SignJWT({ rememberMe })
@@ -60,7 +60,7 @@ export async function setPlayerSessionCookie(
     secure: cookieSecure(),
     sameSite: "lax",
     path: "/",
-    ...(rememberMe ? { maxAge: SESSION_30D_SECONDS } : {}),
+    ...(rememberMe ? { maxAge: SESSION_REMEMBERED_SECONDS } : {}),
   });
 }
 
