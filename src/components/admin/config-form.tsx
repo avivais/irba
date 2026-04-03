@@ -7,6 +7,7 @@ import {
   updateConfigAction,
   sendWaGroupMessageAction,
   fetchWaGroupsAction,
+  runAutoCreateAction,
   type ConfigActionState,
   type WaGroup,
 } from "@/app/admin/(protected)/config/actions";
@@ -83,6 +84,14 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const errors = state.ok ? {} : (state.errors ?? {});
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
   const [sendPending, startSendTransition] = useTransition();
+  const [runNowPending, startRunNowTransition] = useTransition();
+
+  function handleRunNow() {
+    startRunNowTransition(async () => {
+      const result = await runAutoCreateAction();
+      showToast(result.message, result.ok);
+    });
+  }
   const sendMessageRef = useRef<HTMLTextAreaElement>(null);
   const { showToast, dismiss, toast } = useToast();
 
@@ -234,6 +243,18 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
           </Field>
         </div>
+
+        <button
+          type="button"
+          onClick={handleRunNow}
+          disabled={runNowPending}
+          className="flex items-center gap-2 self-start rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 active:bg-zinc-100 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        >
+          {runNowPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : null}
+          הרץ עכשיו
+        </button>
       </section>
 
       {/* ── Location ────────────────────────────────────── */}

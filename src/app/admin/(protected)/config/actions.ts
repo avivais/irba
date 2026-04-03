@@ -7,6 +7,7 @@ import { setConfigs, getAllConfigs, CONFIG } from "@/lib/config";
 import { parseConfigForm } from "@/lib/config-validation";
 import type { ConfigKey } from "@/lib/config";
 import { sendWaGroupMessage } from "@/lib/wa-notify";
+import { autoCreateNextSession } from "@/lib/auto-create-session";
 
 export type ConfigActionState = {
   ok: boolean;
@@ -97,6 +98,21 @@ export async function fetchWaGroupsAction(): Promise<FetchWaGroupsResult> {
   } catch {
     return { ok: false, message: "הבוט אינו זמין" };
   }
+}
+
+export type RunAutoCreateResult = { ok: boolean; message: string };
+
+export async function runAutoCreateAction(): Promise<RunAutoCreateResult> {
+  await requireAdmin();
+  const result = await autoCreateNextSession({ force: true });
+  if (result.created) {
+    return { ok: true, message: "מפגש נוצר בהצלחה" };
+  }
+  const reasons: Record<string, string> = {
+    "schedule disabled": "לוח הזמנים האוטומטי אינו מופעל",
+    "already exists": "מפגש כבר קיים לתאריך הבא",
+  };
+  return { ok: false, message: reasons[result.reason] ?? result.reason };
 }
 
 export type SendWaActionState = { ok: boolean; message: string };

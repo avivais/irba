@@ -208,6 +208,8 @@ Idempotent endpoint called hourly by EC2 cron. Bearer-token auth (`CRON_SECRET`)
 
 EC2 cron: `0 * * * * curl -s -H "Authorization: Bearer ..." https://irba.sportgroup.cl/api/cron/auto-create`
 
+Core logic extracted to `src/lib/auto-create-session.ts` (`autoCreateNextSession({ force? })`). The cron route calls it normally; the admin config page has a **"הרץ עכשיו"** button (in the "לוח זמנים" section) that calls `runAutoCreateAction` with `force: true` to bypass the lead-time window check. Result shown as a toast.
+
 ### Tests
 
 - Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
