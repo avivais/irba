@@ -13,8 +13,8 @@ export default async function AdminSessionsNewPage() {
 
   const defaults = {
     date: nextDefaultSessionDateISO(
-      parseInt(configs[CONFIG.SESSION_DEFAULT_DAY], 10),
-      configs[CONFIG.SESSION_DEFAULT_TIME],
+      parseInt(configs[CONFIG.SESSION_SCHEDULE_DAY], 10),
+      configs[CONFIG.SESSION_SCHEDULE_TIME],
     ),
     maxPlayers: 15,
     durationMinutes: parseInt(configs[CONFIG.SESSION_DEFAULT_DURATION_MIN], 10),

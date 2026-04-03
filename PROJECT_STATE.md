@@ -108,8 +108,8 @@ Navigation cards to שחקנים, מפגשים, ייבוא נתונים, and ה�
 **Config keys:**
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `session_default_day` | `1` (Monday) | Day-of-week for new session pre-fill |
-| `session_default_time` | `21:00` | Start time for new session pre-fill |
+| `session_schedule_day` | `1` (Monday) | Day-of-week — used for both manual session pre-fill and auto-create |
+| `session_schedule_time` | `21:00` | Time HH:MM — used for both manual session pre-fill and auto-create |
 | `session_default_duration_min` | `120` | Session duration (minutes) |
 | `rsvp_close_hours` | `13` | Hours before start that RSVP auto-closes |
 | `location_name` | Ilan Ramon school court | Default location display name |
@@ -118,10 +118,10 @@ Navigation cards to שחקנים, מפגשים, ייבוא נתונים, and ה�
 | `debt_threshold` | `10` | Debt ILS above which registered player is charged as drop-in |
 | `default_player_rank` | `50` | Rank for players with no rank set |
 | `match_win_score` | `12` | Points to win a match |
-| `SESSION_SCHEDULE_ENABLED` | `"false"` | Enable auto-create cron |
-| `SESSION_SCHEDULE_DAY` | `"1"` | Weekly session day-of-week (0=Sun…6=Sat), Israel time |
-| `SESSION_SCHEDULE_TIME` | `"21:00"` | Weekly session time HH:MM, Israel time |
-| `SESSION_AUTO_CREATE_HOURS_BEFORE` | `"48"` | Hours before session that RSVP opens (auto-create fires) |
+| `session_schedule_enabled` | `"false"` | Enable auto-create cron |
+| `session_auto_create_hours_before` | `"48"` | Hours before session that RSVP opens (auto-create fires) |
+
+> `session_default_day` and `session_default_time` were removed — `session_schedule_day/time` are now the single source of truth for both UI pre-fill and auto-create.
 
 #### Precedence — רשימת קדימות (unified into `/admin/players`)
 

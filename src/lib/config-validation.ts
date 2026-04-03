@@ -65,13 +65,11 @@ const waGroupJid = z
   );
 
 export const configSchema = z.object({
-  session_default_day:              dayOfWeek,
-  session_default_time:             timeHHMM,
+  session_schedule_day:             dayOfWeek,
+  session_schedule_time:            scheduleTime,
   session_default_duration_min:     positiveInt("משך המפגש"),
   rsvp_close_hours:                 nonNegativeInt("חלון הרשמה"),
   session_schedule_enabled:         z.enum(["true", "false"]),
-  session_schedule_day:             dayOfWeek,
-  session_schedule_time:            scheduleTime,
   session_auto_create_hours_before: autoCreateHours,
   location_name:                z.string().max(200),
   location_lat:                 optionalFloat,

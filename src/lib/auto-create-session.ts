@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAllConfigs, CONFIG } from "@/lib/config";
 import { nextScheduledSession } from "@/lib/schedule";
 import { notifySessionOpen } from "@/lib/wa-notify";
+import { writeAuditLog } from "@/lib/audit";
 
 /** UTC start and end of the Israel calendar day containing `date`. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -36,6 +37,10 @@ export async function autoCreateNextSession(opts: { force?: boolean } = {}): Pro
   const scheduleTime = configs[CONFIG.SESSION_SCHEDULE_TIME];
   const hoursBeforeCreate = parseInt(configs[CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE], 10);
   const maxPlayers = 15;
+  const durationMinutes = parseInt(configs[CONFIG.SESSION_DEFAULT_DURATION_MIN], 10) || null;
+  const locationName = configs[CONFIG.LOCATION_NAME] || null;
+  const locationLat = parseFloat(configs[CONFIG.LOCATION_LAT]) || null;
+  const locationLng = parseFloat(configs[CONFIG.LOCATION_LNG]) || null;
 
   const now = new Date();
   const nextSession = nextScheduledSession(scheduleDayOfWeek, scheduleTime, now);
@@ -57,7 +62,15 @@ export async function autoCreateNextSession(opts: { force?: boolean } = {}): Pro
   }
 
   const session = await prisma.gameSession.create({
-    data: { date: nextSession, maxPlayers, isClosed: false },
+    data: { date: nextSession, maxPlayers, isClosed: false, durationMinutes, locationName, locationLat, locationLng },
+  });
+
+  writeAuditLog({
+    actor: "cron",
+    action: "AUTO_CREATE_SESSION",
+    entityType: "GameSession",
+    entityId: session.id,
+    after: { date: nextSession.toISOString(), maxPlayers },
   });
 
   const dateStr = nextSession.toLocaleDateString("he-IL", {

@@ -2,14 +2,12 @@
 
 export const CONFIG = {
   // Sessions
-  SESSION_DEFAULT_DAY:          "session_default_day",          // 0=Sun … 6=Sat
-  SESSION_DEFAULT_TIME:         "session_default_time",          // "HH:MM"
+  SESSION_SCHEDULE_DAY:              "session_schedule_day",              // 0=Sun … 6=Sat — used for both manual pre-fill and auto-create
+  SESSION_SCHEDULE_TIME:             "session_schedule_time",             // "HH:MM" — used for both manual pre-fill and auto-create
   SESSION_DEFAULT_DURATION_MIN: "session_default_duration_min", // minutes
   RSVP_CLOSE_HOURS:             "rsvp_close_hours",             // hours before start
   // Schedule (auto-create)
   SESSION_SCHEDULE_ENABLED:          "session_schedule_enabled",          // "true" | "false"
-  SESSION_SCHEDULE_DAY:              "session_schedule_day",              // 0=Sun … 6=Sat, Israel time
-  SESSION_SCHEDULE_TIME:             "session_schedule_time",             // "HH:MM", Israel time
   SESSION_AUTO_CREATE_HOURS_BEFORE:  "session_auto_create_hours_before",  // hours before session to open registration
   // Location
   LOCATION_NAME:                "location_name",
@@ -39,13 +37,11 @@ export const CONFIG = {
 export type ConfigKey = (typeof CONFIG)[keyof typeof CONFIG];
 
 export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
-  session_default_day:          "1",     // Monday
-  session_default_time:         "21:00",
+  session_schedule_day:             "1",     // Monday
+  session_schedule_time:            "21:00",
   session_default_duration_min: "120",
   rsvp_close_hours:             "13",
   session_schedule_enabled:             "false",
-  session_schedule_day:             "1",     // Monday
-  session_schedule_time:            "21:00",
   session_auto_create_hours_before: "48",
   location_name:                "מגרש כדורסל בית ספר אילן רמון, נתניה",
   location_lat:                 "",

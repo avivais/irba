@@ -137,11 +137,11 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <SectionTitle>מפגשים</SectionTitle>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="יום ברירת מחדל" error={errors[CONFIG.SESSION_DEFAULT_DAY]}>
+          <Field label="יום ברירת מחדל" error={errors[CONFIG.SESSION_SCHEDULE_DAY]}>
             <select
-              name={CONFIG.SESSION_DEFAULT_DAY}
-              defaultValue={values[CONFIG.SESSION_DEFAULT_DAY]}
-              className={`${inputBase} ${errors[CONFIG.SESSION_DEFAULT_DAY] ? inputError : inputNormal}`}
+              name={CONFIG.SESSION_SCHEDULE_DAY}
+              defaultValue={values[CONFIG.SESSION_SCHEDULE_DAY]}
+              className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_DAY] ? inputError : inputNormal}`}
             >
               {DAYS.map((day, i) => (
                 <option key={i} value={String(i)}>
@@ -151,12 +151,12 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             </select>
           </Field>
 
-          <Field label="שעת התחלה" hint="HH:MM" error={errors[CONFIG.SESSION_DEFAULT_TIME]}>
+          <Field label="שעת התחלה" hint="HH:MM" error={errors[CONFIG.SESSION_SCHEDULE_TIME]}>
             <input
               type="time"
-              name={CONFIG.SESSION_DEFAULT_TIME}
-              defaultValue={values[CONFIG.SESSION_DEFAULT_TIME]}
-              className={`${inputBase} ${errors[CONFIG.SESSION_DEFAULT_TIME] ? inputError : inputNormal}`}
+              name={CONFIG.SESSION_SCHEDULE_TIME}
+              defaultValue={values[CONFIG.SESSION_SCHEDULE_TIME]}
+              className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_TIME] ? inputError : inputNormal}`}
             />
           </Field>
 
@@ -205,29 +205,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </label>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="יום בשבוע" error={errors[CONFIG.SESSION_SCHEDULE_DAY]}>
-            <select
-              name={CONFIG.SESSION_SCHEDULE_DAY}
-              defaultValue={values[CONFIG.SESSION_SCHEDULE_DAY]}
-              className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_DAY] ? inputError : inputNormal}`}
-            >
-              {DAYS.map((day, i) => (
-                <option key={i} value={String(i)}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="שעת המפגש" hint="HH:MM" error={errors[CONFIG.SESSION_SCHEDULE_TIME]}>
-            <input
-              type="time"
-              name={CONFIG.SESSION_SCHEDULE_TIME}
-              defaultValue={values[CONFIG.SESSION_SCHEDULE_TIME]}
-              className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_TIME] ? inputError : inputNormal}`}
-            />
-          </Field>
-
           <Field
             label="שעות לפני המפגש לפתיחת הרשמה"
             hint="1–168"
