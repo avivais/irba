@@ -11,7 +11,7 @@ const heebo = Heebo({
 export const metadata: Metadata = {
   title: {
     default: "IRBA",
-    template: "IRBA :: %s",
+    template: "\u200EIRBA \u00B7 %s",
   },
   description: "הרשמה למפגשים — IRBA",
 };
