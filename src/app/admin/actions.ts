@@ -151,5 +151,5 @@ export async function adminLoginAction(
 export async function adminLogoutAction(): Promise<void> {
   writeAuditLog({ actor: "admin", action: "ADMIN_LOGOUT" });
   await clearAdminSessionCookie();
-  redirect("/admin/login");
+  redirect("/");
 }

@@ -11,7 +11,7 @@ import {
   clearPlayerSessionCookie,
   getPlayerSessionPlayerId,
 } from "@/lib/player-session";
-import { setAdminSessionCookie } from "@/lib/admin-session";
+import { setAdminSessionCookie, clearAdminSessionCookie } from "@/lib/admin-session";
 import {
   consumePlayerLoginRateLimit,
   getClientIpFromHeaders,
@@ -601,5 +601,6 @@ export async function playerLogoutAction(): Promise<void> {
     entityId: playerId ?? undefined,
   });
   await clearPlayerSessionCookie();
+  await clearAdminSessionCookie();
   redirect("/");
 }

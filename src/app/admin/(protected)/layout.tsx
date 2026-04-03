@@ -18,11 +18,11 @@ export default async function AdminProtectedLayout({
         select: { isAdmin: true },
       });
       if (!player?.isAdmin) {
-        redirect("/admin/login");
+        redirect("/");
       }
       // isAdmin player — allow through
     } else {
-      redirect("/admin/login");
+      redirect("/");
     }
   }
   return (

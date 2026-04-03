@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Home, ShieldCheck } from "lucide-react";
 import { getPlayerSession } from "@/lib/player-session";
-import { playerLogoutAction } from "@/app/actions/player-auth";
 import { prisma } from "@/lib/prisma";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PlayerNav } from "@/components/player-nav";
 import { ChangePasswordForm } from "@/components/change-password-form";
 
 export const metadata: Metadata = { title: "אזור אישי" };
@@ -95,115 +92,76 @@ export default async function ProfilePage() {
   );
 
   return (
-    <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
-      <header className="relative mx-auto flex w-full max-w-lg items-start justify-between gap-4 md:max-w-2xl">
-        <div className="min-w-0 flex-1 pt-1">
-          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            IRBA
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <>
+      <PlayerNav />
+      <div className="flex flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
+        <header className="mx-auto w-full max-w-lg md:max-w-2xl">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
             שלום, {displayName}
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400" dir="ltr">
             {player.phone}
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 pt-1">
-          <ThemeToggle />
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto mt-8 flex w-full max-w-lg flex-col gap-6 md:max-w-2xl">
-        {/* Balance card */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            יתרה
-          </p>
-          <p className={`mt-1 text-3xl font-bold tabular-nums ${balanceColor}`} dir="ltr">
-            {balanceText}
-          </p>
-        </section>
-
-        {/* Attendance history */}
-        <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              נוכחות אחרונה
-            </h2>
-          </div>
-          {player.attendances.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-zinc-500 dark:text-zinc-400">
-              אין רשומות נוכחות עדיין.
+        <main className="mx-auto mt-8 flex w-full max-w-lg flex-col gap-6 md:max-w-2xl">
+          {/* Balance card */}
+          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+              יתרה
             </p>
-          ) : (
-            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {player.attendances.map((att) => (
-                <li
-                  key={att.id}
-                  className="flex items-center justify-between px-5 py-3"
-                >
-                  <span className="text-sm text-zinc-800 dark:text-zinc-200">
-                    {formatSessionDate(att.gameSession.date)}
-                  </span>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {att.gameSession.isArchived
-                      ? "ארכיון"
-                      : att.gameSession.isClosed
-                        ? "סגור"
-                        : "פתוח"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+            <p className={`mt-1 text-3xl font-bold tabular-nums ${balanceColor}`} dir="ltr">
+              {balanceText}
+            </p>
+          </section>
 
-        {/* Change password */}
-        <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-            <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              {player.passwordHash ? "שינוי סיסמה" : "הגדרת סיסמה"}
-            </h2>
-          </div>
-          <div className="px-5 py-4">
-            <ChangePasswordForm hasPassword={!!player.passwordHash} />
-          </div>
-        </section>
+          {/* Attendance history */}
+          <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                נוכחות אחרונה
+              </h2>
+            </div>
+            {player.attendances.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-zinc-500 dark:text-zinc-400">
+                אין רשומות נוכחות עדיין.
+              </p>
+            ) : (
+              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {player.attendances.map((att) => (
+                  <li
+                    key={att.id}
+                    className="flex items-center justify-between px-5 py-3"
+                  >
+                    <span className="text-sm text-zinc-800 dark:text-zinc-200">
+                      {formatSessionDate(att.gameSession.date)}
+                    </span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {att.gameSession.isArchived
+                        ? "ארכיון"
+                        : att.gameSession.isClosed
+                          ? "סגור"
+                          : "פתוח"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-3">
-          <Link
-            href="/"
-            className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
-          >
-            <Home className="h-5 w-5 text-zinc-500 dark:text-zinc-400" aria-hidden />
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              המפגש הבא
-            </span>
-          </Link>
-
-          {player.isAdmin && (
-            <Link
-              href="/admin"
-              className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
-            >
-              <ShieldCheck className="h-5 w-5 text-zinc-500 dark:text-zinc-400" aria-hidden />
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                ממשק ניהול
-              </span>
-            </Link>
-          )}
-
-          <form action={playerLogoutAction}>
-            <button
-              type="submit"
-              className="w-full rounded-2xl border border-zinc-200 bg-white p-4 text-start font-medium text-red-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-red-400 dark:hover:border-red-900 dark:hover:bg-red-950/20"
-            >
-              התנתק
-            </button>
-          </form>
-        </div>
-      </main>
-    </div>
+          {/* Change password */}
+          <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {player.passwordHash ? "שינוי סיסמה" : "הגדרת סיסמה"}
+              </h2>
+            </div>
+            <div className="px-5 py-4">
+              <ChangePasswordForm hasPassword={!!player.passwordHash} />
+            </div>
+          </section>
+        </main>
+      </div>
+    </>
   );
 }
