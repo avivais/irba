@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 
 export type RateActionState = { ok: boolean; message?: string };
 
@@ -44,7 +45,18 @@ export async function createRateAction(
   });
   if (existing) return { ok: false, message: "כבר קיים תעריף לתאריך זה" };
 
-  await prisma.hourlyRate.create({ data: { effectiveFrom, pricePerHour } });
+  const created = await prisma.hourlyRate.create({
+    data: { effectiveFrom, pricePerHour },
+    select: { id: true },
+  });
+
+  writeAuditLog({
+    actor: "admin",
+    action: "CREATE_RATE",
+    entityType: "HourlyRate",
+    entityId: created.id,
+    after: { effectiveFrom: effectiveFrom.toISOString(), pricePerHour },
+  });
 
   revalidatePath("/admin/config");
   redirect("/admin/config");
@@ -68,6 +80,11 @@ export async function updateRateAction(
   });
   if (conflict) return { ok: false, message: "כבר קיים תעריף לתאריך זה" };
 
+  const before = await prisma.hourlyRate.findUnique({
+    where: { id },
+    select: { effectiveFrom: true, pricePerHour: true },
+  });
+
   try {
     await prisma.hourlyRate.update({ where: { id }, data: { effectiveFrom, pricePerHour } });
   } catch (e) {
@@ -76,6 +93,15 @@ export async function updateRateAction(
     }
     throw e;
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "UPDATE_RATE",
+    entityType: "HourlyRate",
+    entityId: id,
+    before: before ? { effectiveFrom: before.effectiveFrom.toISOString(), pricePerHour: before.pricePerHour } : null,
+    after: { effectiveFrom: effectiveFrom.toISOString(), pricePerHour },
+  });
 
   revalidatePath("/admin/config");
   redirect("/admin/config");
@@ -88,6 +114,11 @@ export async function deleteRateAction(
 ): Promise<RateActionState> {
   await requireAdmin();
 
+  const before = await prisma.hourlyRate.findUnique({
+    where: { id },
+    select: { effectiveFrom: true, pricePerHour: true },
+  });
+
   try {
     await prisma.hourlyRate.delete({ where: { id } });
   } catch (e) {
@@ -95,6 +126,14 @@ export async function deleteRateAction(
       // already gone
     } else throw e;
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "DELETE_RATE",
+    entityType: "HourlyRate",
+    entityId: id,
+    before: before ? { effectiveFrom: before.effectiveFrom.toISOString(), pricePerHour: before.pricePerHour } : null,
+  });
 
   revalidatePath("/admin/config");
   return { ok: true, message: "התעריף נמחק" };

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parseAdjustmentForm } from "@/lib/adjustment-validation";
+import { writeAuditLog } from "@/lib/audit";
 
 export type PrecedenceActionState = { ok: boolean; message?: string };
 
@@ -54,6 +55,11 @@ export async function upsertAggregateAction(
   }
   const count = parseInt(countStr, 10);
 
+  const existing = await prisma.playerYearAggregate.findUnique({
+    where: { playerId_year: { playerId, year } },
+    select: { count: true },
+  });
+
   try {
     await prisma.playerYearAggregate.upsert({
       where: { playerId_year: { playerId, year } },
@@ -64,6 +70,15 @@ export async function upsertAggregateAction(
     console.error("upsertAggregateAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "UPSERT_AGGREGATE",
+    entityType: "PlayerYearAggregate",
+    entityId: playerId,
+    before: existing ? { year, count: existing.count } : null,
+    after: { year, count },
+  });
 
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}/edit`);
@@ -94,6 +109,14 @@ export async function deleteAggregateAction(
     }
   }
 
+  writeAuditLog({
+    actor: "admin",
+    action: "DELETE_AGGREGATE",
+    entityType: "PlayerYearAggregate",
+    entityId: playerId,
+    before: { year },
+  });
+
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}/edit`);
   return { ok: true };
@@ -122,14 +145,25 @@ export async function createAdjustmentAction(
 
   const { date, points, description } = validation.data;
 
+  let adjId: string;
   try {
-    await prisma.playerAdjustment.create({
+    const created = await prisma.playerAdjustment.create({
       data: { playerId, date, points, description },
+      select: { id: true },
     });
+    adjId = created.id;
   } catch (e) {
     console.error("createAdjustmentAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "CREATE_ADJUSTMENT",
+    entityType: "PlayerAdjustment",
+    entityId: adjId,
+    after: { playerId, date: date.toISOString(), points, description },
+  });
 
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}/edit`);
@@ -156,6 +190,11 @@ export async function updateAdjustmentAction(
 
   const { date, points, description } = validation.data;
 
+  const existing = await prisma.playerAdjustment.findUnique({
+    where: { id: adjId },
+    select: { date: true, points: true, description: true },
+  });
+
   try {
     await prisma.playerAdjustment.update({
       where: { id: adjId },
@@ -172,6 +211,15 @@ export async function updateAdjustmentAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  writeAuditLog({
+    actor: "admin",
+    action: "UPDATE_ADJUSTMENT",
+    entityType: "PlayerAdjustment",
+    entityId: adjId,
+    before: existing ? { ...existing, date: existing.date.toISOString() } : null,
+    after: { date: date.toISOString(), points, description },
+  });
+
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}/edit`);
   redirect(`/admin/players/${playerId}/edit`);
@@ -184,6 +232,11 @@ export async function deleteAdjustmentAction(
   _formData: FormData,
 ): Promise<PrecedenceActionState> {
   await requireAdmin();
+
+  const existing = await prisma.playerAdjustment.findUnique({
+    where: { id: adjId },
+    select: { date: true, points: true, description: true },
+  });
 
   try {
     await prisma.playerAdjustment.delete({ where: { id: adjId } });
@@ -198,6 +251,14 @@ export async function deleteAdjustmentAction(
       return { ok: false, message: GENERIC_ERROR };
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "DELETE_ADJUSTMENT",
+    entityType: "PlayerAdjustment",
+    entityId: adjId,
+    before: existing ? { ...existing, date: existing.date.toISOString() } : null,
+  });
 
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}/edit`);

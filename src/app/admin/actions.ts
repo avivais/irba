@@ -13,6 +13,7 @@ import {
   consumeAdminLoginRateLimit,
   getClientIpFromHeaders,
 } from "@/lib/rate-limit";
+import { writeAuditLog } from "@/lib/audit";
 
 export type AdminLoginState = { ok: boolean; message?: string };
 
@@ -62,6 +63,7 @@ export async function adminLoginAction(
     if (isDev()) {
       console.error(`[admin login] rate-limited (ip: ${clientIp})`);
     }
+    writeAuditLog({ actor: "admin", actorIp: clientIp, action: "ADMIN_LOGIN_FAIL", after: { reason: "rate_limited" } });
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
@@ -90,6 +92,7 @@ export async function adminLoginAction(
         "Restart the dev server after editing .env; re-run npm run hash-admin-password to rewrite.",
       );
     }
+    writeAuditLog({ actor: "admin", actorIp: clientIp, action: "ADMIN_LOGIN_FAIL", after: { reason: "no_hash_configured" } });
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
@@ -104,6 +107,7 @@ export async function adminLoginAction(
         `  error: ${e instanceof Error ? e.message : e}`,
       );
     }
+    writeAuditLog({ actor: "admin", actorIp: clientIp, action: "ADMIN_LOGIN_FAIL", after: { reason: "bcrypt_error" } });
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
@@ -117,6 +121,7 @@ export async function adminLoginAction(
         "[admin login] FAIL: password does not match hash (wrong password or stale .env — restart after changes).",
       );
     }
+    writeAuditLog({ actor: "admin", actorIp: clientIp, action: "ADMIN_LOGIN_FAIL", after: { reason: "wrong_password" } });
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
@@ -131,6 +136,7 @@ export async function adminLoginAction(
         "Set ADMIN_SESSION_SECRET to a random string >= 32 characters, then restart.",
       );
     }
+    writeAuditLog({ actor: "admin", actorIp: clientIp, action: "ADMIN_LOGIN_FAIL", after: { reason: "cookie_error" } });
     return { ok: false, message: GENERIC_AUTH_ERROR };
   }
 
@@ -138,10 +144,12 @@ export async function adminLoginAction(
     console.log("[admin login] SUCCESS — session cookie set.");
   }
 
+  writeAuditLog({ actor: "admin", actorIp: clientIp, action: "ADMIN_LOGIN" });
   redirect("/admin");
 }
 
 export async function adminLogoutAction(): Promise<void> {
+  writeAuditLog({ actor: "admin", action: "ADMIN_LOGOUT" });
   await clearAdminSessionCookie();
   redirect("/admin/login");
 }

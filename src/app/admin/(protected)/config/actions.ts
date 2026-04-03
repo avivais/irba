@@ -8,6 +8,7 @@ import { parseConfigForm } from "@/lib/config-validation";
 import type { ConfigKey } from "@/lib/config";
 import { sendWaGroupMessage } from "@/lib/wa-notify";
 import { autoCreateNextSession } from "@/lib/auto-create-session";
+import { writeAuditLog } from "@/lib/audit";
 
 export type ConfigActionState = {
   ok: boolean;
@@ -43,7 +44,17 @@ export async function updateConfigAction(
     return { ok: false, errors: parsed.errors };
   }
 
+  const before = await getAllConfigs();
   await setConfigs(parsed.data);
+
+  writeAuditLog({
+    actor: "admin",
+    action: "UPDATE_CONFIG",
+    entityType: "AppConfig",
+    before: before as Record<string, unknown>,
+    after: parsed.data as Record<string, unknown>,
+  });
+
   revalidatePath("/admin/config");
   return { ok: true, message: "ההגדרות נשמרו בהצלחה" };
 }
@@ -73,6 +84,7 @@ export async function logoutWaAction(): Promise<SendWaActionState> {
       cache: "no-store",
     });
     if (!res.ok) return { ok: false, message: "שגיאה בהתנתקות" };
+    writeAuditLog({ actor: "admin", action: "WA_LOGOUT" });
     return { ok: true, message: "התנתק בהצלחה" };
   } catch {
     return { ok: false, message: "הבוט אינו זמין" };
@@ -105,6 +117,11 @@ export type RunAutoCreateResult = { ok: boolean; message: string };
 export async function runAutoCreateAction(): Promise<RunAutoCreateResult> {
   await requireAdmin();
   const result = await autoCreateNextSession({ force: true });
+  writeAuditLog({
+    actor: "admin",
+    action: "RUN_AUTO_CREATE",
+    after: { created: result.created, ...(result.created ? { sessionId: result.sessionId } : { reason: result.reason }) },
+  });
   if (result.created) {
     return { ok: true, message: "מפגש נוצר בהצלחה" };
   }
@@ -128,5 +145,10 @@ export async function sendWaGroupMessageAction(
   const groupJid = configs[CONFIG.WA_GROUP_JID];
   if (!groupJid) return { ok: false, message: "Group JID לא מוגדר" };
   await sendWaGroupMessage(groupJid, text);
+  writeAuditLog({
+    actor: "admin",
+    action: "SEND_WA_MESSAGE",
+    after: { message: text, groupJid },
+  });
   return { ok: true, message: "נשלח ✓" };
 }

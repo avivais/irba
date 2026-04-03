@@ -136,3 +136,20 @@ model HourlyRate {
 
   @@index([effectiveFrom])
 }
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  timestamp  DateTime @default(now())
+  actor      String
+  actorIp    String?
+  action     String
+  entityType String?
+  entityId   String?
+  before     Json?
+  after      Json?
+
+  @@index([timestamp(sort: Desc)])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([actor])
+}

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
 import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
 import { notifySessionOpen, notifySessionClose } from "@/lib/wa-notify";
+import { writeAuditLog } from "@/lib/audit";
 
 /** Return the UTC start and end of the calendar day containing `date` in Israel timezone. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -100,6 +101,14 @@ export async function createSessionAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  writeAuditLog({
+    actor: "admin",
+    action: "CREATE_SESSION",
+    entityType: "GameSession",
+    entityId: newSessionId,
+    after: { date: date.toISOString(), maxPlayers, durationMinutes, locationName },
+  });
+
   // Auto-register the admin player
   const adminPlayer = await prisma.player.findFirst({
     where: { isAdmin: true },
@@ -172,6 +181,11 @@ export async function updateSessionAction(
     return { ok: false, message: "כבר קיים מפגש ביום זה" };
   }
 
+  const before = await prisma.gameSession.findUnique({
+    where: { id },
+    select: { date: true, maxPlayers: true, isClosed: true, durationMinutes: true, locationName: true },
+  });
+
   try {
     await prisma.gameSession.update({
       where: { id },
@@ -187,6 +201,15 @@ export async function updateSessionAction(
     console.error("updateSessionAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "UPDATE_SESSION",
+    entityType: "GameSession",
+    entityId: id,
+    before: before ? { ...before, date: before.date.toISOString() } : null,
+    after: { date: date.toISOString(), maxPlayers, isClosed, durationMinutes, locationName },
+  });
 
   revalidatePath(`/admin/sessions/${id}`);
   revalidatePath("/admin/sessions");
@@ -209,6 +232,11 @@ export async function deleteSessionAction(
     };
   }
 
+  const before = await prisma.gameSession.findUnique({
+    where: { id },
+    select: { date: true, maxPlayers: true, locationName: true },
+  });
+
   try {
     await prisma.gameSession.delete({ where: { id } });
   } catch (e) {
@@ -222,6 +250,14 @@ export async function deleteSessionAction(
       return { ok: false, message: GENERIC_ERROR };
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "DELETE_SESSION",
+    entityType: "GameSession",
+    entityId: id,
+    before: before ? { ...before, date: before.date.toISOString() } : null,
+  });
 
   revalidatePath("/admin/sessions");
   revalidatePath("/");
@@ -246,6 +282,13 @@ export async function archiveSessionAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  writeAuditLog({
+    actor: "admin",
+    action: archive ? "ARCHIVE_SESSION" : "UNARCHIVE_SESSION",
+    entityType: "GameSession",
+    entityId: id,
+  });
+
   revalidatePath("/admin/sessions");
   revalidatePath(`/admin/sessions/${id}`);
   revalidatePath("/");
@@ -262,10 +305,13 @@ export async function addAttendanceAction(
   const playerId = formData.get("playerId")?.toString();
   if (!playerId) return { ok: false, message: "לא נבחר שחקן" };
 
+  let attendanceId: string;
   try {
-    await prisma.attendance.create({
+    const created = await prisma.attendance.create({
       data: { playerId, gameSessionId: sessionId },
+      select: { id: true },
     });
+    attendanceId = created.id;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return { ok: false, message: "השחקן כבר רשום למפגש זה" };
@@ -273,6 +319,14 @@ export async function addAttendanceAction(
     console.error("addAttendanceAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "ADD_ATTENDANCE",
+    entityType: "Attendance",
+    entityId: attendanceId,
+    after: { playerId, sessionId },
+  });
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
@@ -287,6 +341,11 @@ export async function removeAttendanceAction(
 ): Promise<SessionActionState> {
   await requireAdmin();
 
+  const before = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    select: { playerId: true, gameSessionId: true },
+  });
+
   try {
     await prisma.attendance.delete({ where: { id: attendanceId } });
   } catch (e) {
@@ -297,6 +356,14 @@ export async function removeAttendanceAction(
       return { ok: false, message: GENERIC_ERROR };
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "REMOVE_ATTENDANCE",
+    entityType: "Attendance",
+    entityId: attendanceId,
+    before: before ?? null,
+  });
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
@@ -344,6 +411,13 @@ export async function toggleSessionAction(
     console.error("toggleSessionAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: newClosed ? "CLOSE_SESSION" : "OPEN_SESSION",
+    entityType: "GameSession",
+    entityId: id,
+  });
 
   revalidatePath("/admin/sessions");
   revalidatePath(`/admin/sessions/${id}`);

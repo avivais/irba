@@ -35,6 +35,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - **`Attendance`**: links player ↔ session, `createdAt` for RSVP order (confirmed = first `maxPlayers` by time; rest = waiting list).
 - **`AppConfig`**: `key String PK`, `value String`, `updatedAt`. Stores all admin-editable settings; fetched via `getAllConfigs()` (single round-trip, merged with `CONFIG_DEFAULTS`).
 - **`HourlyRate`**: `id`, `effectiveFrom DateTime @db.Date`, `pricePerHour Float`. Multiple rows; newest `effectiveFrom ≤ today` is the active rate. List managed inline on `/admin/config`; add/edit on `/admin/config/rates/new` and `/admin/config/rates/[id]/edit`.
+- **`AuditLog`**: `id Int PK autoincrement`, `timestamp DateTime`, `actor String` ("admin" | player phone | "cron"), `actorIp String?`, `action String` (enum-like constant e.g. `CREATE_PLAYER`), `entityType String?`, `entityId String?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`. Written fire-and-forget via `src/lib/audit.ts`.
 
 ### RSVP flow (public)
 
@@ -59,7 +60,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 #### Admin home (`/admin`)
 
-Navigation cards to שחקנים, מפגשים, ייבוא נתונים, and הגדרות sections (קדימות card removed — merged into שחקנים); logout button. All nav cards and the logout button have `active:` press states.
+Navigation cards to שחקנים, מפגשים, ייבוא נתונים, הגדרות, and **לוג פעולות** sections (קדימות card removed — merged into שחקנים); logout button. All nav cards and the logout button have `active:` press states.
 
 #### Players CRUD (`/admin/players`) — unified with Precedence
 
@@ -219,6 +220,29 @@ Core logic extracted to `src/lib/auto-create-session.ts` (`autoCreateNextSession
 - **Schedule tests** (`src/lib/schedule.test.ts`): 10 cases — today/tomorrow/multi-day skip, same-weekday-just-passed, DST winter/summer, midnight/23:59 edge cases. Uses `Intl.DateTimeFormat` with `% 24` normalization for older ICU versions.
 - **Waitlist promote tests** (`src/lib/waitlist-promote.test.ts`): 8 cases — promote moves to last confirmed slot, error on confirmed player, error on missing attendance.
 - Default `npm test` does **not** require a running Postgres.
+
+#### Audit log (`/admin/audit`)
+
+Persistent action log covering every mutation in the system.
+
+**Helper** (`src/lib/audit.ts`): `writeAuditLog({ actor, actorIp?, action, entityType?, entityId?, before?, after? })` — fire-and-forget, never throws, never blocks the caller. `before`/`after` are JSON snapshots.
+
+**Instrumented call sites (37 total)** — every server action that mutates state:
+- **Auth**: `ADMIN_LOGIN`, `ADMIN_LOGIN_FAIL` (with reason: `rate_limited` / `wrong_password` / `no_hash_configured` / `bcrypt_error` / `cookie_error`), `ADMIN_LOGOUT`
+- **Players**: `CREATE_PLAYER`, `UPDATE_PLAYER` (with `before` snapshot), `DELETE_PLAYER` (with `before` snapshot)
+- **Sessions**: `CREATE_SESSION`, `UPDATE_SESSION` (with `before`/`after`), `DELETE_SESSION` (with `before`), `ARCHIVE_SESSION`, `UNARCHIVE_SESSION`, `OPEN_SESSION`, `CLOSE_SESSION`, `ADD_ATTENDANCE`, `REMOVE_ATTENDANCE` (with `before`)
+- **Precedence**: `CREATE_ADJUSTMENT`, `UPDATE_ADJUSTMENT` (with `before`/`after`), `DELETE_ADJUSTMENT` (with `before`), `UPSERT_AGGREGATE` (with `before`/`after`), `DELETE_AGGREGATE`
+- **Year weights**: `CREATE_YEAR_WEIGHT`, `UPDATE_YEAR_WEIGHT` (with `before`/`after`), `DELETE_YEAR_WEIGHT` (with `before`)
+- **Config**: `UPDATE_CONFIG` (full `before`/`after` of all config keys), `CREATE_RATE`, `UPDATE_RATE` (with `before`/`after`), `DELETE_RATE` (with `before`)
+- **WA / system**: `SEND_WA_MESSAGE` (with message text + JID), `WA_LOGOUT`, `RUN_AUTO_CREATE` (with result), `AUTO_CREATE_SESSION` (actor: "cron")
+- **Import**: `IMPORT_PLAYERS`, `IMPORT_PAYMENTS`, `IMPORT_AGGREGATES` (with `imported` count + `errorCount`)
+- **Public RSVP**: `RSVP_ATTEND` (actor = player phone + IP, with session + status), `RSVP_CANCEL` (actor = player phone + IP)
+
+**Admin page** (`/admin/audit`): server-rendered, 75 entries/page.
+- **Filters** (URL params): `action` dropdown, `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
+- **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=auth, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label.
+- **Expandable rows**: chevron button reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron.
+- **Pagination**: prev/next links with page N of M counter.
 
 #### Import pipeline (`/admin/import`)
 

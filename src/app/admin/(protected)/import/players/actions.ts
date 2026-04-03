@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
+import { writeAuditLog } from "@/lib/audit";
 
 async function requireAdmin(): Promise<void> {
   const subject = await getAdminSessionSubject();
@@ -100,6 +101,13 @@ export async function importPlayersAction(
       errors.push(`שגיאה בשורת "${row.nickname}"`);
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "IMPORT_PLAYERS",
+    entityType: "Player",
+    after: { imported, errorCount: errors.length, total: rows.length },
+  });
 
   revalidatePath("/admin/players");
   return { imported, errors };

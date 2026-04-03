@@ -15,6 +15,7 @@ import { getSessionPlayerId, setRsvpSessionCookie } from "@/lib/rsvp-session";
 import { getAllConfigs } from "@/lib/config";
 import { notifyPlayerRegistered, notifyPlayerCancelled } from "@/lib/wa-notify";
 import { getPlayerDisplayName } from "@/lib/player-display";
+import { writeAuditLog } from "@/lib/audit";
 
 export type RsvpActionState = { ok: boolean; message?: string };
 
@@ -140,6 +141,15 @@ export async function attendAction(
   });
   void notifyPlayerRegistered(dateStr, name, status, configs);
 
+  writeAuditLog({
+    actor: phone,
+    actorIp: clientIp,
+    action: "RSVP_ATTEND",
+    entityType: "Attendance",
+    entityId: playerId,
+    after: { phone, name, sessionId: game.id, status },
+  });
+
   revalidatePath("/");
   return { ok: true, message: "נרשמת בהצלחה" };
 }
@@ -191,13 +201,17 @@ export async function cancelAttendanceAction(
     };
   }
 
+  let playerPhone = "";
   let playerName = "שחקן";
   try {
     const player = await prisma.player.findUnique({
       where: { id: playerId },
       select: { firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true },
     });
-    if (player) playerName = getPlayerDisplayName(player);
+    if (player) {
+      playerName = getPlayerDisplayName(player);
+      playerPhone = player.phone;
+    }
   } catch {
     // non-critical — name lookup failure should not block cancel
   }
@@ -213,6 +227,15 @@ export async function cancelAttendanceAction(
     console.error("cancelAttendanceAction failed");
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: playerPhone || playerId,
+    actorIp: clientIp,
+    action: "RSVP_CANCEL",
+    entityType: "Attendance",
+    entityId: playerId,
+    before: { playerId, sessionId: game.id, name: playerName },
+  });
 
   // Notify the WA group (best-effort, fire-and-forget)
   const dateStr = game.date.toLocaleDateString("he-IL", {

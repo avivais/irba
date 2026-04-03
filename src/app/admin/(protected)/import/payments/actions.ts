@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import type { ImportResult } from "../players/actions";
+import { writeAuditLog } from "@/lib/audit";
 
 async function requireAdmin(): Promise<void> {
   const subject = await getAdminSessionSubject();
@@ -50,6 +51,13 @@ export async function importPaymentsAction(
       errors.push(`שגיאה בשורת "${row.nickname}" תאריך ${row.date}`);
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "IMPORT_PAYMENTS",
+    entityType: "Payment",
+    after: { imported, errorCount: errors.length, total: rows.length },
+  });
 
   revalidatePath("/admin/players");
   return { imported, errors };

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parsePlayerForm } from "@/lib/player-validation";
+import { writeAuditLog } from "@/lib/audit";
 
 export type PlayerActionState = { ok: boolean; message?: string; savedInPlace?: boolean };
 
@@ -47,10 +48,12 @@ export async function createPlayerAction(
     nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } =
     validation.data;
 
+  let created: { id: string };
   try {
-    await prisma.player.create({
+    created = await prisma.player.create({
       data: { phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
+      select: { id: true },
     });
   } catch (e) {
     if (
@@ -62,6 +65,15 @@ export async function createPlayerAction(
     console.error("createPlayerAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "CREATE_PLAYER",
+    entityType: "Player",
+    entityId: created.id,
+    after: { phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+      nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
+  });
 
   revalidatePath("/admin/players");
   redirect("/admin/players");
@@ -99,6 +111,12 @@ export async function updatePlayerAction(
   const { playerKind, positions, rank, balance, isAdmin,
     nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } = validation.data;
 
+  const existing = await prisma.player.findUnique({
+    where: { id },
+    select: { playerKind: true, positions: true, rank: true, balance: true, isAdmin: true,
+      nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true },
+  });
+
   try {
     await prisma.player.update({
       where: { id },
@@ -116,6 +134,16 @@ export async function updatePlayerAction(
     console.error("updatePlayerAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "UPDATE_PLAYER",
+    entityType: "Player",
+    entityId: id,
+    before: existing ? (existing as Record<string, unknown>) : null,
+    after: { playerKind, positions, rank, balance, isAdmin,
+      nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
+  });
 
   revalidatePath("/admin/players");
   const returnToList = formData.get("returnToList") !== "false";
@@ -140,6 +168,11 @@ export async function deletePlayerAction(
     };
   }
 
+  const existing = await prisma.player.findUnique({
+    where: { id },
+    select: { phone: true, nickname: true, firstNameHe: true, lastNameHe: true, playerKind: true },
+  });
+
   try {
     await prisma.player.delete({ where: { id } });
   } catch (e) {
@@ -153,6 +186,14 @@ export async function deletePlayerAction(
       return { ok: false, message: GENERIC_ERROR };
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "DELETE_PLAYER",
+    entityType: "Player",
+    entityId: id,
+    before: existing ? (existing as Record<string, unknown>) : null,
+  });
 
   revalidatePath("/admin/players");
   return { ok: true, message: "השחקן נמחק" };

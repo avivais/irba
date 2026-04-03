@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { parseYearWeightForm } from "@/lib/year-weight-validation";
+import { writeAuditLog } from "@/lib/audit";
 
 export type WeightActionState = { ok: boolean; message?: string };
 
@@ -46,6 +47,14 @@ export async function createYearWeightAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  writeAuditLog({
+    actor: "admin",
+    action: "CREATE_YEAR_WEIGHT",
+    entityType: "YearWeight",
+    entityId: String(year),
+    after: { year, weight },
+  });
+
   revalidatePath("/admin/precedence");
   revalidatePath("/admin/precedence/weights");
   redirect("/admin/precedence/weights");
@@ -67,6 +76,11 @@ export async function updateYearWeightAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
+  const existing = await prisma.yearWeight.findUnique({
+    where: { year },
+    select: { weight: true },
+  });
+
   try {
     await prisma.yearWeight.update({
       where: { year },
@@ -83,6 +97,15 @@ export async function updateYearWeightAction(
     return { ok: false, message: GENERIC_ERROR };
   }
 
+  writeAuditLog({
+    actor: "admin",
+    action: "UPDATE_YEAR_WEIGHT",
+    entityType: "YearWeight",
+    entityId: String(year),
+    before: existing ? { year, weight: existing.weight } : null,
+    after: { year, weight: validation.data.weight },
+  });
+
   revalidatePath("/admin/precedence");
   revalidatePath("/admin/precedence/weights");
   redirect("/admin/precedence/weights");
@@ -94,6 +117,11 @@ export async function deleteYearWeightAction(
   _formData: FormData,
 ): Promise<WeightActionState> {
   await requireAdmin();
+
+  const existing = await prisma.yearWeight.findUnique({
+    where: { year },
+    select: { weight: true },
+  });
 
   try {
     await prisma.yearWeight.delete({ where: { year } });
@@ -108,6 +136,14 @@ export async function deleteYearWeightAction(
       return { ok: false, message: GENERIC_ERROR };
     }
   }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "DELETE_YEAR_WEIGHT",
+    entityType: "YearWeight",
+    entityId: String(year),
+    before: existing ? { year, weight: existing.weight } : null,
+  });
 
   revalidatePath("/admin/precedence");
   revalidatePath("/admin/precedence/weights");
