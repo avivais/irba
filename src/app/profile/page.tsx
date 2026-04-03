@@ -165,7 +165,7 @@ export default async function ProfilePage() {
           {/* Appearance */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">מראה</h2>
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">עיצוב</h2>
             </div>
             <div className="px-5 py-4">
               <ThemeSelector />

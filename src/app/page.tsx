@@ -14,7 +14,7 @@ import { getPlayerSessionPlayerId } from "@/lib/player-session";
 
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "המפגש הבא" };
+export const metadata: Metadata = { title: { absolute: "IRBA · המפגש הבא" } };
 
 /** RSVP reads live DB state — do not prerender at build time without a database. */
 export const dynamic = "force-dynamic";

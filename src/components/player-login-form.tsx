@@ -97,6 +97,7 @@ export function PlayerLoginForm() {
   const [mode, setMode] = useState<Mode>("phone_entry");
   const [phone, setPhone] = useState("");
   const [usePassword, setUsePassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [devOtp, setDevOtp] = useState<string | null>(null);
 
   // OTP request
@@ -192,7 +193,13 @@ export function PlayerLoginForm() {
               />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-              <input type="checkbox" name="rememberMe" className="rounded" />
+              <input
+                type="checkbox"
+                name="rememberMe"
+                className="rounded"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               זכור אותי
             </label>
             {errorMsg && <ErrorBanner message={errorMsg} />}
@@ -242,7 +249,13 @@ export function PlayerLoginForm() {
               />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-              <input type="checkbox" name="rememberMe" className="rounded" />
+              <input
+                type="checkbox"
+                name="rememberMe"
+                className="rounded"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               זכור אותי
             </label>
             {errorMsg && <ErrorBanner message={errorMsg} />}
@@ -305,10 +318,7 @@ export function PlayerLoginForm() {
             className={`${inputBase} ${errorMsg ? inputInvalid : inputNormal}`}
           />
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-          <input type="checkbox" name="rememberMe" className="rounded" />
-          זכור אותי
-        </label>
+        <input type="hidden" name="rememberMe" value={rememberMe ? "on" : ""} />
         {errorMsg && <ErrorBanner message={errorMsg} />}
         <button
           type="submit"
