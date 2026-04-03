@@ -25,10 +25,11 @@ export function HourlyRateForm({ action, defaultEffectiveFrom, defaultPricePerHo
     <form action={formAction} className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="effectiveFrom" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             תאריך תחילת תוקף
           </label>
           <input
+            id="effectiveFrom"
             type="date"
             name="effectiveFrom"
             defaultValue={defaultEffectiveFrom}
@@ -38,11 +39,12 @@ export function HourlyRateForm({ action, defaultEffectiveFrom, defaultPricePerHo
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="pricePerHour" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             מחיר לשעה{" "}
             <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">(₪)</span>
           </label>
           <input
+            id="pricePerHour"
             type="number"
             name="pricePerHour"
             defaultValue={defaultPricePerHour}

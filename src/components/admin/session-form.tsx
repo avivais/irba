@@ -403,10 +403,11 @@ export function SessionForm(props: Props) {
               />
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label htmlFor="wa_override_session_open_template" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   תבנית הודעה
                 </label>
                 <textarea
+                  id="wa_override_session_open_template"
                   name="wa_override_session_open_template"
                   value={waSessionOpenTemplate}
                   onChange={(e) => setWaSessionOpenTemplate(e.target.value)}

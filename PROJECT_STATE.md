@@ -271,6 +271,18 @@ Migrates historical Sheets data into the DB. Three flows, each with **file uploa
 
 **Results import** (תוצאות sheet) — deferred.
 
+### Accessibility
+
+All admin form label/input associations have been audited and fixed:
+- `Field` component in `config-form.tsx` accepts `htmlFor` prop, propagated to its `<label>`; all 14 `Field` usages now pass `htmlFor={CONFIG.xxx}` with matching `id` on the input/select/textarea.
+- Standalone WA Group JID label in `config-form.tsx` now has `htmlFor`/`id`.
+- Group filter input uses `aria-label` (transient search widget, no visible label).
+- Manual send textarea in `config-form.tsx` linked via `htmlFor="wa-send-message"`.
+- `hourly-rate-form.tsx`: both labels now have `htmlFor` with matching `id` on inputs.
+- `session-form.tsx`: WA override template label now linked to its textarea.
+- `session-quick-dropin-form.tsx`: name + phone inputs have `aria-label` (compact inline form).
+- `session-add-player-form.tsx`: player select has `aria-label`.
+
 ---
 
 ## What is not built yet
@@ -496,9 +508,9 @@ Winning team stays; next match teams are composed by admin from session attendee
 - ✅ CSP header in `next.config.ts`
 - ✅ **Deployed**: `https://irba.sportgroup.cl` — EC2 → Apache TLS → localhost:3004 → Docker
 - ✅ Auto-create cron running hourly on EC2
-- Uptime alerts — not yet set up
+- ✅ Uptime alerts — UptimeRobot free tier, public status page: https://stats.uptimerobot.com/dHQF2WHXL9
 - Redis rate limits — single replica, in-memory is fine for now
 
 ---
 
-*Last updated: Apr 2026 — **WA notification config system shipped.** Configurable per-event toggles, editable templates, WA group broadcast support (sidecar gains `POST /send-group` + `GET /groups`), per-session override on session create form. All 5 notification types wired. Admin player created. Next: configure `wa_group_jid` in `/admin/config`, configure session schedule, set up uptime monitoring, then user auth (step 3).*
+*Last updated: Apr 2026 — **Audit log + WA config + ops hardening shipped.** Full persistent audit log (37 call sites), configurable WA notifications with group broadcast, WA bot management (QR re-auth, status, logout), "הרץ עכשיו" force-trigger, toast notifications, deploy improvements. UptimeRobot monitoring live. Next: configure `wa_group_jid` + session schedule on production, then user auth (step 3).*

@@ -76,6 +76,7 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
             name="name"
             type="text"
             required
+            aria-label="שם"
             placeholder="שם"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -92,6 +93,7 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
           type="tel"
           inputMode="numeric"
           required
+          aria-label="מספר טלפון"
           placeholder="05XXXXXXXX"
           dir="ltr"
           value={phone}

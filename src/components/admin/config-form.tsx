@@ -46,16 +46,18 @@ function Field({
   label,
   hint,
   error,
+  htmlFor,
   children,
 }: {
   label: string;
   hint?: string;
   error?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
         {label}
         {hint && (
           <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">
@@ -137,8 +139,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <SectionTitle>מפגשים</SectionTitle>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="יום ברירת מחדל" error={errors[CONFIG.SESSION_SCHEDULE_DAY]}>
+          <Field label="יום ברירת מחדל" htmlFor={CONFIG.SESSION_SCHEDULE_DAY} error={errors[CONFIG.SESSION_SCHEDULE_DAY]}>
             <select
+              id={CONFIG.SESSION_SCHEDULE_DAY}
               name={CONFIG.SESSION_SCHEDULE_DAY}
               defaultValue={values[CONFIG.SESSION_SCHEDULE_DAY]}
               className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_DAY] ? inputError : inputNormal}`}
@@ -151,8 +154,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             </select>
           </Field>
 
-          <Field label="שעת התחלה" hint="HH:MM" error={errors[CONFIG.SESSION_SCHEDULE_TIME]}>
+          <Field label="שעת התחלה" hint="HH:MM" htmlFor={CONFIG.SESSION_SCHEDULE_TIME} error={errors[CONFIG.SESSION_SCHEDULE_TIME]}>
             <input
+              id={CONFIG.SESSION_SCHEDULE_TIME}
               type="time"
               name={CONFIG.SESSION_SCHEDULE_TIME}
               defaultValue={values[CONFIG.SESSION_SCHEDULE_TIME]}
@@ -160,8 +164,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
           </Field>
 
-          <Field label="משך מפגש" hint="דקות" error={errors[CONFIG.SESSION_DEFAULT_DURATION_MIN]}>
+          <Field label="משך מפגש" hint="דקות" htmlFor={CONFIG.SESSION_DEFAULT_DURATION_MIN} error={errors[CONFIG.SESSION_DEFAULT_DURATION_MIN]}>
             <input
+              id={CONFIG.SESSION_DEFAULT_DURATION_MIN}
               type="number"
               name={CONFIG.SESSION_DEFAULT_DURATION_MIN}
               defaultValue={values[CONFIG.SESSION_DEFAULT_DURATION_MIN]}
@@ -175,9 +180,11 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           <Field
             label="חלון הרשמה"
             hint="שעות לפני תחילת המפגש"
+            htmlFor={CONFIG.RSVP_CLOSE_HOURS}
             error={errors[CONFIG.RSVP_CLOSE_HOURS]}
           >
             <input
+              id={CONFIG.RSVP_CLOSE_HOURS}
               type="number"
               name={CONFIG.RSVP_CLOSE_HOURS}
               defaultValue={values[CONFIG.RSVP_CLOSE_HOURS]}
@@ -208,9 +215,11 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           <Field
             label="שעות לפני המפגש לפתיחת הרשמה"
             hint="1–168"
+            htmlFor={CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE}
             error={errors[CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE]}
           >
             <input
+              id={CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE}
               type="number"
               name={CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE}
               defaultValue={values[CONFIG.SESSION_AUTO_CREATE_HOURS_BEFORE]}
@@ -238,8 +247,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       <section className="flex flex-col gap-4">
         <SectionTitle>מיקום ברירת מחדל</SectionTitle>
 
-        <Field label="שם המיקום" error={errors[CONFIG.LOCATION_NAME]}>
+        <Field label="שם המיקום" htmlFor={CONFIG.LOCATION_NAME} error={errors[CONFIG.LOCATION_NAME]}>
           <input
+            id={CONFIG.LOCATION_NAME}
             type="text"
             name={CONFIG.LOCATION_NAME}
             defaultValue={values[CONFIG.LOCATION_NAME]}
@@ -250,8 +260,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="קו רוחב (Latitude)" hint="אופציונלי" error={errors[CONFIG.LOCATION_LAT]}>
+          <Field label="קו רוחב (Latitude)" hint="אופציונלי" htmlFor={CONFIG.LOCATION_LAT} error={errors[CONFIG.LOCATION_LAT]}>
             <input
+              id={CONFIG.LOCATION_LAT}
               type="text"
               inputMode="decimal"
               name={CONFIG.LOCATION_LAT}
@@ -261,8 +272,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
           </Field>
 
-          <Field label="קו אורך (Longitude)" hint="אופציונלי" error={errors[CONFIG.LOCATION_LNG]}>
+          <Field label="קו אורך (Longitude)" hint="אופציונלי" htmlFor={CONFIG.LOCATION_LNG} error={errors[CONFIG.LOCATION_LNG]}>
             <input
+              id={CONFIG.LOCATION_LNG}
               type="text"
               inputMode="decimal"
               name={CONFIG.LOCATION_LNG}
@@ -303,9 +315,11 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           <Field
             label="דירוג ברירת מחדל"
             hint="לשחקנים ללא דירוג, 1–100"
+            htmlFor={CONFIG.DEFAULT_PLAYER_RANK}
             error={errors[CONFIG.DEFAULT_PLAYER_RANK]}
           >
             <input
+              id={CONFIG.DEFAULT_PLAYER_RANK}
               type="number"
               name={CONFIG.DEFAULT_PLAYER_RANK}
               defaultValue={values[CONFIG.DEFAULT_PLAYER_RANK]}
@@ -322,8 +336,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <SectionTitle>משחקים</SectionTitle>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="ניקוד ניצחון" hint="נקודות לסיום משחק" error={errors[CONFIG.MATCH_WIN_SCORE]}>
+          <Field label="ניקוד ניצחון" hint="נקודות לסיום משחק" htmlFor={CONFIG.MATCH_WIN_SCORE} error={errors[CONFIG.MATCH_WIN_SCORE]}>
             <input
+              id={CONFIG.MATCH_WIN_SCORE}
               type="number"
               name={CONFIG.MATCH_WIN_SCORE}
               defaultValue={values[CONFIG.MATCH_WIN_SCORE]}
@@ -433,8 +448,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <SectionTitle>חיוב</SectionTitle>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="מחיר מזדמן" hint="₪ לכל מפגש" error={errors[CONFIG.DROPIN_CHARGE]}>
+          <Field label="מחיר מזדמן" hint="₪ לכל מפגש" htmlFor={CONFIG.DROPIN_CHARGE} error={errors[CONFIG.DROPIN_CHARGE]}>
             <input
+              id={CONFIG.DROPIN_CHARGE}
               type="number"
               name={CONFIG.DROPIN_CHARGE}
               defaultValue={values[CONFIG.DROPIN_CHARGE]}
@@ -446,9 +462,11 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           <Field
             label="סף חוב"
             hint="₪ — מעל סף זה שחקן קבוע מחויב כמזדמן"
+            htmlFor={CONFIG.DEBT_THRESHOLD}
             error={errors[CONFIG.DEBT_THRESHOLD]}
           >
             <input
+              id={CONFIG.DEBT_THRESHOLD}
               type="number"
               name={CONFIG.DEBT_THRESHOLD}
               defaultValue={values[CONFIG.DEBT_THRESHOLD]}
@@ -465,7 +483,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <WaBotStatus />
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor={CONFIG.WA_GROUP_JID} className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             מזהה קבוצה (Group JID)
             <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">
               (XXXXXXXXXX@g.us — הבוט חייב להיות חבר בקבוצה)
@@ -473,6 +491,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           </label>
           <div className="flex gap-2">
             <input
+              id={CONFIG.WA_GROUP_JID}
               type="text"
               name={CONFIG.WA_GROUP_JID}
               value={groupJidValue}
@@ -510,6 +529,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
                   <input
                     type="text"
                     placeholder="סנן לפי שם…"
+                    aria-label="סנן קבוצות לפי שם"
                     value={groupFilter}
                     onChange={(e) => setGroupFilter(e.target.value)}
                     className={`${inputBase} ${inputNormal} text-sm`}
@@ -568,8 +588,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
             התראה על פתיחת מפגש (לקבוצה)
           </label>
-          <Field label="תבנית הודעה" error={errors[CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE]}>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE]}>
             <textarea
+              id={CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE}
               name={CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_SESSION_OPEN_TEMPLATE]}
               rows={2}
@@ -592,8 +613,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
             התראה על סגירת מפגש (לקבוצה)
           </label>
-          <Field label="תבנית הודעה" error={errors[CONFIG.WA_NOTIFY_SESSION_CLOSE_TEMPLATE]}>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_SESSION_CLOSE_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_SESSION_CLOSE_TEMPLATE]}>
             <textarea
+              id={CONFIG.WA_NOTIFY_SESSION_CLOSE_TEMPLATE}
               name={CONFIG.WA_NOTIFY_SESSION_CLOSE_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_SESSION_CLOSE_TEMPLATE]}
               rows={2}
@@ -616,8 +638,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
             התראה על רישום שחקן (לקבוצה)
           </label>
-          <Field label="תבנית הודעה" error={errors[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE]}>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE]}>
             <textarea
+              id={CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE}
               name={CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE]}
               rows={2}
@@ -642,8 +665,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
             התראה על ביטול רישום שחקן (לקבוצה)
           </label>
-          <Field label="תבנית הודעה" error={errors[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE]}>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE]}>
             <textarea
+              id={CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE}
               name={CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE]}
               rows={2}
@@ -668,8 +692,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
             התראה על קידום מרשימת המתנה (הודעה ישירה לשחקן)
           </label>
-          <Field label="תבנית הודעה" error={errors[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE]}>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE]}>
             <textarea
+              id={CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE}
               name={CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE]}
               rows={2}
@@ -688,8 +713,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <section className="flex flex-col gap-4">
           <SectionTitle>שליחת הודעה לקבוצה</SectionTitle>
           <div className="flex flex-col gap-3">
-            <Field label="הודעה">
+            <Field label="הודעה" htmlFor="wa-send-message">
               <textarea
+                id="wa-send-message"
                 ref={sendMessageRef}
                 rows={3}
                 maxLength={1000}
