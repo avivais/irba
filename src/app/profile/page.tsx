@@ -4,6 +4,7 @@ import { getPlayerSession } from "@/lib/player-session";
 import { prisma } from "@/lib/prisma";
 import { PlayerNav } from "@/components/player-nav";
 import { ChangePasswordForm } from "@/components/change-password-form";
+import { ThemeSelector } from "@/components/theme-selector";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
@@ -97,9 +98,9 @@ export default async function ProfilePage() {
       <div className="flex flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
         <header className="mx-auto w-full max-w-lg md:max-w-2xl">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            שלום, {displayName}
+            {displayName}
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400" dir="ltr">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             {player.phone}
           </p>
         </header>
@@ -158,6 +159,16 @@ export default async function ProfilePage() {
             </div>
             <div className="px-5 py-4">
               <ChangePasswordForm hasPassword={!!player.passwordHash} />
+            </div>
+          </section>
+
+          {/* Appearance */}
+          <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">מראה</h2>
+            </div>
+            <div className="px-5 py-4">
+              <ThemeSelector />
             </div>
           </section>
         </main>

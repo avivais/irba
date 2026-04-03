@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { changePasswordAction, type PlayerAuthState } from "@/app/actions/player-auth";
 
@@ -10,6 +10,7 @@ const inputNormal =
   "border-zinc-300 focus:border-zinc-600 focus:ring-zinc-600/30 dark:border-zinc-600 dark:focus:border-zinc-500 dark:focus:ring-zinc-500/30";
 
 export function ChangePasswordForm({ hasPassword }: { hasPassword: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   const [state, action, pending] = useActionState<PlayerAuthState, FormData>(
     changePasswordAction,
     { ok: false },
@@ -20,6 +21,17 @@ export function ChangePasswordForm({ hasPassword }: { hasPassword: boolean }) {
       <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
         {state.message}
       </p>
+    );
+  }
+
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="text-sm font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        {hasPassword ? "שנה סיסמה" : "הגדר סיסמה"}
+      </button>
     );
   }
 
