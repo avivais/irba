@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition, useRef } from "react";
+import { useActionState, useEffect, useState, useTransition, useRef } from "react";
 import { ChevronDown, ChevronUp, Loader2, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import {
@@ -8,11 +8,11 @@ import {
   sendWaGroupMessageAction,
   fetchWaGroupsAction,
   type ConfigActionState,
-  type SendWaActionState,
   type WaGroup,
 } from "@/app/admin/(protected)/config/actions";
 import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-button";
 import { WaBotStatus } from "@/components/admin/wa-bot-status";
+import { useToast, Toast } from "@/components/ui/toast";
 import { CONFIG } from "@/lib/config-keys";
 import type { ConfigKey } from "@/lib/config-keys";
 
@@ -82,9 +82,13 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
-  const [sendState, setSendState] = useState<SendWaActionState>({ ok: false, message: "" });
   const [sendPending, startSendTransition] = useTransition();
   const sendMessageRef = useRef<HTMLTextAreaElement>(null);
+  const { showToast, dismiss, toast } = useToast();
+
+  useEffect(() => {
+    if (state.message) showToast(state.message, state.ok);
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSend() {
     const text = sendMessageRef.current?.value.trim() ?? "";
@@ -92,7 +96,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
     fd.append("message", text);
     startSendTransition(async () => {
       const result = await sendWaGroupMessageAction({ ok: false, message: "" }, fd);
-      setSendState(result);
+      showToast(result.message, result.ok);
       if (result.ok && sendMessageRef.current) sendMessageRef.current.value = "";
     });
   }
@@ -709,38 +713,8 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
                 "שלח"
               )}
             </button>
-            {sendState.message && (
-              <p
-                role={sendState.ok ? "status" : "alert"}
-                className={
-                  sendState.ok
-                    ? "rounded-md bg-green-50 px-3 py-2 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
-                    : "rounded-md bg-red-50 px-3 py-2 text-sm text-red-900 dark:bg-red-950/50 dark:text-red-100"
-                }
-              >
-                {sendState.message}
-              </p>
-            )}
           </div>
         </section>
-      )}
-
-      {/* ── Feedback ────────────────────────────────────── */}
-      {state.ok && state.message && (
-        <p
-          role="status"
-          className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
-        >
-          {state.message}
-        </p>
-      )}
-      {!state.ok && state.message && (
-        <p
-          role="alert"
-          className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-900 dark:bg-red-950/50 dark:text-red-100"
-        >
-          {state.message}
-        </p>
       )}
 
       {/* ── Submit ──────────────────────────────────────── */}
@@ -758,6 +732,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           "שמור הגדרות"
         )}
       </button>
+      <Toast toast={toast} onDismiss={dismiss} />
     </form>
   );
 }
