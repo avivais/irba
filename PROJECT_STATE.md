@@ -12,7 +12,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 |--------|--------|
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Theming | `next-themes`: system (default), light, dark; `class` on `<html>`; `storageKey` `irba-theme` |
-| Page titles | Root layout uses `title.template: "%s :: IRBA"` with `default: "IRBA"`; every page exports its own `metadata.title` segment. |
+| Page titles | Root layout uses `title.template: "IRBA :: %s"` with `default: "IRBA"`; every page exports its own `metadata.title` segment. |
 | DB | PostgreSQL, Prisma ORM 7 (driver adapter `@prisma/adapter-pg`) |
 | Auth (MVP) | Signed HTTP-only cookie (`jose`), `RSVP_SESSION_SECRET` (min 32 chars), JWT `iss`/`aud`, optional `RSVP_COOKIE_SECURE` |
 | Icons | `lucide-react` |
@@ -51,7 +51,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### Admin (authenticated — full CRUD)
 
-- **`/admin/login`** — password form (Hebrew / RTL); on success, client-side redirect to **`/admin`** (protected shell with theme toggle + logout). Route groups: `(public)/login` vs `(protected)/` with layout auth guard.
+- **`/admin/login`** — redirects to `/` (no longer needed; player auth handles admin login via `isAdmin` bridge). Route groups: `(public)/login` vs `(protected)/` with layout auth guard.
 - **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP; generate with `npm run generate-admin-secret`), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
 - **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); set via `npm run hash-admin-password` — writes `.env` with single-quoted `\$` escaping so Next’s dotenv-expand preserves the hash (`scripts/hash-admin-password.ts`).
 - **Rate limit**: admin login uses `consumeAdminLoginRateLimit` (`IRBA_RL_ADMIN_LOGIN_MAX` / `IRBA_RL_ADMIN_LOGIN_WINDOW_MS`).
@@ -253,7 +253,7 @@ Persistent action log covering every mutation in the system.
 
 **Admin page** (`/admin/audit`): server-rendered, 75 entries/page.
 - **Filters** (URL params): `action` dropdown, `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
-- **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=auth, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label.
+- **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=admin auth, violet=player auth, amber=OTP events, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label.
 - **Expandable rows**: clicking anywhere on a row (that has details) reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron. The chevron icon is decorative (`aria-hidden`); the `<tr>` itself carries the `onClick`.
 - **Pagination**: prev/next links with page N of M counter.
 
@@ -369,8 +369,10 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 - **Change/set password:** available from `/profile` — "הגדרת סיסמה" if no password yet, "שינוי סיסמה" if one exists (requires current password); `changePasswordAction` server action + `ChangePasswordForm` client component (`src/components/change-password-form.tsx`)
 - **Email:** stored, used as fallback notification channel (not primary)
 - **`isAdmin=true`** players → full admin access; existing `ADMIN_PASSWORD_HASH` auth kept as fallback
-- **Login location:** `/login` route redirects to `/`; login form (`PlayerLoginForm`) embedded inline on the homepage when not authenticated; logout redirects to `/`
-- **Homepage nav (logged-in):** header shows "שלום, {name} · אזור אישי · ניהול" (admin link only for `isAdmin` players)
+- **Login location:** `/login` route redirects to `/`; `/admin/login` also redirects to `/`; login form (`PlayerLoginForm`) embedded inline on the homepage when not authenticated; all logout paths redirect to `/`
+- **Navigation:** unified sticky top nav (`PlayerNav` server component, `src/components/player-nav.tsx`) rendered on homepage and profile — shows IRBA brand (link to `/`), Home, Profile (name), Admin (if `isAdmin`), Logout, ThemeToggle; only ThemeToggle shown when logged out
+- **Logout:** `playerLogoutAction` clears both player session cookie AND admin session cookie, then redirects to `/`. `adminLogoutAction` also redirects to `/`
+- **Admin layout guard:** redirects unauthorized users to `/` (not `/admin/login`)
 
 **Israeli ID validation (`src/lib/israeli-id.ts`):**
 Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum % 10 === 0.
@@ -528,4 +530,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Apr 2026 — **User auth + WA OTP (steps 3 & 4) fully done.** Players log in via phone+OTP (WhatsApp) or phone+password at `/login`. Forgot password via OTP. Profile page at `/profile`. isAdmin bridge to admin. Home page greeting + RSVP pre-fill. WA OTP wired into login + password reset flows. All 4 WA items complete. Next: payments (step 5).*
+*Last updated: Apr 2026 — **User auth, WA OTP, and navigation polish fully done.** Players log in via phone+OTP (WhatsApp) or phone+password on the homepage. Unified sticky top nav (`PlayerNav`) on all pages. Title template is now `"IRBA :: %s"`. Audit log shows color-coded player auth events (violet/amber). `/admin/login` removed (redirects to `/`). All logouts clear both session cookies and redirect to `/`. Change/set password from `/profile`. Next: payments (step 5).*
