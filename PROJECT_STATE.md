@@ -155,11 +155,11 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 
 - **`GET /api/health`** — JSON; 200 if DB answers `SELECT 1`, else 503 (generic body, no secrets). Response includes `version` field (git commit hash injected at build time via `NEXT_PUBLIC_COMMIT_HASH`).
 - **Docker**: `docker-compose.yml` with 3 services: `db` (Postgres 16-alpine), `app` (Next.js on `127.0.0.1:3004`), `wa` (Baileys/Express sidecar on internal port 3100). `Dockerfile` uses `output: standalone` — runner stage copies `.next/standalone` to WORKDIR so `server.js` sits at `/app/server.js` alongside `public/` and `.next/static/`. `docker-entrypoint.sh` runs `prisma migrate deploy` then `exec node server.js`. `init: true` on the app service uses Docker's built-in tini as PID 1 to reap zombie processes.
-- **Deploy**: `./scripts/deploy.sh` — pre-deploy DB backup, then SSH to EC2: `git pull → COMMIT_HASH=$(git rev-parse --short HEAD) docker compose build → docker compose up -d`. See `RUNBOOK.md` for full ops guide.
+- **Deploy**: `./scripts/deploy.sh` — pre-deploy DB backup, then SSH to EC2: `git pull → COMMIT_HASH=$(git rev-parse --short HEAD) docker compose build → docker compose up -d → prisma migrate deploy`. See `RUNBOOK.md` for full ops guide.
 - **Versioning**: `COMMIT_HASH` build arg passed through `docker-compose.yml` → `Dockerfile` → baked as `NEXT_PUBLIC_COMMIT_HASH` at `next build` time. Displayed as a subtle footer on all admin pages and in the `/api/health` response.
 - **Production**: live at `https://irba.sportgroup.cl` (EC2 → Apache TLS → localhost:3004).
 - **Backup**: `scripts/backup.sh` — `pg_dump | gzip`, 30-day retention. Runs daily at 03:00 via EC2 cron.
-- **Logging**: cron auto-create runs via `/opt/irba/scripts/cron-auto-create.sh` (wrapper adds `[YYYY-MM-DD HH:MM:SS]` prefix + newline per entry → `/opt/irba/cron.log`). Both `cron.log` and `backups/backup.log` are rotated daily, 30-day retention, via `/etc/logrotate.d/irba`. Docker container logs rotate automatically via global `/etc/docker/daemon.json` (10 MB max, 3 files).
+- **Logging**: cron auto-create/auto-close both run via wrapper scripts (`/opt/irba/scripts/cron-auto-create.sh`, `cron-auto-close.sh`) that add `[YYYY-MM-DD HH:MM:SS]` prefix + newline per entry → `/opt/irba/cron.log`. Both `cron.log` and `backups/backup.log` are rotated daily, 30-day retention, via `/etc/logrotate.d/irba`. Docker container logs rotate automatically via global `/etc/docker/daemon.json` (10 MB max, 3 files).
 - **Process management**: `npm start` writes PID to `.next.pid`; `npm run web` / `npm run startweb` / `npm run buildandstartweb` write cloudflared's PID to `.cloudflared.pid`; `npm stop` kills both by PID file (project-scoped).
 - **Seeds**: deterministic `prisma/seed.ts` (`npm run db:seed`); random QA script `scripts/seed-random.ts` (`npm run db:seed:random`) with env guards — see README.
 - **CI**: GitHub Actions workflow above; confirm runs in the repo **Actions** tab after push.
@@ -211,6 +211,19 @@ EC2 cron: `0 * * * * curl -s -H "Authorization: Bearer ..." https://irba.sportgr
 
 Core logic extracted to `src/lib/auto-create-session.ts` (`autoCreateNextSession({ force? })`). The cron route calls it normally; the admin config page has a **"הרץ עכשיו"** button (in the "לוח זמנים" section) that calls `runAutoCreateAction` with `force: true` to bypass the lead-time window check. Result shown as a toast.
 
+### Auto-close cron (`GET /api/cron/auto-close`)
+
+Idempotent endpoint called **every minute** by EC2 cron. Bearer-token auth (`CRON_SECRET`). Logic:
+1. Fetch `session_default_duration_min` from AppConfig
+2. Find all sessions where `isClosed = false AND isArchived = false`
+3. For each, compute `endTime = date + (durationMinutes ?? defaultDuration) minutes`
+4. If `endTime <= now` → set `isClosed = true`, write `CLOSE_SESSION` audit log (actor: "cron", after: `{ reason: "auto_close" }`), notify WA group
+5. Returns `{ closed: string[], skipped: number }`
+
+EC2 cron: `* * * * * /opt/irba/scripts/cron-auto-close.sh`
+
+Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`).
+
 ### Tests
 
 - Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
@@ -241,7 +254,7 @@ Persistent action log covering every mutation in the system.
 **Admin page** (`/admin/audit`): server-rendered, 75 entries/page.
 - **Filters** (URL params): `action` dropdown, `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
 - **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=auth, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label.
-- **Expandable rows**: chevron button reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron.
+- **Expandable rows**: clicking anywhere on a row (that has details) reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron. The chevron icon is decorative (`aria-hidden`); the `<tr>` itself carries the `onClick`.
 - **Pagination**: prev/next links with page N of M counter.
 
 #### Import pipeline (`/admin/import`)
@@ -350,11 +363,14 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 
 **Flows:**
 - **Phone + OTP:** enter phone → WhatsApp OTP sent → verify → set password + email + nationalId on first login
-- **Phone + password:** register with phone + password + email + nationalId; links to existing Player by phone
-- **Remember me:** 30-day cookie vs. session cookie
+- **Phone + password:** enter phone + password; falls back to OTP if no password set
+- **Remember me:** 10-year persistent cookie vs. session cookie (12h JWT)
 - **Password reset:** phone → WhatsApp OTP → set new password
+- **Change/set password:** available from `/profile` — "הגדרת סיסמה" if no password yet, "שינוי סיסמה" if one exists (requires current password); `changePasswordAction` server action + `ChangePasswordForm` client component (`src/components/change-password-form.tsx`)
 - **Email:** stored, used as fallback notification channel (not primary)
 - **`isAdmin=true`** players → full admin access; existing `ADMIN_PASSWORD_HASH` auth kept as fallback
+- **Login location:** `/login` route redirects to `/`; login form (`PlayerLoginForm`) embedded inline on the homepage when not authenticated; logout redirects to `/`
+- **Homepage nav (logged-in):** header shows "שלום, {name} · אזור אישי · ניהול" (admin link only for `isAdmin` players)
 
 **Israeli ID validation (`src/lib/israeli-id.ts`):**
 Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum % 10 === 0.
