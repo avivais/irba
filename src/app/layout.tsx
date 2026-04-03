@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   description: "הרשמה למפגשים — IRBA",
   icons: {
     icon: [
+      { url: "/apple-icon.png", type: "image/png" },
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
     ],
     apple: { url: "/apple-icon.png", sizes: "180x180" },
