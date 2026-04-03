@@ -182,30 +182,30 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         </td>
 
         {/* Timestamp */}
-        <td className="whitespace-nowrap py-2.5 pr-3 text-right" dir="ltr">
+        <td className="whitespace-nowrap py-2 pr-2 text-right sm:py-2.5 sm:pr-3" dir="ltr">
           <span className="block text-xs font-medium text-zinc-700 dark:text-zinc-200">{time}</span>
           <span className="block text-xs text-zinc-400 dark:text-zinc-500">{date}</span>
         </td>
 
         {/* Actor */}
-        <td className="py-2.5 pr-3" dir="ltr">
-          <span className={`inline-block max-w-[12rem] truncate rounded px-1.5 py-0.5 text-xs font-medium ${actor.cls}`}>
+        <td className="py-2 pr-2 sm:py-2.5 sm:pr-3" dir="ltr">
+          <span className={`inline-block max-w-[8rem] truncate rounded px-1.5 py-0.5 text-xs font-medium sm:max-w-[12rem] ${actor.cls}`}>
             {actor.label}
           </span>
           {entry.actorIp && (
-            <span className="mt-0.5 block text-xs text-zinc-400 dark:text-zinc-500">{entry.actorIp}</span>
+            <span className="mt-0.5 hidden text-xs text-zinc-400 sm:block dark:text-zinc-500">{entry.actorIp}</span>
           )}
         </td>
 
         {/* Action */}
-        <td className="py-2.5 pr-3" dir="ltr">
-          <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${actionBadgeClass(entry.action)}`}>
+        <td className="py-2 pr-2 sm:py-2.5 sm:pr-3" dir="ltr">
+          <span className={`inline-block max-w-[9rem] truncate rounded px-1.5 py-0.5 text-xs font-medium sm:max-w-none ${actionBadgeClass(entry.action)}`}>
             {entry.action}
           </span>
         </td>
 
-        {/* Entity */}
-        <td className="py-2.5 pr-3" dir="ltr">
+        {/* Entity — hidden on mobile */}
+        <td className="hidden py-2.5 pr-3 sm:table-cell" dir="ltr">
           {entry.entityType && (
             <span className="text-xs text-zinc-500 dark:text-zinc-400">{entry.entityType}</span>
           )}
@@ -219,7 +219,9 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       {expanded && (
         <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
           <td colSpan={5} className="px-4 pb-3 pt-1">
-            <JsonDiff before={entry.before} after={entry.after} />
+            <div className="overflow-x-auto">
+              <JsonDiff before={entry.before} after={entry.after} />
+            </div>
           </td>
         </tr>
       )}
@@ -242,14 +244,14 @@ export function AuditLogTable({ entries }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <table className="w-full min-w-[640px]">
+      <table className="w-full">
         <thead>
           <tr className="border-b border-zinc-100 dark:border-zinc-800">
             <th className="w-8 py-2.5 pl-3 pr-1" />
-            <th className="py-2.5 pr-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400">זמן</th>
-            <th className="py-2.5 pr-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400">שחקן / מקור</th>
-            <th className="py-2.5 pr-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400">פעולה</th>
-            <th className="py-2.5 pr-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400">ישות</th>
+            <th className="py-2.5 pr-2 text-right text-xs font-medium text-zinc-500 sm:pr-3 dark:text-zinc-400">זמן</th>
+            <th className="py-2.5 pr-2 text-right text-xs font-medium text-zinc-500 sm:pr-3 dark:text-zinc-400">שחקן / מקור</th>
+            <th className="py-2.5 pr-2 text-right text-xs font-medium text-zinc-500 sm:pr-3 dark:text-zinc-400">פעולה</th>
+            <th className="hidden py-2.5 pr-3 text-right text-xs font-medium text-zinc-500 sm:table-cell dark:text-zinc-400">ישות</th>
           </tr>
         </thead>
         <tbody>
