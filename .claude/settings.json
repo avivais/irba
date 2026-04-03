@@ -43,7 +43,11 @@
       "Bash(ls src/lib/*.ts)",
       "Edit(/.claude/skills/ec2/**)",
       "Bash(ssh -i:*)",
-      "Bash(./scripts/deploy.sh)"
+      "Bash(./scripts/deploy.sh)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "WebSearch",
+      "WebFetch(domain:betterstack.com)",
+      "WebFetch(domain:www.statuscake.com)"
     ],
     "additionalDirectories": [
       "/Users/avivais/Development/irba/src/app/admin/(protected)/sessions/[id]",
