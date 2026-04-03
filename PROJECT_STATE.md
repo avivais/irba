@@ -40,7 +40,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 ### RSVP flow (public)
 
 - Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Shows **location card** with name + Waze + Google Maps buttons + OpenStreetMap iframe minimap when lat/lng are set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
-- **Theme**: header `ThemeToggle` consistently positioned on the **left** (`end-0` in RTL) across all pages; root `ThemeProvider` in `layout.tsx` so all routes inherit the same behavior.
+- **Theme**: header `ThemeToggle` consistently positioned on the **left** (`end-0` in RTL) across all pages; root `ThemeProvider` in `layout.tsx` so all routes inherit the same behavior. The toggle is a **single icon button** (shows active theme icon — moon/sun/monitor) that opens a compact labeled popover on click; closes on outside click or Escape. Replaces the old always-visible 3-button segmented pill.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
 - **RSVP window**: registration open until `session.date` (not the close window). `isRsvpOpen = !isClosed && now < session.date`. Close window (`rsvp_close_hours`) only affects cancellation for confirmed players.
 - **Cancellation rules**: waitlisted players can always cancel; confirmed players cannot cancel within the close window (`now >= session.date - closeHours * 3_600_000`). Amber notice shown when cancellation is blocked ("ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל").
