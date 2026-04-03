@@ -4,7 +4,7 @@ import { cookieSecure } from "@/lib/cookie-secure";
 
 export const PLAYER_COOKIE_NAME = "irba_player_session";
 
-const SESSION_REMEMBERED_SECONDS = 60 * 60 * 24 * 30; // 30 days
+const SESSION_REMEMBERED_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 years
 const SESSION_12H_SECONDS = 60 * 60 * 12;
 
 function jwtIssuer(): string {

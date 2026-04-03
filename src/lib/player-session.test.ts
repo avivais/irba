@@ -129,7 +129,7 @@ describe("setPlayerSessionCookie", () => {
 
   it("rememberMe=true sets maxAge and stores verifiable cookie", async () => {
     await setPlayerSessionCookie(TEST_PLAYER_ID, true);
-    expect(cookieJar[PLAYER_COOKIE_NAME]?.maxAge).toBe(60 * 60 * 24 * 30);
+    expect(cookieJar[PLAYER_COOKIE_NAME]?.maxAge).toBe(60 * 60 * 24 * 365 * 10);
     const session = await getPlayerSession();
     expect(session?.playerId).toBe(TEST_PLAYER_ID);
     expect(session?.isRemembered).toBe(true);
