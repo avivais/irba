@@ -60,7 +60,7 @@ const waGroupJid = z
   .string()
   .max(50)
   .refine(
-    (v) => v === "" || /^\d+@g\.us$/.test(v),
+    (v) => v === "" || /^[\d-]+@g\.us$/.test(v),
     'מזהה קבוצה לא תקין — פורמט: XXXXXXXXXX@g.us'
   );
 
