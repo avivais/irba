@@ -5,6 +5,7 @@
 
 const store = new Map<string, number[]>();
 const adminLoginStore = new Map<string, number[]>();
+const playerLoginStore = new Map<string, number[]>();
 
 function parsePositiveInt(env: string | undefined, fallback: number): number {
   if (env == null || env === "") return fallback;
@@ -82,6 +83,21 @@ export function consumeRsvpRateLimit(
   return slidingWindowAllow(store, `${kind}:${ip}`, max, windowMs, now);
 }
 
+export function consumePlayerLoginRateLimit(ip: string, now = Date.now()): boolean {
+  const max = parsePositiveInt(process.env.IRBA_RL_PLAYER_LOGIN_MAX, 10);
+  const windowMs = parsePositiveInt(
+    process.env.IRBA_RL_PLAYER_LOGIN_WINDOW_MS,
+    15 * 60 * 1000,
+  );
+  return slidingWindowAllow(
+    playerLoginStore,
+    `player-login:${ip}`,
+    max,
+    windowMs,
+    now,
+  );
+}
+
 /** Vitest only — clears process-local counters between tests. */
 export function clearRsvpRateLimitStoreForTests(): void {
   store.clear();
@@ -90,4 +106,9 @@ export function clearRsvpRateLimitStoreForTests(): void {
 /** Vitest only — clears admin login rate limit bucket. */
 export function clearAdminLoginRateLimitStoreForTests(): void {
   adminLoginStore.clear();
+}
+
+/** Vitest only — clears player login rate limit bucket. */
+export function clearPlayerLoginRateLimitStoreForTests(): void {
+  playerLoginStore.clear();
 }

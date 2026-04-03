@@ -37,7 +37,14 @@ export type AuditAction =
   | "SEND_WA_MESSAGE"
   | "WA_LOGOUT"
   | "RUN_AUTO_CREATE"
-  | "AUTO_CREATE_SESSION";
+  | "AUTO_CREATE_SESSION"
+  | "PLAYER_LOGIN"
+  | "PLAYER_LOGIN_FAIL"
+  | "PLAYER_LOGOUT"
+  | "PLAYER_OTP_SENT"
+  | "PLAYER_OTP_VERIFIED"
+  | "PLAYER_PASSWORD_SET"
+  | "PLAYER_PASSWORD_RESET";
 
 export type AuditParams = {
   actor: string;

@@ -38,6 +38,13 @@ model Player {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
+  email         String?
+  nationalId    String?
+  passwordHash  String?
+  otpCode       String?
+  otpExpiresAt  DateTime?
+  emailVerified Boolean   @default(false)
+
   attendances    Attendance[]
   yearAggregates PlayerYearAggregate[]
   adjustments    PlayerAdjustment[]
@@ -45,6 +52,7 @@ model Player {
 
   @@index([phone])
   @@index([nickname])
+  @@index([email])
 }
 
 model GameSession {

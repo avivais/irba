@@ -339,7 +339,7 @@ See "Config system" and "Hourly rates" sections under "What exists today".
 
 ---
 
-#### 3. User auth
+#### 3. User auth ✅ DONE
 
 Player = User. Phone is the identity. Two registration paths, both on the public site.
 
@@ -513,4 +513,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Apr 2026 — **Audit log + WA config + ops hardening shipped.** Full persistent audit log (37 call sites), configurable WA notifications with group broadcast, WA bot management (QR re-auth, status, logout), "הרץ עכשיו" force-trigger, toast notifications, deploy improvements. UptimeRobot monitoring live. Next: configure `wa_group_jid` + session schedule on production, then user auth (step 3).*
+*Last updated: Apr 2026 — **User auth (step 3) shipped.** Players log in via phone+OTP (WhatsApp) or phone+password at `/login`. Profile page at `/profile` shows balance + last 10 attendances. isAdmin players get admin access via player session (bridge in admin layout). Home page shows greeting + pre-fills RSVP form for logged-in players. Password reset via OTP. Israeli ID validator + tests. Full audit trail for all auth events. `PLAYER_SESSION_SECRET` in production. Next: payments (step 5).*

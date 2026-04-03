@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
+import { getPlayerSessionPlayerId } from "@/lib/player-session";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +10,20 @@ export default async function AdminProtectedLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const subject = await getAdminSessionSubject();
   if (!subject) {
-    redirect("/admin/login");
+    // Fall back to checking if an isAdmin player is logged in
+    const playerId = await getPlayerSessionPlayerId();
+    if (playerId) {
+      const player = await prisma.player.findUnique({
+        where: { id: playerId },
+        select: { isAdmin: true },
+      });
+      if (!player?.isAdmin) {
+        redirect("/admin/login");
+      }
+      // isAdmin player — allow through
+    } else {
+      redirect("/admin/login");
+    }
   }
   return (
     <div className="flex min-h-full flex-col">

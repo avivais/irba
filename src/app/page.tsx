@@ -1,4 +1,5 @@
 import { CalendarDays, MapPin, Users } from "lucide-react";
+import Link from "next/link";
 import { CancelRsvpForm } from "@/components/cancel-rsvp-form";
 import { RsvpForm } from "@/components/rsvp-form";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -9,6 +10,7 @@ import { maskPhone } from "@/lib/mask-phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { prisma } from "@/lib/prisma";
 import { getSessionPlayerId } from "@/lib/rsvp-session";
+import { getPlayerSessionPlayerId } from "@/lib/player-session";
 
 import type { Metadata } from "next";
 
@@ -18,11 +20,44 @@ export const metadata: Metadata = { title: "המפגש הבא" };
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [game, closeHours, sessionPlayerId] = await Promise.all([
-    getNextGame(),
-    getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
-    getSessionPlayerId(),
-  ]);
+  const [game, closeHours, sessionPlayerId, authenticatedPlayerId] =
+    await Promise.all([
+      getNextGame(),
+      getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
+      getSessionPlayerId(),
+      getPlayerSessionPlayerId(),
+    ]);
+
+  const authenticatedPlayer = authenticatedPlayerId
+    ? await prisma.player.findUnique({
+        where: { id: authenticatedPlayerId },
+        select: {
+          firstNameHe: true,
+          lastNameHe: true,
+          firstNameEn: true,
+          lastNameEn: true,
+          nickname: true,
+          phone: true,
+        },
+      })
+    : null;
+
+  function getAuthDisplayName(): string {
+    if (!authenticatedPlayer) return "";
+    if (authenticatedPlayer.firstNameHe) {
+      return [authenticatedPlayer.firstNameHe, authenticatedPlayer.lastNameHe]
+        .filter(Boolean)
+        .join(" ");
+    }
+    if (authenticatedPlayer.firstNameEn) {
+      return [authenticatedPlayer.firstNameEn, authenticatedPlayer.lastNameEn]
+        .filter(Boolean)
+        .join(" ");
+    }
+    return authenticatedPlayer.nickname ?? authenticatedPlayer.phone;
+  }
+
+  const authDisplayName = getAuthDisplayName();
 
   const nowMs = new Date().getTime();
 
@@ -71,6 +106,18 @@ export default async function HomePage() {
             המפגש הבא
           </h1>
         </div>
+        {authenticatedPlayer && (
+          <div className="mt-3 flex items-center justify-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <span>שלום, {authDisplayName}</span>
+            <span aria-hidden>·</span>
+            <Link
+              href="/profile"
+              className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-200"
+            >
+              אזור אישי
+            </Link>
+          </div>
+        )}
       </header>
 
       <section
@@ -156,7 +203,10 @@ export default async function HomePage() {
       {game && isRsvpOpen && (
         <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
           <h2 className="sr-only">הרשמה</h2>
-          <RsvpForm />
+          <RsvpForm
+            defaultName={authDisplayName}
+            defaultPhone={authenticatedPlayer?.phone ?? ""}
+          />
         </section>
       )}
 

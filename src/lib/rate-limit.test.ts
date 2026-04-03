@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   clearAdminLoginRateLimitStoreForTests,
+  clearPlayerLoginRateLimitStoreForTests,
   clearRsvpRateLimitStoreForTests,
   consumeAdminLoginRateLimit,
+  consumePlayerLoginRateLimit,
   consumeRsvpRateLimit,
   getClientIpFromHeaders,
   slidingWindowAllow,
@@ -107,5 +109,52 @@ describe("consumeAdminLoginRateLimit", () => {
     expect(consumeAdminLoginRateLimit(ip, now)).toBe(true);
     expect(consumeAdminLoginRateLimit(ip, now + 1000)).toBe(true);
     expect(consumeAdminLoginRateLimit(ip, now + 2000)).toBe(false);
+  });
+});
+
+describe("consumePlayerLoginRateLimit", () => {
+  beforeEach(() => {
+    clearPlayerLoginRateLimitStoreForTests();
+    delete process.env.IRBA_RL_PLAYER_LOGIN_MAX;
+    delete process.env.IRBA_RL_PLAYER_LOGIN_WINDOW_MS;
+  });
+
+  afterEach(() => {
+    clearPlayerLoginRateLimitStoreForTests();
+    delete process.env.IRBA_RL_PLAYER_LOGIN_MAX;
+    delete process.env.IRBA_RL_PLAYER_LOGIN_WINDOW_MS;
+  });
+
+  it("respects IRBA_RL_PLAYER_LOGIN_MAX and window", () => {
+    process.env.IRBA_RL_PLAYER_LOGIN_MAX = "2";
+    process.env.IRBA_RL_PLAYER_LOGIN_WINDOW_MS = "60000";
+    const ip = "10.0.0.3";
+    const now = 900_000;
+    expect(consumePlayerLoginRateLimit(ip, now)).toBe(true);
+    expect(consumePlayerLoginRateLimit(ip, now + 1000)).toBe(true);
+    expect(consumePlayerLoginRateLimit(ip, now + 2000)).toBe(false);
+  });
+
+  it("resets after the window expires", () => {
+    process.env.IRBA_RL_PLAYER_LOGIN_MAX = "1";
+    process.env.IRBA_RL_PLAYER_LOGIN_WINDOW_MS = "60000";
+    const ip = "10.0.0.4";
+    const now = 1_000_000;
+    expect(consumePlayerLoginRateLimit(ip, now)).toBe(true);
+    expect(consumePlayerLoginRateLimit(ip, now + 30_000)).toBe(false);
+    expect(consumePlayerLoginRateLimit(ip, now + 61_000)).toBe(true);
+  });
+
+  it("uses separate bucket from admin login", () => {
+    process.env.IRBA_RL_PLAYER_LOGIN_MAX = "1";
+    process.env.IRBA_RL_ADMIN_LOGIN_MAX = "1";
+    process.env.IRBA_RL_PLAYER_LOGIN_WINDOW_MS = "60000";
+    process.env.IRBA_RL_ADMIN_LOGIN_WINDOW_MS = "60000";
+    const ip = "10.0.0.5";
+    const now = 1_100_000;
+    // Exhaust admin bucket
+    consumeAdminLoginRateLimit(ip, now);
+    // Player bucket should still be open
+    expect(consumePlayerLoginRateLimit(ip, now)).toBe(true);
   });
 });

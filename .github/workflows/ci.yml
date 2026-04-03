@@ -15,6 +15,7 @@ jobs:
       # Placeholders so Next/Prisma can load if build touches session helpers.
       RSVP_SESSION_SECRET: ci-placeholder-rsvp-session-secret-32chars
       ADMIN_SESSION_SECRET: ci-placeholder-admin-session-secret-32chars
+      PLAYER_SESSION_SECRET: ci-placeholder-player-session-secret-32chars
 
     steps:
       - uses: actions/checkout@v4

@@ -18,16 +18,22 @@ const inputNormal =
 const inputInvalid =
   "border-red-500 focus:border-red-600 focus:ring-red-600/35 dark:border-red-500 dark:focus:border-red-500 dark:focus:ring-red-500/35";
 
-export function RsvpForm() {
+export function RsvpForm({
+  defaultName = "",
+  defaultPhone = "",
+}: {
+  defaultName?: string;
+  defaultPhone?: string;
+} = {}) {
   const [state, formAction, pending] = useActionState(
     attendAction,
     initialState,
   );
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [phone, setPhone] = useState(defaultPhone);
   /** Show field-level errors after blur, or after a blocked submit (e.g. Enter while invalid). */
-  const [nameBlurred, setNameBlurred] = useState(false);
-  const [phoneBlurred, setPhoneBlurred] = useState(false);
+  const [nameBlurred, setNameBlurred] = useState(Boolean(defaultName));
+  const [phoneBlurred, setPhoneBlurred] = useState(Boolean(defaultPhone));
   /** Hide stale server message after the user edits; cleared when a valid submit is sent. */
   const [suppressServerError, setSuppressServerError] = useState(false);
 
