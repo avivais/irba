@@ -371,7 +371,7 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 ---
 
-#### 4. WhatsApp integration *(Baileys)* — **MOSTLY DONE**
+#### 4. WhatsApp integration *(Baileys)* — ✅ DONE
 
 **Done (production):**
 - ✅ Baileys sidecar service (`wa/`) — Express on port 3100, session persistence, QR auth; `POST /send-group` + `GET /groups` added
@@ -382,8 +382,7 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 - ✅ Player registered/cancelled → WA group broadcast (with confirmed/waitlisted status)
 - ✅ Waitlist promotion notification → individual DM to promoted player
 
-**Remaining:**
-- OTP delivery (requires user auth — step 3)
+**Remaining:** none — OTP delivery wired in `requestOtpAction` / `requestPasswordResetAction` (shipped with step 3).
 
 ---
 
@@ -513,4 +512,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Apr 2026 — **User auth (step 3) shipped.** Players log in via phone+OTP (WhatsApp) or phone+password at `/login`. Profile page at `/profile` shows balance + last 10 attendances. isAdmin players get admin access via player session (bridge in admin layout). Home page shows greeting + pre-fills RSVP form for logged-in players. Password reset via OTP. Israeli ID validator + tests. Full audit trail for all auth events. `PLAYER_SESSION_SECRET` in production. Next: payments (step 5).*
+*Last updated: Apr 2026 — **User auth + WA OTP (steps 3 & 4) fully done.** Players log in via phone+OTP (WhatsApp) or phone+password at `/login`. Forgot password via OTP. Profile page at `/profile`. isAdmin bridge to admin. Home page greeting + RSVP pre-fill. WA OTP wired into login + password reset flows. All 4 WA items complete. Next: payments (step 5).*
