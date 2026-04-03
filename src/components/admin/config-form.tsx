@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition, useRef } from "react";
 import { ChevronDown, ChevronUp, Loader2, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import {
@@ -81,11 +81,20 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
-  const initialSendState: SendWaActionState = { ok: false, message: "" };
-  const [sendState, sendDispatch, sendPending] = useActionState(
-    sendWaGroupMessageAction,
-    initialSendState,
-  );
+  const [sendState, setSendState] = useState<SendWaActionState>({ ok: false, message: "" });
+  const [sendPending, startSendTransition] = useTransition();
+  const sendMessageRef = useRef<HTMLTextAreaElement>(null);
+
+  function handleSend() {
+    const text = sendMessageRef.current?.value.trim() ?? "";
+    const fd = new FormData();
+    fd.append("message", text);
+    startSendTransition(async () => {
+      const result = await sendWaGroupMessageAction({ ok: false, message: "" }, fd);
+      setSendState(result);
+      if (result.ok && sendMessageRef.current) sendMessageRef.current.value = "";
+    });
+  }
   const [groupJidValue, setGroupJidValue] = useState(values[CONFIG.WA_GROUP_JID]);
   const [waGroups, setWaGroups] = useState<WaGroup[] | null>(null);
   const [groupFilter, setGroupFilter] = useState("");
@@ -674,17 +683,18 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       {values[CONFIG.WA_GROUP_JID] && (
         <section className="flex flex-col gap-4">
           <SectionTitle>שליחת הודעה לקבוצה</SectionTitle>
-          <form action={sendDispatch} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <Field label="הודעה">
               <textarea
-                name="message"
+                ref={sendMessageRef}
                 rows={3}
                 maxLength={1000}
                 className={`${inputBase} resize-y ${inputNormal}`}
               />
             </Field>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSend}
               disabled={sendPending}
               className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50 sm:w-auto"
             >
@@ -709,7 +719,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
                 {sendState.message}
               </p>
             )}
-          </form>
+          </div>
         </section>
       )}
 
