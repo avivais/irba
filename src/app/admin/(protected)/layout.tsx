@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAdminSessionSubject } from "@/lib/admin-session";
 import { getPlayerSessionPlayerId } from "@/lib/player-session";
 import { prisma } from "@/lib/prisma";
+import { PlayerNav } from "@/components/player-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function AdminProtectedLayout({
   }
   return (
     <div className="flex min-h-full flex-col">
+      <PlayerNav />
       {children}
       <footer className="mt-auto py-4 text-center text-xs text-zinc-300 dark:text-zinc-700" dir="ltr">
         {process.env.NEXT_PUBLIC_COMMIT_HASH ?? "dev"}
