@@ -12,6 +12,7 @@ import {
   type WaGroup,
 } from "@/app/admin/(protected)/config/actions";
 import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-button";
+import { WaBotStatus } from "@/components/admin/wa-bot-status";
 import { CONFIG } from "@/lib/config-keys";
 import type { ConfigKey } from "@/lib/config-keys";
 
@@ -459,6 +460,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       {/* ── WhatsApp ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>וואטסאפ</SectionTitle>
+        <WaBotStatus />
 
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">

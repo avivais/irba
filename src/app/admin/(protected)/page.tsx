@@ -3,7 +3,6 @@ import Link from "next/link";
 import { LogOut, Users, CalendarDays, FileUp, Settings } from "lucide-react";
 import { adminLogoutAction } from "@/app/admin/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { WaBotStatus } from "@/components/admin/wa-bot-status";
 
 export const metadata: Metadata = { title: "ניהול" };
 
@@ -88,11 +87,7 @@ export default function AdminHomePage() {
         </Link>
       </nav>
 
-      <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl">
-        <WaBotStatus />
-      </section>
-
-      <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl">
+      <section className="mx-auto mt-8 w-full max-w-2xl md:max-w-4xl">
         <form action={adminLogoutAction}>
           <button
             type="submit"

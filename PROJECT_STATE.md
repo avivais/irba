@@ -194,6 +194,8 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 
 **Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
 
+**Bot status & re-link** — `WaBotStatus` component rendered at the top of the `/admin/config` WA section. Shows green/red connection dot, QR code when disconnected (auto-refreshes every 15s as Baileys regenerates), logout button when connected. Calls `fetchWaStatusAction` on mount and polls every 15s; `logoutWaAction` clears session and triggers reconnect for a fresh QR. All WA management (status, JID config, notifications, manual send) is in one place.
+
 **Manual group send** — `/admin/config` WA section (visible only when `wa_group_jid` is set) has a free-text textarea + "שלח" button (`sendWaGroupMessageAction`). Calls the sidecar directly (bypasses `WA_NOTIFY_ENABLED` kill switch) — useful for ad-hoc messages and smoke-testing the pipeline.
 
 ### Auto-create cron (`GET /api/cron/auto-create`)
