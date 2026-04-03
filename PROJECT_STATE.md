@@ -12,7 +12,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 |--------|--------|
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Theming | `next-themes`: system (default), light, dark; `class` on `<html>`; `storageKey` `irba-theme` |
-| Page titles | Root layout uses `title.template: "IRBA :: %s"` with `default: "IRBA"`; every page exports its own `metadata.title` segment. |
+| Page titles | Root layout uses `title.template: "\u200EIRBA · %s"` (LTR mark + middle dot separator) with `default: "IRBA"`; LTR mark forces correct display in narrow RTL browser tabs. |
 | DB | PostgreSQL, Prisma ORM 7 (driver adapter `@prisma/adapter-pg`) |
 | Auth (MVP) | Signed HTTP-only cookie (`jose`), `RSVP_SESSION_SECRET` (min 32 chars), JWT `iss`/`aud`, optional `RSVP_COOKIE_SECURE` |
 | Icons | `lucide-react` |
@@ -40,7 +40,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 ### RSVP flow (public)
 
 - Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Shows **location card** with name + Waze + Google Maps buttons + OpenStreetMap iframe minimap when lat/lng are set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
-- **Theme**: header `ThemeToggle` consistently positioned on the **left** (`end-0` in RTL) across all pages; root `ThemeProvider` in `layout.tsx` so all routes inherit the same behavior. The toggle is a **single icon button** (shows active theme icon — moon/sun/monitor) that opens a compact labeled popover on click; closes on outside click or Escape. Replaces the old always-visible 3-button segmented pill.
+- **Theme**: `ThemeProvider` in `layout.tsx`; `ThemeToggle` (popup button) still exists but is no longer in the nav. Theme is changed via `ThemeSelector` (`src/components/theme-selector.tsx`) — an inline 3-button row (כהה / מערכת / בהיר) in the profile page "מראה" section.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
 - **RSVP window**: registration open until `session.date` (not the close window). `isRsvpOpen = !isClosed && now < session.date`. Close window (`rsvp_close_hours`) only affects cancellation for confirmed players.
 - **Cancellation rules**: waitlisted players can always cancel; confirmed players cannot cancel within the close window (`now >= session.date - closeHours * 3_600_000`). Amber notice shown when cancellation is blocked ("ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל").
@@ -253,7 +253,7 @@ Persistent action log covering every mutation in the system.
 
 **Admin page** (`/admin/audit`): server-rendered, 75 entries/page.
 - **Filters** (URL params): `action` dropdown, `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
-- **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=admin auth, violet=player auth, amber=OTP events, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label.
+- **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=admin auth, violet=player auth, amber=OTP events, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label. **Responsive**: entity column hidden on mobile (`hidden sm:table-cell`), action badge truncated, no forced min-width — no horizontal scroll on 430px.
 - **Expandable rows**: clicking anywhere on a row (that has details) reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron. The chevron icon is decorative (`aria-hidden`); the `<tr>` itself carries the `onClick`.
 - **Pagination**: prev/next links with page N of M counter.
 
@@ -370,7 +370,7 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 - **Email:** stored, used as fallback notification channel (not primary)
 - **`isAdmin=true`** players → full admin access; existing `ADMIN_PASSWORD_HASH` auth kept as fallback
 - **Login location:** `/login` route redirects to `/`; `/admin/login` also redirects to `/`; login form (`PlayerLoginForm`) embedded inline on the homepage when not authenticated; all logout paths redirect to `/`
-- **Navigation:** unified sticky top nav (`PlayerNav` server component, `src/components/player-nav.tsx`) rendered on homepage and profile — shows IRBA brand (link to `/`), Home, Profile (name), Admin (if `isAdmin`), Logout, ThemeToggle; only ThemeToggle shown when logged out
+- **Navigation:** unified sticky top nav (`PlayerNav` server component, `src/components/player-nav.tsx`) rendered on all pages (homepage, profile, all admin pages via protected layout) — shows IRBA brand (sole home link), Profile icon, Admin icon (if `isAdmin`), Logout; active page highlighted via `NavLinks` client component (`src/components/nav-links.tsx`, uses `usePathname()`); no ThemeToggle in nav
 - **Logout:** `playerLogoutAction` clears both player session cookie AND admin session cookie, then redirects to `/`. `adminLogoutAction` also redirects to `/`
 - **Admin layout guard:** redirects unauthorized users to `/` (not `/admin/login`)
 
@@ -530,4 +530,4 @@ Winning team stays; next match teams are composed by admin from session attendee
 
 ---
 
-*Last updated: Apr 2026 — **User auth, WA OTP, and navigation polish fully done.** Players log in via phone+OTP (WhatsApp) or phone+password on the homepage. Unified sticky top nav (`PlayerNav`) on all pages. Title template is now `"IRBA :: %s"`. Audit log shows color-coded player auth events (violet/amber). `/admin/login` removed (redirects to `/`). All logouts clear both session cookies and redirect to `/`. Change/set password from `/profile`. Next: payments (step 5).*
+*Last updated: Apr 2026 — **Nav consistency + profile polish fully done.** `PlayerNav` now covers all pages including admin (via protected layout). Nav shows IRBA brand + Profile + Admin + Logout icons only (no player name, no Home duplicate, no ThemeToggle). Active page highlighted. Title uses LTR mark for correct display in narrow RTL tabs. Profile: no greeting, right-aligned phone, collapsible password form, inline `ThemeSelector`. Audit log responsive on mobile (entity column hidden on small screens). Next: payments (step 5).*
