@@ -47,6 +47,10 @@ export default async function AdminSessionPage({ params }: Props) {
         calculatedAmount: true,
         chargeType: true,
         player: { select: { id: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true } },
+        auditEntries: {
+          orderBy: { changedAt: "desc" },
+          select: { changedAt: true, changedBy: true, previousAmount: true, newAmount: true, reason: true },
+        },
       },
     }),
     prisma.hourlyRate.findFirst({
@@ -142,6 +146,13 @@ export default async function AdminSessionPage({ params }: Props) {
     amount: c.amount,
     calculatedAmount: c.calculatedAmount,
     chargeType: c.chargeType,
+    auditEntries: c.auditEntries.map((e) => ({
+      changedAt: e.changedAt,
+      changedBy: e.changedBy,
+      previousAmount: e.previousAmount,
+      newAmount: e.newAmount,
+      reason: e.reason,
+    })),
   }));
 
   return (

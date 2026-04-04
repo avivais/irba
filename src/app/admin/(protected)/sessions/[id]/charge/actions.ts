@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
 import { getAllConfigs } from "@/lib/config";
 import { CONFIG } from "@/lib/config-keys";
-import { proposeSessionCharges } from "@/lib/charging";
+import { proposeSessionCharges, computeSingleCharge } from "@/lib/charging";
 import { computePlayerBalances } from "@/lib/balance";
 
 export type ChargeActionState = { ok: boolean; message?: string };
@@ -214,4 +214,211 @@ export async function updateSessionChargeAction(
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   return { ok: true };
+}
+
+// ─── Cascade recalculation ────────────────────────────────────────────────────
+
+export type CascadeChange = {
+  sessionId: string;
+  sessionDate: Date;
+  chargeId: string;
+  playerId: string;
+  playerName: string;
+  oldAmount: number;
+  newAmount: number;
+  newCalculatedAmount: number;
+  oldChargeType: string;
+  newChargeType: string;
+};
+
+export type CascadePreviewState =
+  | { ok: true; changes: CascadeChange[] }
+  | { ok: false; message: string };
+
+/**
+ * Shared helper: compute cascade changes for all downstream sessions after fromSessionId.
+ * Returns all charges that would change (amount or chargeType).
+ */
+async function computeCascadeChanges(fromSessionId: string): Promise<CascadeChange[]> {
+  const fromSession = await prisma.gameSession.findUnique({
+    where: { id: fromSessionId },
+    select: { date: true },
+  });
+  if (!fromSession) return [];
+
+  const config = await getAllConfigs();
+  const minPlayers = parseInt(config[CONFIG.SESSION_MIN_PLAYERS] ?? "10", 10);
+  const debtThreshold = parseInt(config[CONFIG.DEBT_THRESHOLD] ?? "10", 10);
+
+  // Find all players who have a charge in this session
+  const thisSessionCharges = await prisma.sessionCharge.findMany({
+    where: { sessionId: fromSessionId },
+    select: { playerId: true },
+  });
+  const affectedPlayerIds = thisSessionCharges.map((c) => c.playerId);
+  if (affectedPlayerIds.length === 0) return [];
+
+  // Find all charged sessions strictly after this one, that have at least one affected player
+  const downstreamSessions = await prisma.gameSession.findMany({
+    where: {
+      isCharged: true,
+      date: { gt: fromSession.date },
+      sessionCharges: { some: { playerId: { in: affectedPlayerIds } } },
+    },
+    orderBy: { date: "asc" },
+    select: {
+      id: true,
+      date: true,
+      durationMinutes: true,
+      maxPlayers: true,
+      sessionCharges: {
+        where: { playerId: { in: affectedPlayerIds } },
+        select: {
+          id: true,
+          playerId: true,
+          amount: true,
+          calculatedAmount: true,
+          chargeType: true,
+          player: {
+            select: {
+              firstNameHe: true, lastNameHe: true,
+              firstNameEn: true, lastNameEn: true,
+              nickname: true, phone: true,
+              playerKind: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const changes: CascadeChange[] = [];
+
+  for (const session of downstreamSessions) {
+    const hourlyRate = await getRateForDate(session.date);
+    if (!hourlyRate || !session.durationMinutes) continue;
+
+    const chargePlayerIds = session.sessionCharges.map((c) => c.playerId);
+
+    // Compute each player's balance strictly before this session (all payments + charges with session date < this session's date)
+    const [paymentsAgg, chargesAgg] = await Promise.all([
+      prisma.payment.groupBy({
+        by: ["playerId"],
+        where: { playerId: { in: chargePlayerIds } },
+        _sum: { amount: true },
+      }),
+      prisma.sessionCharge.groupBy({
+        by: ["playerId"],
+        where: {
+          playerId: { in: chargePlayerIds },
+          session: { date: { lt: session.date } },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const paidMap = new Map(paymentsAgg.map((r) => [r.playerId, r._sum.amount ?? 0]));
+    const chargedMap = new Map(chargesAgg.map((r) => [r.playerId, r._sum.amount ?? 0]));
+
+    for (const charge of session.sessionCharges) {
+      const balance = (paidMap.get(charge.playerId) ?? 0) - (chargedMap.get(charge.playerId) ?? 0);
+      const { chargeType: newChargeType, calculatedAmount: newCalculatedAmount } = computeSingleCharge({
+        hourlyRate,
+        durationMinutes: session.durationMinutes,
+        minPlayers,
+        debtThreshold,
+        playerKind: charge.player.playerKind as "REGISTERED" | "DROP_IN",
+        balance,
+      });
+
+      const adminDelta = charge.amount - charge.calculatedAmount;
+      const newAmount = newCalculatedAmount + adminDelta;
+
+      if (newAmount !== charge.amount || newChargeType !== charge.chargeType) {
+        const { getPlayerDisplayName } = await import("@/lib/player-display");
+        changes.push({
+          sessionId: session.id,
+          sessionDate: session.date,
+          chargeId: charge.id,
+          playerId: charge.playerId,
+          playerName: getPlayerDisplayName(charge.player),
+          oldAmount: charge.amount,
+          newAmount,
+          newCalculatedAmount,
+          oldChargeType: charge.chargeType,
+          newChargeType,
+        });
+      }
+    }
+  }
+
+  return changes;
+}
+
+export async function previewCascadeAction(
+  fromSessionId: string,
+): Promise<CascadePreviewState> {
+  await requireAdmin();
+  try {
+    const changes = await computeCascadeChanges(fromSessionId);
+    return { ok: true, changes };
+  } catch (e) {
+    console.error("previewCascadeAction failed", e);
+    return { ok: false, message: "שגיאה בחישוב תצוגה מקדימה" };
+  }
+}
+
+export async function applyCascadeAction(
+  fromSessionId: string,
+): Promise<ChargeActionState> {
+  await requireAdmin();
+
+  try {
+    const changes = await computeCascadeChanges(fromSessionId);
+    if (changes.length === 0) return { ok: true, message: "אין שינויים" };
+
+    await prisma.$transaction([
+      ...changes.map((ch) =>
+        prisma.sessionCharge.update({
+          where: { id: ch.chargeId },
+          data: {
+            amount: ch.newAmount,
+            calculatedAmount: ch.newCalculatedAmount,
+            chargeType: ch.newChargeType as "REGISTERED" | "DROP_IN" | "ADMIN_OVERRIDE",
+          },
+        }),
+      ),
+      ...changes.map((ch) =>
+        prisma.chargeAuditEntry.create({
+          data: {
+            sessionChargeId: ch.chargeId,
+            changedBy: "admin",
+            previousAmount: ch.oldAmount,
+            newAmount: ch.newAmount,
+            reason: "cascade_recalc",
+          },
+        }),
+      ),
+    ]);
+
+    writeAuditLog({
+      actor: "admin",
+      action: "CASCADE_RECALC",
+      entityType: "GameSession",
+      entityId: fromSessionId,
+      after: { changedCount: changes.length },
+    });
+
+    // Revalidate all affected session pages
+    const sessionIds = [...new Set(changes.map((c) => c.sessionId))];
+    for (const sid of sessionIds) {
+      revalidatePath(`/admin/sessions/${sid}`);
+    }
+    revalidatePath(`/admin/sessions/${fromSessionId}`);
+
+    return { ok: true, message: `עודכנו ${changes.length} חיובים` };
+  } catch (e) {
+    console.error("applyCascadeAction failed", e);
+    return { ok: false, message: "שגיאה בעדכון חיובים" };
+  }
 }
