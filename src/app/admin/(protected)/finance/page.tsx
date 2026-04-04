@@ -161,13 +161,11 @@ export default async function AdminFinancePage() {
             </div>
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {debtors.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <Link
-                    href={`/admin/players/${p.id}/edit`}
-                    className="min-w-0 text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
-                  >
+                <li key={p.id} className="relative flex items-center justify-between gap-3 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <Link href={`/admin/players/${p.id}/edit?from=finance`} className="absolute inset-0" aria-label={getPlayerDisplayName(p)} />
+                  <span className="min-w-0 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {getPlayerDisplayName(p)}
-                  </Link>
+                  </span>
                   <span
                     className="shrink-0 font-semibold tabular-nums text-red-600 dark:text-red-400"
                     dir="ltr"
@@ -190,13 +188,11 @@ export default async function AdminFinancePage() {
             </div>
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {credits.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <Link
-                    href={`/admin/players/${p.id}/edit`}
-                    className="min-w-0 text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
-                  >
+                <li key={p.id} className="relative flex items-center justify-between gap-3 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <Link href={`/admin/players/${p.id}/edit?from=finance`} className="absolute inset-0" aria-label={getPlayerDisplayName(p)} />
+                  <span className="min-w-0 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {getPlayerDisplayName(p)}
-                  </Link>
+                  </span>
                   <span
                     className="shrink-0 font-semibold tabular-nums text-green-700 dark:text-green-400"
                     dir="ltr"
@@ -216,14 +212,12 @@ export default async function AdminFinancePage() {
           </div>
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {playerRows.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-2.5">
+              <li key={p.id} className="relative flex items-center justify-between gap-3 px-5 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <Link href={`/admin/players/${p.id}/edit?from=finance`} className="absolute inset-0" aria-label={getPlayerDisplayName(p)} />
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <Link
-                    href={`/admin/players/${p.id}/edit`}
-                    className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
-                  >
+                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {getPlayerDisplayName(p)}
-                  </Link>
+                  </span>
                   <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
                     שולם ₪{p.totalPaid} · חויב ₪{p.totalCharged}
                   </span>

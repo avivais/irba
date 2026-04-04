@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 };
 
 function formatDate(d: Date): string {
@@ -32,8 +33,11 @@ function formatScore(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1);
 }
 
-export default async function AdminPlayersEditPage({ params }: Props) {
+export default async function AdminPlayersEditPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { from } = await searchParams;
+  const backHref = from === "finance" ? "/admin/finance" : "/admin/players";
+  const backLabel = from === "finance" ? "→ חזרה לפיננסים" : "→ חזרה לשחקנים";
   const currentYear = new Date().getFullYear();
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear + 1, 0, 1);
@@ -101,10 +105,10 @@ export default async function AdminPlayersEditPage({ params }: Props) {
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
       <header className="mx-auto flex w-full max-w-2xl md:max-w-4xl items-start gap-3">
         <Link
-          href="/admin/players"
+          href={backHref}
           className="mt-1 shrink-0 text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white"
         >
-          → חזרה לשחקנים
+          {backLabel}
         </Link>
         <span className="mt-1 text-zinc-300 dark:text-zinc-600">|</span>
         <div className="min-w-0">
@@ -140,6 +144,18 @@ export default async function AdminPlayersEditPage({ params }: Props) {
               lastNameEn: player.lastNameEn,
               birthdate: player.birthdate,
             }}
+          />
+        </section>
+
+        {/* Payments */}
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+            תשלומים
+          </h2>
+          <PlayerPayments
+            playerId={id}
+            payments={playerPayments}
+            balance={balance}
           />
         </section>
 
@@ -191,18 +207,6 @@ export default async function AdminPlayersEditPage({ params }: Props) {
           )}
 
           <AggregateUpsertForm playerId={id} currentYear={currentYear} />
-        </section>
-
-        {/* Payments */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            תשלומים
-          </h2>
-          <PlayerPayments
-            playerId={id}
-            payments={playerPayments}
-            balance={balance}
-          />
         </section>
 
         {/* Adjustments */}
