@@ -50,7 +50,8 @@ export type AuditAction =
   | "DELETE_PAYMENT"
   | "CHARGE_SESSION"
   | "UNCHARGE_SESSION"
-  | "UPDATE_SESSION_CHARGE";
+  | "UPDATE_SESSION_CHARGE"
+  | "CASCADE_RECALC";
 
 export type AuditParams = {
   actor: string;

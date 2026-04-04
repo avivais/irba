@@ -42,7 +42,7 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear + 1, 0, 1);
 
-  const [player, yearWeights, allLiveAttendances, allPlayers, playerPayments, balance] =
+  const [player, yearWeights, allLiveAttendances, allPlayers, playerPayments, balance, playerCharges] =
     await Promise.all([
       prisma.player.findUnique({
         where: { id },
@@ -75,6 +75,17 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
         select: { id: true, date: true, amount: true, method: true, description: true },
       }),
       computePlayerBalance(id),
+      prisma.sessionCharge.findMany({
+        where: { playerId: id },
+        orderBy: { session: { date: "desc" } },
+        select: {
+          id: true,
+          amount: true,
+          calculatedAmount: true,
+          chargeType: true,
+          session: { select: { id: true, date: true } },
+        },
+      }),
     ]);
 
   if (!player) notFound();
@@ -157,6 +168,52 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
             payments={playerPayments}
             balance={balance}
           />
+        </section>
+
+        {/* Session charges */}
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">חיובי מפגשים</h2>
+          {playerCharges.length === 0 ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">אין חיובים עדיין.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
+              {playerCharges.map((charge) => {
+                const hasOverride = charge.amount !== charge.calculatedAmount;
+                const typeLabel =
+                  charge.chargeType === "REGISTERED" ? "קבוע"
+                  : charge.chargeType === "DROP_IN" ? "מזדמן"
+                  : "עקיפה";
+                return (
+                  <li key={charge.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <Link
+                        href={`/admin/sessions/${charge.session.id}`}
+                        className="text-sm font-medium text-zinc-800 hover:underline dark:text-zinc-200"
+                      >
+                        {formatDate(charge.session.date)}
+                      </Link>
+                      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
+                          {typeLabel}
+                        </span>
+                        {hasOverride && (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            עקיפה (מחושב: ₪{charge.calculatedAmount})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className="shrink-0 tabular-nums font-semibold text-red-600 dark:text-red-400"
+                      dir="ltr"
+                    >
+                      -₪{charge.amount}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
 
         {/* Current year (read-only) */}

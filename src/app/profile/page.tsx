@@ -6,10 +6,19 @@ import { computePlayerBalance } from "@/lib/balance";
 import { PlayerNav } from "@/components/player-nav";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { ThemeSelector } from "@/components/theme-selector";
+import { AccountStatement } from "@/components/account-statement";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
 export const dynamic = "force-dynamic";
+
+const METHOD_LABEL: Record<string, string> = {
+  CASH: "מזומן",
+  PAYBOX: "Paybox",
+  BIT: "Bit",
+  BANK_TRANSFER: "העברה",
+  OTHER: "אחר",
+};
 
 function getDisplayName(player: {
   firstNameHe: string | null;
@@ -36,48 +45,128 @@ function formatSessionDate(date: Date): string {
   }).format(date);
 }
 
-export default async function ProfilePage() {
+const VALID_PER = [10, 20, 50] as const;
+type PerPage = (typeof VALID_PER)[number];
+type StatementType = "all" | "payments" | "charges";
+
+type Props = {
+  searchParams: Promise<{ page?: string; per?: string; type?: string }>;
+};
+
+export default async function ProfilePage({ searchParams }: Props) {
   const session = await getPlayerSession();
   if (!session) redirect("/");
 
-  const player = await prisma.player.findUnique({
-    where: { id: session.playerId },
-    select: {
-      id: true,
-      phone: true,
-      passwordHash: true,
-      firstNameHe: true,
-      lastNameHe: true,
-      firstNameEn: true,
-      lastNameEn: true,
-      nickname: true,
-      isAdmin: true,
-      attendances: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          createdAt: true,
-          gameSession: {
-            select: {
-              id: true,
-              date: true,
-              isClosed: true,
-              isArchived: true,
-              maxPlayers: true,
+  const rawParams = await searchParams;
+  const typeParam = (rawParams.type ?? "all") as StatementType;
+  const statementType: StatementType = ["all", "payments", "charges"].includes(typeParam)
+    ? typeParam
+    : "all";
+  const perRaw = parseInt(rawParams.per ?? "20", 10);
+  const per: PerPage = (VALID_PER as readonly number[]).includes(perRaw)
+    ? (perRaw as PerPage)
+    : 20;
+  const page = Math.max(1, parseInt(rawParams.page ?? "1", 10));
+
+  const [player, balance, allPayments, allCharges] = await Promise.all([
+    prisma.player.findUnique({
+      where: { id: session.playerId },
+      select: {
+        id: true,
+        phone: true,
+        passwordHash: true,
+        firstNameHe: true,
+        lastNameHe: true,
+        firstNameEn: true,
+        lastNameEn: true,
+        nickname: true,
+        isAdmin: true,
+        attendances: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            createdAt: true,
+            gameSession: {
+              select: {
+                id: true,
+                date: true,
+                isClosed: true,
+                isArchived: true,
+                maxPlayers: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    computePlayerBalance(session.playerId),
+    prisma.payment.findMany({
+      where: { playerId: session.playerId },
+      orderBy: { date: "asc" },
+      select: { id: true, date: true, amount: true, method: true, description: true },
+    }),
+    prisma.sessionCharge.findMany({
+      where: { playerId: session.playerId },
+      orderBy: { session: { date: "asc" } },
+      select: {
+        id: true,
+        amount: true,
+        chargeType: true,
+        session: { select: { date: true } },
+      },
+    }),
+  ]);
 
   if (!player) redirect("/");
 
-  const [displayName, balance] = await Promise.all([
-    Promise.resolve(getDisplayName(player)),
-    computePlayerBalance(session.playerId),
-  ]);
+  const displayName = getDisplayName(player);
+
+  // Build unified statement sorted ascending, compute running balance, then reverse
+  type Entry =
+    | { kind: "payment"; id: string; date: Date; amount: number; method: string; description: string | null }
+    | { kind: "charge"; id: string; date: Date; amount: number; chargeType: string };
+
+  const entries: Entry[] = [
+    ...allPayments.map((p) => ({
+      kind: "payment" as const,
+      id: p.id,
+      date: p.date,
+      amount: p.amount,
+      method: p.method,
+      description: p.description,
+    })),
+    ...allCharges.map((c) => ({
+      kind: "charge" as const,
+      id: c.id,
+      date: c.session.date,
+      amount: c.amount,
+      chargeType: c.chargeType,
+    })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Running balance (ascending)
+  let running = 0;
+  const withBalance = entries.map((e) => {
+    running += e.kind === "payment" ? e.amount : -e.amount;
+    return { ...e, runningBalance: running };
+  });
+
+  // Reverse to most-recent-first
+  const reversed = withBalance.reverse();
+
+  // Filter by type
+  const filtered =
+    statementType === "payments"
+      ? reversed.filter((e) => e.kind === "payment")
+      : statementType === "charges"
+        ? reversed.filter((e) => e.kind === "charge")
+        : reversed;
+
+  const totalEntries = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalEntries / per));
+  const safePage = Math.min(page, totalPages);
+  const pageEntries = filtered.slice((safePage - 1) * per, safePage * per);
 
   return (
     <>
@@ -112,6 +201,17 @@ export default async function ProfilePage() {
               שולם ₪{balance.totalPaid} · חויב ₪{balance.totalCharged}
             </p>
           </section>
+
+          {/* Account statement */}
+          <AccountStatement
+            entries={pageEntries}
+            totalEntries={totalEntries}
+            page={safePage}
+            totalPages={totalPages}
+            per={per}
+            statementType={statementType}
+            methodLabel={METHOD_LABEL}
+          />
 
           {/* Attendance history */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
