@@ -16,7 +16,6 @@ type PlayerData = {
   playerKind: "REGISTERED" | "DROP_IN";
   positions: ("PG" | "SG" | "SF" | "PF" | "C")[];
   rank: number | null;
-  balance: number;
   isAdmin: boolean;
   nickname: string | null;
   firstNameHe: string | null;
@@ -69,7 +68,6 @@ export function PlayerForm(props: Props) {
   );
   const [positions, setPositions] = useState<PositionValue[]>(player?.positions ?? []);
   const [rank, setRank] = useState(player?.rank != null ? String(player.rank) : "");
-  const [balance, setBalance] = useState(String(player?.balance ?? 0));
   const [isAdmin, setIsAdmin] = useState(player?.isAdmin ?? false);
   const [nickname, setNickname] = useState(player?.nickname ?? "");
   const [firstNameHe, setFirstNameHe] = useState(player?.firstNameHe ?? "");
@@ -98,7 +96,6 @@ export function PlayerForm(props: Props) {
     playerKind: player?.playerKind ?? "DROP_IN",
     positions: [...(player?.positions ?? [])] as PositionValue[],
     rank: player?.rank != null ? String(player.rank) : "",
-    balance: String(player?.balance ?? 0),
     isAdmin: player?.isAdmin ?? false,
     nickname: player?.nickname ?? "",
     firstNameHe: player?.firstNameHe ?? "",
@@ -116,7 +113,6 @@ export function PlayerForm(props: Props) {
       positions.length !== s.positions.length ||
       positions.some((p) => !s.positions.includes(p)) ||
       rank !== s.rank ||
-      balance !== s.balance ||
       isAdmin !== s.isAdmin ||
       nickname !== s.nickname ||
       firstNameHe !== s.firstNameHe ||
@@ -130,7 +126,6 @@ export function PlayerForm(props: Props) {
       playerKind !== "DROP_IN" ||
       positions.length > 0 ||
       rank !== "" ||
-      balance !== "0" ||
       isAdmin !== false ||
       nickname !== "" ||
       firstNameHe !== "" ||
@@ -177,7 +172,7 @@ export function PlayerForm(props: Props) {
     prevStateRef.current = state;
     if (!prev.ok && state.ok && state.savedInPlace) {
       lastSavedRef.current = {
-        playerKind, positions: [...positions], rank, balance, isAdmin,
+        playerKind, positions: [...positions], rank, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn,
         birthdate,
       };
@@ -194,7 +189,6 @@ export function PlayerForm(props: Props) {
     playerKind,
     positions,
     rank: rank || undefined,
-    balance: balance || undefined,
     isAdmin: isAdmin ? "on" : undefined,
     nickname: nickname || undefined,
     firstNameHe: firstNameHe || undefined,
@@ -207,7 +201,6 @@ export function PlayerForm(props: Props) {
   const fieldErrors = validation.ok ? {} : validation.errors;
   const phoneError = fieldErrors.phone;
   const rankError = fieldErrors.rank;
-  const balanceError = fieldErrors.balance;
   const phoneErrorVisible = !isEdit && phoneBlurred && Boolean(phoneError);
 
   const formValid = validation.ok;
@@ -421,32 +414,6 @@ export function PlayerForm(props: Props) {
           />
           {rankError && (
             <p className="text-xs text-red-600 dark:text-red-400">{rankError}</p>
-          )}
-        </div>
-
-        {/* Balance */}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="player-balance"
-            className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-          >
-            יתרה
-            <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">
-              (ניתן להיות שלילי)
-            </span>
-          </label>
-          <input
-            id="player-balance"
-            name="balance"
-            type="text"
-            value={balance}
-            onChange={(e) => onFieldChange(setBalance, e.target.value)}
-            aria-invalid={Boolean(balanceError)}
-            className={`${inputBase} ${balanceError ? inputInvalid : inputNormal}`}
-            placeholder="0"
-          />
-          {balanceError && (
-            <p className="text-xs text-red-600 dark:text-red-400">{balanceError}</p>
           )}
         </div>
 

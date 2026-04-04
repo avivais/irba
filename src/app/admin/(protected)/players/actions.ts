@@ -23,7 +23,6 @@ export async function createPlayerAction(
     playerKind: formData.get("playerKind")?.toString(),
     positions: formData.getAll("positions").map((v) => v.toString()),
     rank: formData.get("rank")?.toString(),
-    balance: formData.get("balance")?.toString(),
     isAdmin: formData.get("isAdmin")?.toString(),
     nickname: formData.get("nickname")?.toString(),
     firstNameHe: formData.get("firstNameHe")?.toString(),
@@ -39,14 +38,14 @@ export async function createPlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+  const { phoneNormalized, playerKind, positions, rank, isAdmin,
     nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } =
     validation.data;
 
   let created: { id: string };
   try {
     created = await prisma.player.create({
-      data: { phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+      data: { phone: phoneNormalized, playerKind, positions, rank, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
       select: { id: true },
     });
@@ -66,7 +65,7 @@ export async function createPlayerAction(
     action: "CREATE_PLAYER",
     entityType: "Player",
     entityId: created.id,
-    after: { phone: phoneNormalized, playerKind, positions, rank, balance, isAdmin,
+    after: { phone: phoneNormalized, playerKind, positions, rank, isAdmin,
       nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
   });
 
@@ -87,7 +86,6 @@ export async function updatePlayerAction(
     playerKind: formData.get("playerKind")?.toString(),
     positions: formData.getAll("positions").map((v) => v.toString()),
     rank: formData.get("rank")?.toString(),
-    balance: formData.get("balance")?.toString(),
     isAdmin: formData.get("isAdmin")?.toString(),
     nickname: formData.get("nickname")?.toString(),
     firstNameHe: formData.get("firstNameHe")?.toString(),
@@ -103,12 +101,12 @@ export async function updatePlayerAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { playerKind, positions, rank, balance, isAdmin,
+  const { playerKind, positions, rank, isAdmin,
     nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } = validation.data;
 
   const existing = await prisma.player.findUnique({
     where: { id },
-    select: { playerKind: true, positions: true, rank: true, balance: true, isAdmin: true,
+    select: { playerKind: true, positions: true, rank: true, isAdmin: true,
       nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true },
   });
 
@@ -116,7 +114,7 @@ export async function updatePlayerAction(
     await prisma.player.update({
       where: { id },
       // Intentionally omit phone — phone is the player's identity and cannot be changed here
-      data: { playerKind, positions, rank, balance, isAdmin,
+      data: { playerKind, positions, rank, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
     });
   } catch (e) {
@@ -136,7 +134,7 @@ export async function updatePlayerAction(
     entityType: "Player",
     entityId: id,
     before: existing ? (existing as Record<string, unknown>) : null,
-    after: { playerKind, positions, rank, balance, isAdmin,
+    after: { playerKind, positions, rank, isAdmin,
       nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
   });
 

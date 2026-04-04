@@ -448,14 +448,14 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <SectionTitle>חיוב</SectionTitle>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="מחיר מזדמן" hint="₪ לכל מפגש" htmlFor={CONFIG.DROPIN_CHARGE} error={errors[CONFIG.DROPIN_CHARGE]}>
+          <Field label="מינימום משתתפים" hint="מפגש לא יחויב אם יש פחות מכמות זו" htmlFor={CONFIG.SESSION_MIN_PLAYERS} error={errors[CONFIG.SESSION_MIN_PLAYERS]}>
             <input
-              id={CONFIG.DROPIN_CHARGE}
+              id={CONFIG.SESSION_MIN_PLAYERS}
               type="number"
-              name={CONFIG.DROPIN_CHARGE}
-              defaultValue={values[CONFIG.DROPIN_CHARGE]}
+              name={CONFIG.SESSION_MIN_PLAYERS}
+              defaultValue={values[CONFIG.SESSION_MIN_PLAYERS]}
               min={1}
-              className={`${inputBase} ${errors[CONFIG.DROPIN_CHARGE] ? inputError : inputNormal}`}
+              className={`${inputBase} ${errors[CONFIG.SESSION_MIN_PLAYERS] ? inputError : inputNormal}`}
             />
           </Field>
 

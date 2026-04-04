@@ -14,7 +14,6 @@ export const playerFormSchema = z.object({
   phone: z.string().min(1, "נא להזין מספר טלפון"),
   playerKind: z.enum(["REGISTERED", "DROP_IN"]),
   rank: z.string().optional(),
-  balance: z.string().optional(),
   isAdmin: z.string().optional(),
   nickname: z.string().trim().max(50, "הכינוי ארוך מדי (עד 50 תווים)").optional(),
   firstNameHe: z.string().trim().max(80).optional(),
@@ -25,7 +24,7 @@ export const playerFormSchema = z.object({
 });
 
 export type PlayerFieldErrors = Partial<
-  Record<"phone" | "playerKind" | "positions" | "rank" | "balance" | "nickname" | "birthdate", string>
+  Record<"phone" | "playerKind" | "positions" | "rank" | "nickname" | "birthdate", string>
 >;
 
 export type ParsedPlayer = {
@@ -33,7 +32,6 @@ export type ParsedPlayer = {
   playerKind: "REGISTERED" | "DROP_IN";
   positions: PositionValue[];
   rank: number | null;
-  balance: number;
   isAdmin: boolean;
   nickname: string | null;
   firstNameHe: string | null;
@@ -117,16 +115,6 @@ export function parsePlayerForm(
     rank = r;
   }
 
-  // Parse balance (optional int, allow negative)
-  let balance = 0;
-  if (parsed.data.balance !== undefined && parsed.data.balance.trim() !== "") {
-    const trimmed = parsed.data.balance.trim();
-    if (!/^-?\d+$/.test(trimmed)) {
-      return { ok: false, errors: { balance: "נא להזין מספר שלם" } };
-    }
-    balance = parseInt(trimmed, 10);
-  }
-
   const isAdmin = parsed.data.isAdmin === "on";
 
   const nickname = parsed.data.nickname?.trim() || null;
@@ -151,7 +139,6 @@ export function parsePlayerForm(
       playerKind: parsed.data.playerKind,
       positions,
       rank,
-      balance,
       isAdmin,
       nickname,
       firstNameHe,

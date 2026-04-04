@@ -21,7 +21,6 @@ describe("parsePlayerForm", () => {
     expect(result.data.playerKind).toBe("DROP_IN");
     expect(result.data.positions).toEqual([]);
     expect(result.data.rank).toBeNull();
-    expect(result.data.balance).toBe(0);
     expect(result.data.isAdmin).toBe(false);
   });
 
@@ -31,7 +30,6 @@ describe("parsePlayerForm", () => {
       playerKind: "REGISTERED",
       positions: ["PG", "SF"],
       rank: "5.5",
-      balance: "-100",
       isAdmin: "on",
     });
     expect(result.ok).toBe(true);
@@ -39,7 +37,6 @@ describe("parsePlayerForm", () => {
     expect(result.data.playerKind).toBe("REGISTERED");
     expect(result.data.positions).toEqual(["PG", "SF"]);
     expect(result.data.rank).toBe(5.5);
-    expect(result.data.balance).toBe(-100);
     expect(result.data.isAdmin).toBe(true);
   });
 
@@ -146,34 +143,6 @@ describe("parsePlayerForm", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.rank).toBeNull();
-  });
-
-  it("rejects a non-number balance", () => {
-    const result = parsePlayerForm({ ...BASE, balance: "abc" });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.balance).toBeTruthy();
-  });
-
-  it("rejects a balance with trailing garbage like '009 9003 83983'", () => {
-    const result = parsePlayerForm({ ...BASE, balance: "009 9003 83983" });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.balance).toBeTruthy();
-  });
-
-  it("allows a negative balance", () => {
-    const result = parsePlayerForm({ ...BASE, balance: "-50" });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.balance).toBe(-50);
-  });
-
-  it("treats empty balance as 0", () => {
-    const result = parsePlayerForm({ ...BASE, balance: "" });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.balance).toBe(0);
   });
 
   it("parses isAdmin 'on' as true", () => {

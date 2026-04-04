@@ -13,7 +13,6 @@ type Player = {
   playerKind: string;
   positions: string[];
   rank: number | null;
-  balance: number;
   isAdmin: boolean;
   nickname: string | null;
   firstNameHe: string | null;
@@ -30,11 +29,6 @@ const KIND_LABEL: Record<string, string> = {
 
 function formatScore(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1);
-}
-
-function formatBalance(balance: number): string {
-  const abs = Math.abs(balance);
-  return balance < 0 ? `-₪${abs}` : `₪${abs}`;
 }
 
 type Props = {
@@ -126,19 +120,6 @@ export function PlayerList({
                     </a>
                     {!player.isAdmin && (
                       <>
-                        <span>·</span>
-                        <span
-                          className={
-                            player.balance < 0
-                              ? "text-red-500 dark:text-red-400"
-                              : player.balance > 0
-                                ? "text-green-600 dark:text-green-400"
-                                : undefined
-                          }
-                        >
-                          יתרה{" "}
-                          <span dir="ltr">{formatBalance(player.balance)}</span>
-                        </span>
                         {prec && (
                           <>
                             <span>·</span>

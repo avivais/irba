@@ -21,13 +21,26 @@ enum Position {
   C
 }
 
+enum PaymentMethod {
+  CASH
+  PAYBOX
+  BIT
+  BANK_TRANSFER
+  OTHER
+}
+
+enum ChargeType {
+  REGISTERED
+  DROP_IN
+  ADMIN_OVERRIDE
+}
+
 model Player {
   id          String     @id @default(cuid())
   phone       String     @unique
   playerKind  PlayerKind @default(DROP_IN)
   positions   Position[] @default([])
   rank        Float?
-  balance     Int        @default(0)
   isAdmin     Boolean    @default(false)
   nickname    String?
   firstNameHe String?
@@ -49,6 +62,7 @@ model Player {
   yearAggregates PlayerYearAggregate[]
   adjustments    PlayerAdjustment[]
   payments       Payment[]
+  sessionCharges SessionCharge[]
 
   @@index([phone])
   @@index([nickname])
@@ -59,8 +73,11 @@ model GameSession {
   id              String   @id @default(cuid())
   date            DateTime
   maxPlayers      Int      @default(15)
-  isClosed        Boolean  @default(false)
-  isArchived      Boolean  @default(false)
+  isClosed             Boolean   @default(false)
+  isArchived           Boolean   @default(false)
+  isCharged            Boolean   @default(false)
+  alertEarlyFiredAt    DateTime?
+  alertCriticalFiredAt DateTime?
   durationMinutes Int?
   locationName    String?
   locationLat     Float?
@@ -68,7 +85,8 @@ model GameSession {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  attendances Attendance[]
+  attendances    Attendance[]
+  sessionCharges SessionCharge[]
 
   @@index([date])
 }
@@ -117,17 +135,51 @@ model Attendance {
 }
 
 model Payment {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   playerId    String
   date        DateTime
   amount      Int
+  method      PaymentMethod @default(BIT)
   description String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime      @default(now())
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@index([playerId])
   @@index([date])
+}
+
+model SessionCharge {
+  id               String      @id @default(cuid())
+  sessionId        String
+  playerId         String
+  amount           Int
+  calculatedAmount Int
+  chargeType       ChargeType
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  session      GameSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  player       Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  auditEntries ChargeAuditEntry[]
+
+  @@unique([sessionId, playerId])
+  @@index([sessionId])
+  @@index([playerId])
+}
+
+model ChargeAuditEntry {
+  id              String   @id @default(cuid())
+  sessionChargeId String
+  changedAt       DateTime @default(now())
+  changedBy       String
+  previousAmount  Int
+  newAmount       Int
+  reason          String?
+
+  sessionCharge SessionCharge @relation(fields: [sessionChargeId], references: [id], onDelete: Cascade)
+
+  @@index([sessionChargeId])
 }
 
 model AppConfig {

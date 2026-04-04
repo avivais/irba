@@ -27,19 +27,6 @@ function getDisplayName(player: {
   return player.nickname ?? player.phone;
 }
 
-function formatBalance(balance: number): { text: string; color: string } {
-  if (balance > 0) {
-    return { text: `₪${balance}`, color: "text-green-600 dark:text-green-400" };
-  }
-  if (balance < 0) {
-    return {
-      text: `-₪${Math.abs(balance)}`,
-      color: "text-red-600 dark:text-red-400",
-    };
-  }
-  return { text: "₪0", color: "text-zinc-600 dark:text-zinc-400" };
-}
-
 function formatSessionDate(date: Date): string {
   return new Intl.DateTimeFormat("he-IL", {
     day: "numeric",
@@ -63,7 +50,6 @@ export default async function ProfilePage() {
       firstNameEn: true,
       lastNameEn: true,
       nickname: true,
-      balance: true,
       isAdmin: true,
       attendances: {
         orderBy: { createdAt: "desc" },
@@ -88,9 +74,6 @@ export default async function ProfilePage() {
   if (!player) redirect("/");
 
   const displayName = getDisplayName(player);
-  const { text: balanceText, color: balanceColor } = formatBalance(
-    player.balance,
-  );
 
   return (
     <>
@@ -106,16 +89,6 @@ export default async function ProfilePage() {
         </header>
 
         <main className="mx-auto mt-8 flex w-full max-w-lg flex-col gap-6 md:max-w-2xl">
-          {/* Balance card */}
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              יתרה
-            </p>
-            <p className={`mt-1 text-3xl font-bold tabular-nums ${balanceColor}`} dir="ltr">
-              {balanceText}
-            </p>
-          </section>
-
           {/* Attendance history */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">

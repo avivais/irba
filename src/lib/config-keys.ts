@@ -14,8 +14,16 @@ export const CONFIG = {
   LOCATION_LAT:                 "location_lat",
   LOCATION_LNG:                 "location_lng",
   // Charging
-  DROPIN_CHARGE:                "dropin_charge",                // ILS (flat fee)
+  SESSION_MIN_PLAYERS:          "session_min_players",          // minimum confirmed players required to charge a session
   DEBT_THRESHOLD:               "debt_threshold",               // ILS (positive; if balance ≤ -threshold → drop-in rate)
+  // Low-attendance alerts
+  ALERT_LOW_ATTENDANCE_ENABLED: "alert_low_attendance_enabled", // "true" | "false" master toggle
+  ALERT_EARLY_ENABLED:          "alert_early_enabled",          // "true" | "false"
+  ALERT_EARLY_HOURS_BEFORE:     "alert_early_hours_before",     // hours before session
+  ALERT_EARLY_TEMPLATE:         "alert_early_template",
+  ALERT_CRITICAL_ENABLED:       "alert_critical_enabled",       // "true" | "false"
+  ALERT_CRITICAL_HOURS_BEFORE:  "alert_critical_hours_before",  // hours before session
+  ALERT_CRITICAL_TEMPLATE:      "alert_critical_template",
   // Players
   DEFAULT_PLAYER_RANK:          "default_player_rank",          // used when rank is null
   // Matches
@@ -46,8 +54,15 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   location_name:                "מגרש כדורסל בית ספר אילן רמון, נתניה",
   location_lat:                 "",
   location_lng:                 "",
-  dropin_charge:                "40",
+  session_min_players:          "10",
   debt_threshold:               "10",
+  alert_low_attendance_enabled: "false",
+  alert_early_enabled:          "false",
+  alert_early_hours_before:     "48",
+  alert_early_template:         "⚠️ מפגש ב-{date}: רק {confirmed} מתוך {min_players} נרשמו (48 שעות לפני)",
+  alert_critical_enabled:       "false",
+  alert_critical_hours_before:  "2",
+  alert_critical_template:      "🚨 מפגש ב-{date}: רק {confirmed} מתוך {min_players} נרשמו (2 שעות לפני)",
   default_player_rank:          "50",
   match_win_score:              "12",
   wa_group_jid:                          "",
