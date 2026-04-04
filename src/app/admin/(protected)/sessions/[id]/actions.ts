@@ -2,8 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
@@ -12,11 +11,6 @@ import { notifyWaitlistPromote } from "@/lib/wa-notify";
 import { getAllConfigs } from "@/lib/config";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
-
-async function requireAdmin(): Promise<void> {
-  const subject = await getAdminSessionSubject();
-  if (!subject) redirect("/admin/login");
-}
 
 export async function addPlayerAction(
   sessionId: string,

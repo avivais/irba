@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { parsePlayerForm } from "@/lib/player-validation";
 import { writeAuditLog } from "@/lib/audit";
@@ -11,11 +11,6 @@ import { writeAuditLog } from "@/lib/audit";
 export type PlayerActionState = { ok: boolean; message?: string; savedInPlace?: boolean };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
-
-async function requireAdmin(): Promise<void> {
-  const subject = await getAdminSessionSubject();
-  if (!subject) redirect("/admin/login");
-}
 
 export async function createPlayerAction(
   _prev: PlayerActionState,

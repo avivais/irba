@@ -11,7 +11,6 @@ import {
   clearPlayerSessionCookie,
   getPlayerSessionPlayerId,
 } from "@/lib/player-session";
-import { setAdminSessionCookie, clearAdminSessionCookie } from "@/lib/admin-session";
 import {
   consumePlayerLoginRateLimit,
   getClientIpFromHeaders,
@@ -82,13 +81,10 @@ function parseRememberMe(formData: FormData): boolean {
 /** Sets player session and optionally admin session for isAdmin players. */
 async function establishSession(
   playerId: string,
-  isAdmin: boolean,
+  _isAdmin: boolean,
   rememberMe: boolean,
 ): Promise<void> {
   await setPlayerSessionCookie(playerId, rememberMe);
-  if (isAdmin) {
-    await setAdminSessionCookie();
-  }
 }
 
 function otpMessage(rawOtp: string): string {
@@ -601,6 +597,5 @@ export async function playerLogoutAction(): Promise<void> {
     entityId: playerId ?? undefined,
   });
   await clearPlayerSessionCookie();
-  await clearAdminSessionCookie();
   redirect("/");
 }

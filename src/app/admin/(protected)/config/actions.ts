@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { setConfigs, getAllConfigs, CONFIG } from "@/lib/config";
 import { parseConfigForm } from "@/lib/config-validation";
 import type { ConfigKey } from "@/lib/config";
@@ -15,11 +14,6 @@ export type ConfigActionState = {
   message?: string;
   errors?: Partial<Record<ConfigKey, string>>;
 };
-
-async function requireAdmin(): Promise<void> {
-  const subject = await getAdminSessionSubject();
-  if (!subject) redirect("/admin/login");
-}
 
 export async function updateConfigAction(
   _prev: ConfigActionState,

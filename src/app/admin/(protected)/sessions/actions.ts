@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
 import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
@@ -27,11 +27,6 @@ function israelDayBounds(date: Date): { gte: Date; lt: Date } {
 export type SessionActionState = { ok: boolean; message?: string };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
-
-async function requireAdmin(): Promise<void> {
-  const subject = await getAdminSessionSubject();
-  if (!subject) redirect("/admin/login");
-}
 
 /** Check whether any existing session is still running (endTime > now). */
 async function hasActiveSession(excludeId?: string): Promise<boolean> {

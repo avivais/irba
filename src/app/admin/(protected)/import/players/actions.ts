@@ -1,16 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { Position } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
-
-async function requireAdmin(): Promise<void> {
-  const subject = await getAdminSessionSubject();
-  if (!subject) redirect("/admin/login");
-}
 
 export type ImportPlayerRow = {
   nickname: string;

@@ -1,7 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
-import { getPlayerSessionPlayerId } from "@/lib/player-session";
-import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-guard";
 import { PlayerNav } from "@/components/player-nav";
 
 export const dynamic = "force-dynamic";
@@ -9,23 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminProtectedLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const subject = await getAdminSessionSubject();
-  if (!subject) {
-    // Fall back to checking if an isAdmin player is logged in
-    const playerId = await getPlayerSessionPlayerId();
-    if (playerId) {
-      const player = await prisma.player.findUnique({
-        where: { id: playerId },
-        select: { isAdmin: true },
-      });
-      if (!player?.isAdmin) {
-        redirect("/");
-      }
-      // isAdmin player — allow through
-    } else {
-      redirect("/");
-    }
-  }
+  await requireAdmin();
   return (
     <div className="flex min-h-full flex-col">
       <PlayerNav />

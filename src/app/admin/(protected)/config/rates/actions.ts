@@ -3,16 +3,11 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAdminSessionSubject } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
 
 export type RateActionState = { ok: boolean; message?: string };
-
-async function requireAdmin(): Promise<void> {
-  const subject = await getAdminSessionSubject();
-  if (!subject) redirect("/admin/login");
-}
 
 function parseRateForm(formData: FormData): { effectiveFrom: Date; pricePerHour: number } | { error: string } {
   const dateStr = formData.get("effectiveFrom")?.toString().trim() ?? "";

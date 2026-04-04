@@ -18,8 +18,8 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 | Icons | `lucide-react` |
 | Tests | Vitest (`npm test`) |
 | Package manager | **npm** (lockfile: `package-lock.json`) |
-| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets placeholder `DATABASE_URL`, `RSVP_SESSION_SECRET`, and `ADMIN_SESSION_SECRET` so Prisma / Next build load without Postgres in CI. |
-| Admin auth (MVP) | **Password + HttpOnly JWT session** — `ADMIN_SESSION_SECRET`, `ADMIN_PASSWORD_HASH` (bcrypt), cookie `irba_admin_session`, default 14-day TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional). Separate from RSVP; shared `Secure` via [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts). |
+| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets placeholder `DATABASE_URL`, `RSVP_SESSION_SECRET`, `PLAYER_SESSION_SECRET`, and `ADMIN_SESSION_SECRET` so Prisma / Next build load without Postgres in CI. |
+| Admin auth | **Single identity model** — admin access is determined by `player.isAdmin` flag in DB, not a separate session. Players log in normally (phone + OTP or password); the player session cookie (`irba_player_session`) is the sole identity. Admin guard: `requireAdmin()` in `src/lib/admin-guard.ts` checks player session → DB `isAdmin`. The legacy `admin-session.ts` and shared admin password login are no longer used at runtime. |
 | PWA | Deferred indefinitely — app is fully server-dependent, offline adds no value, player base is small. |
 
 ## Repository
@@ -51,12 +51,9 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### Admin (authenticated — full CRUD)
 
-- **`/admin/login`** — redirects to `/` (no longer needed; player auth handles admin login via `isAdmin` bridge). Route groups: `(public)/login` vs `(protected)/` with layout auth guard.
-- **Session**: separate HttpOnly JWT cookie (`jose` HS256), env `ADMIN_SESSION_SECRET` (min 32 chars, distinct from RSVP; generate with `npm run generate-admin-secret`), default `iss`/`aud` overridable via `ADMIN_JWT_ISSUER` / `ADMIN_JWT_AUDIENCE`; default **14-day** TTL (`ADMIN_SESSION_MAX_AGE_SEC` optional).
-- **Credentials**: `ADMIN_PASSWORD_HASH` (bcrypt only in env); set via `npm run hash-admin-password` — writes `.env` with single-quoted `\$` escaping so Next’s dotenv-expand preserves the hash (`scripts/hash-admin-password.ts`).
-- **Rate limit**: admin login uses `consumeAdminLoginRateLimit` (`IRBA_RL_ADMIN_LOGIN_MAX` / `IRBA_RL_ADMIN_LOGIN_WINDOW_MS`).
-- **Dev diagnostics**: in `NODE_ENV=development`, the login server action logs each step to the terminal (env raw/normalized values, secret status, bcrypt result, cookie outcome) — never in production.
-- **Shared cookie `Secure` flag**: [src/lib/cookie-secure.ts](src/lib/cookie-secure.ts) (same `RSVP_COOKIE_SECURE` / production behavior as RSVP).
+- **`/admin/login`** — redirects to `/` (admin users log in via normal player login; `isAdmin` flag in DB grants admin access).
+- **Auth guard**: `requireAdmin()` in [`src/lib/admin-guard.ts`](src/lib/admin-guard.ts) — checks player session → DB `isAdmin`. Used by the protected layout and all admin server actions. Single identity: one session cookie (`irba_player_session`), admin is just a DB role.
+- **Legacy**: `admin-session.ts`, `ADMIN_SESSION_SECRET`, `ADMIN_PASSWORD_HASH` and the shared admin password login are no longer used at runtime. Files kept for reference but not imported by any active code.
 
 #### Admin home (`/admin`)
 
@@ -372,8 +369,8 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 - **`isAdmin=true`** players → full admin access; existing `ADMIN_PASSWORD_HASH` auth kept as fallback
 - **Login location:** `/login` route redirects to `/`; `/admin/login` also redirects to `/`; login form (`PlayerLoginForm`) embedded inline on the homepage when not authenticated; all logout paths redirect to `/`
 - **Navigation:** unified sticky top nav (`PlayerNav` server component, `src/components/player-nav.tsx`) rendered on all pages (homepage, profile, all admin pages via protected layout) — shows IRBA brand (sole home link), Profile icon, Admin icon (if `isAdmin`), Logout; active page highlighted via `NavLinks` client component (`src/components/nav-links.tsx`, uses `usePathname()`); no ThemeToggle in nav
-- **Logout:** `playerLogoutAction` clears both player session cookie AND admin session cookie, then redirects to `/`. `adminLogoutAction` also redirects to `/`
-- **Admin layout guard:** redirects unauthorized users to `/` (not `/admin/login`)
+- **Logout:** `playerLogoutAction` clears the player session cookie and redirects to `/`
+- **Admin layout guard:** `requireAdmin()` from `src/lib/admin-guard.ts` — checks player session + DB `isAdmin`; redirects to `/` if unauthorized
 
 **Israeli ID validation (`src/lib/israeli-id.ts`):**
 Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum % 10 === 0.
