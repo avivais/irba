@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { getAllConfigs, CONFIG } from "@/lib/config";
 import { notifySessionClose } from "@/lib/wa-notify";
 import { writeAuditLog } from "@/lib/audit";
+import { checkLowAttendanceAlerts } from "@/lib/low-attendance-alert";
 
 export type AutoCloseResult = {
   closed: string[];
   skipped: number;
+  alerts?: { earlyFired: string[]; criticalFired: string[] };
 };
 
 /**
@@ -59,5 +61,11 @@ export async function autoClosePastSessions(): Promise<AutoCloseResult> {
     closed.push(session.id);
   }
 
-  return { closed, skipped };
+  const alertResult = await checkLowAttendanceAlerts(configs);
+
+  return {
+    closed,
+    skipped,
+    alerts: { earlyFired: alertResult.earlyFired, criticalFired: alertResult.criticalFired },
+  };
 }
