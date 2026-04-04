@@ -9,6 +9,8 @@ import { AggregateDeleteButton } from "@/components/admin/aggregate-delete-butto
 import { AggregateUpsertForm } from "@/components/admin/aggregate-upsert-form";
 import { AdjustmentDeleteButton } from "@/components/admin/adjustment-delete-button";
 import { computePrecedenceScores } from "@/lib/precedence";
+import { computePlayerBalance } from "@/lib/balance";
+import { PlayerPayments } from "@/components/admin/player-payments";
 
 export const metadata: Metadata = { title: "עריכת שחקן" };
 
@@ -36,33 +38,40 @@ export default async function AdminPlayersEditPage({ params }: Props) {
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear + 1, 0, 1);
 
-  const [player, yearWeights, allLiveAttendances, allPlayers] = await Promise.all([
-    prisma.player.findUnique({
-      where: { id },
-      include: {
-        yearAggregates: { orderBy: { year: "desc" } },
-        adjustments: { orderBy: { date: "desc" } },
-      },
-    }),
-    prisma.yearWeight.findMany(),
-    prisma.attendance.findMany({
-      where: { gameSession: { date: { gte: yearStart, lt: yearEnd } } },
-      select: { playerId: true },
-    }),
-    prisma.player.findMany({
-      select: {
-        id: true,
-        nickname: true,
-        firstNameHe: true,
-        lastNameHe: true,
-        firstNameEn: true,
-        lastNameEn: true,
-        phone: true,
-        yearAggregates: true,
-        adjustments: { select: { points: true } },
-      },
-    }),
-  ]);
+  const [player, yearWeights, allLiveAttendances, allPlayers, playerPayments, balance] =
+    await Promise.all([
+      prisma.player.findUnique({
+        where: { id },
+        include: {
+          yearAggregates: { orderBy: { year: "desc" } },
+          adjustments: { orderBy: { date: "desc" } },
+        },
+      }),
+      prisma.yearWeight.findMany(),
+      prisma.attendance.findMany({
+        where: { gameSession: { date: { gte: yearStart, lt: yearEnd } } },
+        select: { playerId: true },
+      }),
+      prisma.player.findMany({
+        select: {
+          id: true,
+          nickname: true,
+          firstNameHe: true,
+          lastNameHe: true,
+          firstNameEn: true,
+          lastNameEn: true,
+          phone: true,
+          yearAggregates: true,
+          adjustments: { select: { points: true } },
+        },
+      }),
+      prisma.payment.findMany({
+        where: { playerId: id },
+        orderBy: { date: "desc" },
+        select: { id: true, date: true, amount: true, method: true, description: true },
+      }),
+      computePlayerBalance(id),
+    ]);
 
   if (!player) notFound();
 
@@ -182,6 +191,18 @@ export default async function AdminPlayersEditPage({ params }: Props) {
           )}
 
           <AggregateUpsertForm playerId={id} currentYear={currentYear} />
+        </section>
+
+        {/* Payments */}
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+            תשלומים
+          </h2>
+          <PlayerPayments
+            playerId={id}
+            payments={playerPayments}
+            balance={balance}
+          />
         </section>
 
         {/* Adjustments */}

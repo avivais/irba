@@ -45,7 +45,12 @@ export type AuditAction =
   | "PLAYER_OTP_VERIFIED"
   | "PLAYER_PASSWORD_SET"
   | "PLAYER_PASSWORD_CHANGE"
-  | "PLAYER_PASSWORD_RESET";
+  | "PLAYER_PASSWORD_RESET"
+  | "ADD_PAYMENT"
+  | "DELETE_PAYMENT"
+  | "CHARGE_SESSION"
+  | "UNCHARGE_SESSION"
+  | "UPDATE_SESSION_CHARGE";
 
 export type AuditParams = {
   actor: string;

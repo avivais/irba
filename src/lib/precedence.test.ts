@@ -12,7 +12,7 @@ function makePlayer(
 ): PlayerPrecedenceInput {
   return {
     id: overrides.id,
-    name: overrides.name ?? "שחקן",
+    playerName: overrides.playerName ?? "שחקן",
     aggregates: overrides.aggregates ?? [],
     liveCount: overrides.liveCount ?? 0,
     adjustments: overrides.adjustments ?? [],
