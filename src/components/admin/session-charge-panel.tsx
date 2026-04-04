@@ -1,0 +1,279 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { Zap, Undo2, Pencil, Check, X } from "lucide-react";
+import {
+  chargeSessionAction,
+  unchargeSessionAction,
+  updateSessionChargeAction,
+} from "@/app/admin/(protected)/sessions/[id]/charge/actions";
+
+type Charge = {
+  id: string;
+  playerId: string;
+  playerName: string;
+  amount: number;
+  calculatedAmount: number;
+  chargeType: string;
+};
+
+type Props = {
+  sessionId: string;
+  isCharged: boolean;
+  charges: Charge[];
+  confirmedCount: number;
+  minPlayers: number;
+  canCharge: boolean;
+  cannotChargeReason?: string;
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  REGISTERED: "קבוע",
+  DROP_IN: "מזדמן",
+  ADMIN_OVERRIDE: "עקיפה",
+};
+
+export function SessionChargePanel({
+  sessionId,
+  isCharged: initialCharged,
+  charges: initialCharges,
+  confirmedCount,
+  minPlayers,
+  canCharge,
+  cannotChargeReason,
+}: Props) {
+  const [isCharged, setIsCharged] = useState(initialCharged);
+  const [charges, setCharges] = useState(initialCharges);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  // Per-charge edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editReason, setEditReason] = useState("");
+
+  function handleCharge() {
+    setError(null);
+    startTransition(async () => {
+      const result = await chargeSessionAction(sessionId);
+      if (!result.ok) {
+        setError(result.message ?? "שגיאה");
+      } else {
+        setIsCharged(true);
+        // Reload is triggered by revalidatePath; next navigation will update
+        window.location.reload();
+      }
+    });
+  }
+
+  function handleUncharge() {
+    if (!confirm("לבטל את חיוב המפגש? כל החיובים יימחקו.")) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await unchargeSessionAction(sessionId);
+      if (!result.ok) {
+        setError(result.message ?? "שגיאה");
+      } else {
+        setIsCharged(false);
+        setCharges([]);
+        window.location.reload();
+      }
+    });
+  }
+
+  function startEdit(charge: Charge) {
+    setEditingId(charge.id);
+    setEditAmount(String(charge.amount));
+    setEditReason("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditAmount("");
+    setEditReason("");
+  }
+
+  function handleSaveEdit(chargeId: string) {
+    const newAmount = parseInt(editAmount, 10);
+    if (isNaN(newAmount) || newAmount < 0) {
+      setError("סכום לא תקין");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await updateSessionChargeAction(
+        chargeId,
+        sessionId,
+        newAmount,
+        editReason,
+      );
+      if (!result.ok) {
+        setError(result.message ?? "שגיאה");
+      } else {
+        setCharges((prev) =>
+          prev.map((c) =>
+            c.id === chargeId ? { ...c, amount: newAmount } : c,
+          ),
+        );
+        cancelEdit();
+      }
+    });
+  }
+
+  const totalCharged = charges.reduce((s, c) => s + c.amount, 0);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Status + actions */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+            isCharged
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+          }`}
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${isCharged ? "bg-green-500" : "bg-zinc-400"}`}
+          />
+          {isCharged ? "חויב" : "לא חויב"}
+        </span>
+
+        {!isCharged ? (
+          <button
+            onClick={handleCharge}
+            disabled={isPending || !canCharge}
+            title={cannotChargeReason}
+            className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            <Zap className="h-3.5 w-3.5" aria-hidden />
+            {isPending ? "מחייב…" : "חייב מפגש"}
+          </button>
+        ) : (
+          <button
+            onClick={handleUncharge}
+            disabled={isPending}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <Undo2 className="h-3.5 w-3.5" aria-hidden />
+            {isPending ? "מבטל…" : "בטל חיוב"}
+          </button>
+        )}
+
+        {!canCharge && !isCharged && cannotChargeReason && (
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {cannotChargeReason}
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-400">
+          {error}
+        </p>
+      )}
+
+      {/* Charge list */}
+      {isCharged && charges.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+            <span>{charges.length} חיובים</span>
+            <span className="tabular-nums font-semibold text-zinc-700 dark:text-zinc-200">
+              סה״כ: ₪{totalCharged}
+            </span>
+          </div>
+          <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
+            {charges.map((charge) => {
+              const isEditing = editingId === charge.id;
+              const hasOverride = charge.amount !== charge.calculatedAmount;
+
+              return (
+                <li key={charge.id} className="py-2.5">
+                  {isEditing ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        {charge.playerName}
+                      </span>
+                      <input
+                        type="number"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        min={0}
+                        className="w-20 rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                      />
+                      <input
+                        type="text"
+                        value={editReason}
+                        onChange={(e) => setEditReason(e.target.value)}
+                        placeholder="סיבה (אופציונלי)"
+                        className="w-32 rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
+                      />
+                      <button
+                        onClick={() => handleSaveEdit(charge.id)}
+                        disabled={isPending}
+                        className="rounded-lg bg-zinc-900 p-1.5 text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+                        aria-label="שמור"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="rounded-lg border border-zinc-200 bg-white p-1.5 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                        aria-label="ביטול"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                          {charge.playerName}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
+                            {TYPE_LABEL[charge.chargeType] ?? charge.chargeType}
+                          </span>
+                          {hasOverride && (
+                            <span className="text-amber-600 dark:text-amber-400">
+                              עקיפה (מחושב: ₪{charge.calculatedAmount})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={`tabular-nums font-semibold ${
+                            hasOverride
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-zinc-700 dark:text-zinc-300"
+                          }`}
+                          dir="ltr"
+                        >
+                          ₪{charge.amount}
+                        </span>
+                        <button
+                          onClick={() => startEdit(charge)}
+                          className="rounded-lg border border-zinc-200 bg-white p-1.5 text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                          aria-label="ערוך חיוב"
+                        >
+                          <Pencil className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {!isCharged && (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          {confirmedCount} משתתפים מאושרים · מינימום לחיוב: {minPlayers}
+        </p>
+      )}
+    </div>
+  );
+}

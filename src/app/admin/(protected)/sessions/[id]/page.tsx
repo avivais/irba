@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { formatGameDate } from "@/lib/format-date";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePrecedenceScores } from "@/lib/precedence";
+import { getAllConfigs } from "@/lib/config";
+import { CONFIG } from "@/lib/config-keys";
 import { SessionForm } from "@/components/admin/session-form";
+import { SessionChargePanel } from "@/components/admin/session-charge-panel";
 import { SessionRemoveButton } from "@/components/admin/session-remove-button";
 import { SessionAddPlayerForm } from "@/components/admin/session-add-player-form";
 import { SessionQuickDropInForm } from "@/components/admin/session-quick-dropin-form";
@@ -22,7 +25,7 @@ type Props = { params: Promise<{ id: string }> };
 export default async function AdminSessionPage({ params }: Props) {
   const { id } = await params;
 
-  const [session, yearWeights] = await Promise.all([
+  const [session, yearWeights, config, chargesRaw, rateRaw] = await Promise.all([
     prisma.gameSession.findUnique({
       where: { id },
       include: {
@@ -34,6 +37,23 @@ export default async function AdminSessionPage({ params }: Props) {
       },
     }),
     prisma.yearWeight.findMany(),
+    getAllConfigs(),
+    prisma.sessionCharge.findMany({
+      where: { sessionId: id },
+      select: {
+        id: true,
+        playerId: true,
+        amount: true,
+        calculatedAmount: true,
+        chargeType: true,
+        player: { select: { id: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true } },
+      },
+    }),
+    prisma.hourlyRate.findFirst({
+      where: { effectiveFrom: { lte: new Date() } },
+      orderBy: { effectiveFrom: "desc" },
+      select: { pricePerHour: true },
+    }),
   ]);
   if (!session) notFound();
 
@@ -101,6 +121,28 @@ export default async function AdminSessionPage({ params }: Props) {
     locationLng: session.locationLng,
   };
 
+  const minPlayers = parseInt(config[CONFIG.SESSION_MIN_PLAYERS] ?? "10", 10);
+  const confirmedCount = confirmed.length;
+
+  // Determine if we can charge this session
+  let cannotChargeReason: string | undefined;
+  if (!session.durationMinutes || session.durationMinutes <= 0) {
+    cannotChargeReason = "לא הוגדר משך מפגש";
+  } else if (!rateRaw) {
+    cannotChargeReason = "לא נמצא תעריף שעתי";
+  } else if (confirmedCount < minPlayers) {
+    cannotChargeReason = `${confirmedCount} משתתפים (מינימום ${minPlayers})`;
+  }
+  const canCharge = !cannotChargeReason;
+
+  const charges = chargesRaw.map((c) => ({
+    id: c.id,
+    playerId: c.playerId,
+    playerName: getPlayerDisplayName(c.player),
+    amount: c.amount,
+    calculatedAmount: c.calculatedAmount,
+    chargeType: c.chargeType,
+  }));
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -128,6 +170,22 @@ export default async function AdminSessionPage({ params }: Props) {
       {/* Session form */}
       <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <SessionForm mode="edit" session={sessionData} />
+      </section>
+
+      {/* Charging */}
+      <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+          חיוב
+        </h2>
+        <SessionChargePanel
+          sessionId={id}
+          isCharged={session.isCharged}
+          charges={charges}
+          confirmedCount={confirmedCount}
+          minPlayers={minPlayers}
+          canCharge={canCharge}
+          cannotChargeReason={cannotChargeReason}
+        />
       </section>
 
       {/* Attendance */}
