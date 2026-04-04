@@ -443,15 +443,19 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 **Session charge flow (admin):** “חייב מפגש” button on `/admin/sessions/[id]` → `chargeSessionAction` writes charges + sets `isCharged=true`. “בטל חיוב” → `unchargeSessionAction`. Per-charge amount override with reason → `updateSessionChargeAction` + `ChargeAuditEntry`. Admin delta preserved on future recalcs. UI: `SessionChargePanel` client component.
 
+**Charge audit history:** Each charge row in `SessionChargePanel` shows a clock icon when overrides exist. Clicking expands an inline list of changes (date, actor, before → after amount, reason).
+
+**Cascade recalc UI:** After saving a charge override, `previewCascadeAction` automatically checks for downstream impact. If any downstream session charges would change, an amber banner shows a per-player diff table. Admin confirms → `applyCascadeAction` applies all changes, creating `ChargeAuditEntry` rows with `reason: “cascade_recalc”`. No downstream sessions → silent (no banner).
+
+**Per-player charge history (admin):** `/admin/players/[id]/edit` — חיובי מפגשים section below payments; shows all session charges with date (links to session page), amount, type badge, override indicator. Read-only; editing happens on the session page.
+
 **Low-attendance alerts (`src/lib/low-attendance-alert.ts`):** `checkLowAttendanceAlerts` runs on every auto-close cron tick. Two tiers (early / critical), each with configurable hours + WA template. Fire-once via `alertEarlyFiredAt` / `alertCriticalFiredAt` on `GameSession`. Master toggle: `alert_low_attendance_enabled`.
 
 **Config:** `session_min_players` (replaces `dropin_charge`) — sets both the charge minimum and the rate denominator. 8 alert config keys added.
 
 **Tests:** `balance.test.ts` (6), `charging.test.ts` (15), `cascade-recalc.test.ts` (11). All pure — no DB required.
 
-**Remaining:**
-- Full cascade-recalc UI: when admin edits a past charge, trigger recalculation for downstream sessions and show preview before confirming
-- Charge audit log viewer (filterable by player/session)
+**Player-facing balance (`/profile`):** Balance card shows totals + breakdown. Below it: **גזרת חשבון** — paginated account statement with interleaved payments and charges, running balance per row, filter tabs (הכל / תשלומים / חיובים), per-page selector (10/20/50). All URL-param-driven (`?type`, `?per`, `?page`) — server-rendered, no JS state. Component: `src/components/account-statement.tsx`.
 
 ---
 
