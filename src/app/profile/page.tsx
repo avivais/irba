@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getPlayerSession } from "@/lib/player-session";
 import { prisma } from "@/lib/prisma";
+import { computePlayerBalance } from "@/lib/balance";
 import { PlayerNav } from "@/components/player-nav";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { ThemeSelector } from "@/components/theme-selector";
@@ -73,7 +74,10 @@ export default async function ProfilePage() {
 
   if (!player) redirect("/");
 
-  const displayName = getDisplayName(player);
+  const [displayName, balance] = await Promise.all([
+    Promise.resolve(getDisplayName(player)),
+    computePlayerBalance(session.playerId),
+  ]);
 
   return (
     <>
@@ -89,6 +93,26 @@ export default async function ProfilePage() {
         </header>
 
         <main className="mx-auto mt-8 flex w-full max-w-lg flex-col gap-6 md:max-w-2xl">
+          {/* Balance */}
+          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">יתרה</p>
+            <p
+              dir="ltr"
+              className={`mt-1 text-3xl font-bold tabular-nums ${
+                balance.balance > 0
+                  ? "text-green-600 dark:text-green-400"
+                  : balance.balance < 0
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              {balance.balance > 0 ? "+" : ""}₪{balance.balance}
+            </p>
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              שולם ₪{balance.totalPaid} · חויב ₪{balance.totalCharged}
+            </p>
+          </section>
+
           {/* Attendance history */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
