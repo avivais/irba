@@ -1,17 +1,27 @@
 import Link from "next/link";
 import { getPlayerSessionPlayerId } from "@/lib/player-session";
+import { getAdminSessionSubject } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { NavLinks } from "@/components/nav-links";
 
 export async function PlayerNav() {
   const playerId = await getPlayerSessionPlayerId();
 
-  const player = playerId
+  let player: { isAdmin: boolean } | null = playerId
     ? await prisma.player.findUnique({
         where: { id: playerId },
         select: { isAdmin: true },
       })
     : null;
+
+  // Admin session may outlive the player session (different maxAge).
+  // Show nav links so admin users aren't stranded without navigation.
+  if (!player) {
+    const adminSubject = await getAdminSessionSubject();
+    if (adminSubject) {
+      player = { isAdmin: true };
+    }
+  }
 
   return (
     <nav className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95">
