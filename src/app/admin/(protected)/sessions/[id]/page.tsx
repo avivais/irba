@@ -16,6 +16,7 @@ import { SessionQuickDropInForm } from "@/components/admin/session-quick-dropin-
 import { SessionArchiveButton } from "@/components/admin/session-archive-button";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { SessionPromoteButton } from "@/components/admin/session-promote-button";
+import { SessionMatchPanel } from "@/components/admin/session-match-panel";
 
 export const metadata: Metadata = { title: "עריכת מפגש" };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ type Props = { params: Promise<{ id: string }> };
 export default async function AdminSessionPage({ params }: Props) {
   const { id } = await params;
 
-  const [session, yearWeights, config, chargesRaw, rateRaw] = await Promise.all([
+  const [session, yearWeights, config, chargesRaw, rateRaw, matchesRaw] = await Promise.all([
     prisma.gameSession.findUnique({
       where: { id },
       include: {
@@ -58,10 +59,26 @@ export default async function AdminSessionPage({ params }: Props) {
       orderBy: { effectiveFrom: "desc" },
       select: { pricePerHour: true },
     }),
+    prisma.match.findMany({
+      where: { sessionId: id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        teamAPlayerIds: true,
+        teamBPlayerIds: true,
+        scoreA: true,
+        scoreB: true,
+        createdAt: true,
+      },
+    }),
   ]);
   if (!session) notFound();
 
   const confirmed = session.attendances.slice(0, session.maxPlayers);
+  const confirmedAttendees = confirmed.map((a) => ({
+    id: a.playerId,
+    displayName: getPlayerDisplayName(a.player),
+  }));
   const waitlistRaw = session.attendances.slice(session.maxPlayers);
   const attendingIds = new Set(session.attendances.map((a) => a.playerId));
 
@@ -291,6 +308,15 @@ export default async function AdminSessionPage({ params }: Props) {
             <SessionQuickDropInForm sessionId={id} />
           </div>
         </div>
+      </section>
+
+      {/* Match results */}
+      <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <SessionMatchPanel
+          sessionId={id}
+          attendees={confirmedAttendees}
+          matches={matchesRaw}
+        />
       </section>
     </div>
   );
