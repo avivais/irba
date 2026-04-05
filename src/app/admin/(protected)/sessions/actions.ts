@@ -256,7 +256,7 @@ export async function deleteSessionAction(
 
   revalidatePath("/admin/sessions");
   revalidatePath("/");
-  return { ok: true, message: "המפגש נמחק" };
+  redirect("/admin/sessions");
 }
 
 export async function archiveSessionAction(

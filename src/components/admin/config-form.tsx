@@ -741,6 +741,15 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </section>
       )}
 
+      {/* Pass-through hidden fields for alert settings not yet in the UI */}
+      <input type="hidden" name={CONFIG.ALERT_LOW_ATTENDANCE_ENABLED} value={values[CONFIG.ALERT_LOW_ATTENDANCE_ENABLED]} />
+      <input type="hidden" name={CONFIG.ALERT_EARLY_ENABLED} value={values[CONFIG.ALERT_EARLY_ENABLED]} />
+      <input type="hidden" name={CONFIG.ALERT_EARLY_HOURS_BEFORE} value={values[CONFIG.ALERT_EARLY_HOURS_BEFORE]} />
+      <input type="hidden" name={CONFIG.ALERT_EARLY_TEMPLATE} value={values[CONFIG.ALERT_EARLY_TEMPLATE]} />
+      <input type="hidden" name={CONFIG.ALERT_CRITICAL_ENABLED} value={values[CONFIG.ALERT_CRITICAL_ENABLED]} />
+      <input type="hidden" name={CONFIG.ALERT_CRITICAL_HOURS_BEFORE} value={values[CONFIG.ALERT_CRITICAL_HOURS_BEFORE]} />
+      <input type="hidden" name={CONFIG.ALERT_CRITICAL_TEMPLATE} value={values[CONFIG.ALERT_CRITICAL_TEMPLATE]} />
+
       {/* ── Submit ──────────────────────────────────────── */}
       <button
         type="submit"
