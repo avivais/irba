@@ -77,7 +77,7 @@ export default async function AdminSessionPage({ params }: Props) {
   const confirmed = session.attendances.slice(0, session.maxPlayers);
   const confirmedAttendees = confirmed.map((a) => ({
     id: a.playerId,
-    displayName: getPlayerDisplayName(a.player),
+    displayName: a.player.nickname ?? a.player.firstNameHe ?? a.player.firstNameEn ?? getPlayerDisplayName(a.player),
   }));
   const waitlistRaw = session.attendances.slice(session.maxPlayers);
   const attendingIds = new Set(session.attendances.map((a) => a.playerId));

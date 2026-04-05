@@ -470,11 +470,16 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 Winning team stays; next match teams are composed by admin from session attendees. Multiple matches per session. Teams editable after recording.
 
 **Admin UI** (`SessionMatchPanel` on `/admin/sessions/[id]`):
-- “משחק חדש” → pick team A / team B players from confirmed attendees → enter score → save
+- **Mobile-first redesign**: optimised for live on-court use from an iPhone
+  - Player assignment: single vertical list, each player has [א׳] and [ב׳] toggle buttons (40×48px tap targets). Tapping the other team's button atomically moves the player. Selected A → blue; selected B → orange; unselected → outlined.
+  - Score entry: `[−] [input] [+]` stepper rows per team (44px stepper buttons). `−` disabled at 0. Input is large, tappable, opens numeric keyboard on mobile (`inputMode=”numeric”`) for direct score entry. Stepper and direct input work simultaneously.
+  - Action buttons: `min-h-12 w-full` on mobile, inline on `sm:`. `flex-col-reverse` puts Save above Cancel.
+  - Match list edit/delete: upgraded to `h-9 w-9` (36px) tap targets.
+- **Nickname display**: `confirmedAttendees` in the session page prefers `nickname → firstNameHe → firstNameEn → full name` to keep names short in the panel.
 - Match history list; edit or delete any row
 - Server actions: `createMatchAction`, `updateMatchAction`, `deleteMatchAction` in `sessions/[id]/matches/actions.ts`
 - Config: `match_win_score` (default 12) — stored in `AppConfig`
-- **Auto-selection on new match**: when opening the new-match form, `computeNextMatchDefaults` inspects the last recorded match — winner pre-fills Team A, sitting-out players (not in either team) pre-fill Team B. Covers the classic 3-team rotation automatically. Tied last match → no pre-fill. All pre-filled values are fully overridable. Hint label shown when pre-populated.
+- **Auto-selection on new match**: `computeNextMatchDefaults` inspects the last recorded match — winner pre-fills Team A, sitting-out players pre-fill Team B. Covers 3-team rotation. Tied → no pre-fill. Hint shown when pre-populated.
 
 ---
 

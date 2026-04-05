@@ -32,6 +32,21 @@ type FormData = {
   scoreB: number;
 };
 
+const teamBtnBase =
+  "h-10 w-12 rounded-lg border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+const teamASelected =
+  "border-transparent bg-blue-600 text-white dark:bg-blue-500";
+const teamBSelected =
+  "border-transparent bg-orange-500 text-white dark:bg-orange-400";
+const teamUnselected =
+  "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:bg-zinc-700";
+
+const stepperBtn =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-bold text-zinc-700 transition-colors hover:bg-zinc-100 active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:active:bg-zinc-600";
+
+const scoreInput =
+  "w-16 shrink-0 rounded-lg border border-zinc-300 bg-white py-2 text-center text-2xl font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
 function MatchForm({
   attendees,
   initial,
@@ -54,22 +69,23 @@ function MatchForm({
   const [scoreA, setScoreA] = useState(initial?.scoreA ?? 0);
   const [scoreB, setScoreB] = useState(initial?.scoreB ?? 0);
 
-  function toggleA(id: string, checked: boolean) {
-    setTeamA((prev) => {
+  function assignPlayer(id: string, team: "A" | "B") {
+    const [setMine, setOther] =
+      team === "A" ? [setTeamA, setTeamB] : [setTeamB, setTeamA];
+    setMine((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
+      if (next.has(id)) { next.delete(id); return next; }
+      next.add(id);
       return next;
     });
+    setOther((prev) => { const next = new Set(prev); next.delete(id); return next; });
   }
 
-  function toggleB(id: string, checked: boolean) {
-    setTeamB((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+  function adjustScore(
+    setter: React.Dispatch<React.SetStateAction<number>>,
+    delta: number,
+  ) {
+    setter((prev) => Math.max(0, prev + delta));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -82,113 +98,96 @@ function MatchForm({
     });
   }
 
+  const scoreRows = [
+    { label: "קבוצה א׳", score: scoreA, setScore: setScoreA },
+    { label: "קבוצה ב׳", score: scoreB, setScore: setScoreB },
+  ] as const;
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4">
-        {/* Team A */}
-        <fieldset>
-          <legend className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            קבוצה א׳
-          </legend>
-          <div className="flex flex-col gap-1">
-            {attendees.map((p) => {
-              const inB = teamB.has(p.id);
-              return (
-                <label
-                  key={p.id}
-                  className={`flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm transition-colors ${
-                    inB
-                      ? "cursor-not-allowed opacity-40"
-                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={teamA.has(p.id)}
-                    disabled={inB || isPending}
-                    onChange={(e) => toggleA(p.id, e.target.checked)}
-                    className="accent-blue-600"
-                  />
-                  <span>{p.displayName}</span>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* ── Player assignment ── */}
+      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {attendees.map((p) => (
+          <li key={p.id} className="flex items-center gap-3 px-1 py-2.5">
+            <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">
+              {p.displayName}
+            </span>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => assignPlayer(p.id, "A")}
+                disabled={isPending}
+                className={`${teamBtnBase} ${teamA.has(p.id) ? teamASelected : teamUnselected}`}
+              >
+                א׳
+              </button>
+              <button
+                type="button"
+                onClick={() => assignPlayer(p.id, "B")}
+                disabled={isPending}
+                className={`${teamBtnBase} ${teamB.has(p.id) ? teamBSelected : teamUnselected}`}
+              >
+                ב׳
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
 
-        {/* Team B */}
-        <fieldset>
-          <legend className="mb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            קבוצה ב׳
-          </legend>
-          <div className="flex flex-col gap-1">
-            {attendees.map((p) => {
-              const inA = teamA.has(p.id);
-              return (
-                <label
-                  key={p.id}
-                  className={`flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm transition-colors ${
-                    inA
-                      ? "cursor-not-allowed opacity-40"
-                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={teamB.has(p.id)}
-                    disabled={inA || isPending}
-                    onChange={(e) => toggleB(p.id, e.target.checked)}
-                    className="accent-blue-600"
-                  />
-                  <span>{p.displayName}</span>
-                </label>
-              );
-            })}
+      {/* ── Score steppers ── */}
+      <div className="flex flex-col gap-3 rounded-xl border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+        {scoreRows.map(({ label, score, setScore }) => (
+          <div key={label} className="flex items-center gap-2">
+            <span className="w-20 shrink-0 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {label}
+            </span>
+            <button
+              type="button"
+              onClick={() => adjustScore(setScore, -1)}
+              disabled={score === 0 || isPending}
+              className={stepperBtn}
+              aria-label={`הפחת ניקוד ${label}`}
+            >
+              −
+            </button>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={score}
+              onChange={(e) =>
+                setScore(Math.max(0, parseInt(e.target.value, 10) || 0))
+              }
+              disabled={isPending}
+              className={scoreInput}
+            />
+            <button
+              type="button"
+              onClick={() => adjustScore(setScore, +1)}
+              disabled={isPending}
+              className={stepperBtn}
+              aria-label={`הוסף ניקוד ${label}`}
+            >
+              +
+            </button>
           </div>
-        </fieldset>
+        ))}
       </div>
 
-      {/* Score */}
-      <div className="flex items-center justify-center gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">קבוצה א׳</span>
-          <input
-            type="number"
-            min="0"
-            value={scoreA}
-            onChange={(e) => setScoreA(Math.max(0, parseInt(e.target.value, 10) || 0))}
-            disabled={isPending}
-            className="w-16 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-center text-lg font-semibold tabular-nums focus:ring-2 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
-          />
-        </div>
-        <span className="mt-4 text-xl font-bold text-zinc-400">:</span>
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">קבוצה ב׳</span>
-          <input
-            type="number"
-            min="0"
-            value={scoreB}
-            onChange={(e) => setScoreB(Math.max(0, parseInt(e.target.value, 10) || 0))}
-            disabled={isPending}
-            className="w-16 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-center text-lg font-semibold tabular-nums focus:ring-2 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
-          />
-        </div>
-      </div>
-
-      {/* Buttons */}
-      <div className="flex justify-end gap-2">
+      {/* ── Action buttons ── */}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onCancel}
           disabled={isPending}
-          className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="flex min-h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 sm:w-auto sm:px-5"
         >
           ביטול
         </button>
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600 sm:w-auto sm:px-6"
         >
           {isPending ? "שומר..." : "שמור"}
         </button>
@@ -437,7 +436,7 @@ export function SessionMatchPanel({
                       onClick={() => openEdit(match.id)}
                       disabled={isPending}
                       title="ערוך משחק"
-                      className="rounded p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -445,7 +444,7 @@ export function SessionMatchPanel({
                       onClick={() => handleDelete(match.id)}
                       disabled={isPending}
                       title="מחק משחק"
-                      className="rounded p-1 text-zinc-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

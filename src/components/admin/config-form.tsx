@@ -100,7 +100,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
 
   useEffect(() => {
     if (state.message) showToast(state.message, state.ok);
-    if (state.ok) setFormKey((k) => k + 1);
+    if (state.ok) setFormKey((k) => k + 1); // eslint-disable-line react-hooks/set-state-in-effect
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSend() {
