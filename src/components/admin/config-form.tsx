@@ -87,6 +87,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
   const [sendPending, startSendTransition] = useTransition();
   const [runNowPending, startRunNowTransition] = useTransition();
+  const [formKey, setFormKey] = useState(0);
 
   function handleRunNow() {
     startRunNowTransition(async () => {
@@ -99,6 +100,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
 
   useEffect(() => {
     if (state.message) showToast(state.message, state.ok);
+    if (state.ok) setFormKey((k) => k + 1);
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSend() {
@@ -133,7 +135,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-8">
+    <form key={formKey} action={formAction} className="flex flex-col gap-8">
       {/* ── Sessions ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>מפגשים</SectionTitle>
