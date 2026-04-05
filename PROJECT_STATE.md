@@ -419,9 +419,9 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 **Balance:** fully computed — `balance = Σ(payments.amount) - Σ(sessionCharges.amount)` for a player. Pure helper in `src/lib/balance.ts`; DB functions use dynamic imports (no module-level prisma).
 
-**Admin UI:** Per-player payments section in `/admin/players/[id]/edit` — add (date, amount, method, description), delete, balance breakdown (paid / charged / balance). Server actions: `addPaymentAction`, `deletePaymentAction` in `src/app/admin/(protected)/players/[id]/payments/actions.ts`.
+**Admin UI:** Per-player payments section in `/admin/players/[id]/edit` — positioned immediately below the player details form (before attendance/precedence sections). Add (date, amount, method, description), delete, balance breakdown (paid / charged / balance). Server actions: `addPaymentAction`, `deletePaymentAction` in `src/app/admin/(protected)/players/[id]/payments/actions.ts`.
 
-**Finance dashboard** (`/admin/finance`): summary cards (total paid / charged / net balance), debtors list, credits list, all-players table sorted by debt, recent payments, recent charges. Linked from admin home nav card (Banknote icon).
+**Finance dashboard** (`/admin/finance`): summary cards (total paid / charged / net balance), debtors list, credits list, all-players table sorted by debt, recent payments, recent charges. Linked from admin home nav card (Banknote icon). All player rows are fully clickable (overlay link + hover highlight). Links pass `?from=finance` so the player edit page shows "→ חזרה לפיננסים" instead of "→ חזרה לשחקנים".
 
 **Player-facing:** Balance shown on `/profile` (computed live; shows +/- and breakdown).
 
