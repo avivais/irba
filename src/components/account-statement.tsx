@@ -82,7 +82,7 @@ export function AccountStatement({
     <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">גזרת חשבון</h2>
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">היסטוריית פעולות</h2>
         <div className="flex items-center gap-1">
           {typeTab("all", "הכל")}
           {typeTab("payments", "תשלומים")}

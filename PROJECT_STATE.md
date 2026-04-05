@@ -455,7 +455,7 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 **Tests:** `balance.test.ts` (6), `charging.test.ts` (15), `cascade-recalc.test.ts` (11). All pure — no DB required.
 
-**Player-facing balance (`/profile`):** Balance card shows totals + breakdown. Below it: **גזרת חשבון** — paginated account statement with interleaved payments and charges, running balance per row, filter tabs (הכל / תשלומים / חיובים), per-page selector (10/20/50). All URL-param-driven (`?type`, `?per`, `?page`) — server-rendered, no JS state. Component: `src/components/account-statement.tsx`.
+**Player-facing balance (`/profile`):** Balance card shows totals + breakdown. Below it: **היסטוריית פעולות** — paginated account statement with interleaved payments and charges, running balance per row, filter tabs (הכל / תשלומים / חיובים), per-page selector (10/20/50). All URL-param-driven (`?type`, `?per`, `?page`) — server-rendered, no JS state. Component: `src/components/account-statement.tsx`.
 
 ---
 
