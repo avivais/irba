@@ -51,7 +51,10 @@ export type AuditAction =
   | "CHARGE_SESSION"
   | "UNCHARGE_SESSION"
   | "UPDATE_SESSION_CHARGE"
-  | "CASCADE_RECALC";
+  | "CASCADE_RECALC"
+  | "CREATE_MATCH"
+  | "UPDATE_MATCH"
+  | "DELETE_MATCH";
 
 export type AuditParams = {
   actor: string;

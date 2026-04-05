@@ -87,8 +87,24 @@ model GameSession {
 
   attendances    Attendance[]
   sessionCharges SessionCharge[]
+  matches        Match[]
 
   @@index([date])
+}
+
+model Match {
+  id             String   @id @default(cuid())
+  sessionId      String
+  teamAPlayerIds String[]
+  teamBPlayerIds String[]
+  scoreA         Int
+  scoreB         Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
 }
 
 model YearWeight {
