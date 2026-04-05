@@ -243,6 +243,20 @@ function ScoreDisplay({
   );
 }
 
+function computeNextMatchDefaults(
+  matches: MatchRow[],
+  attendees: AttendeeOption[],
+): FormData | null {
+  if (matches.length === 0) return null;
+  const last = matches[matches.length - 1];
+  // Tied — can't determine winner
+  if (last.scoreA === last.scoreB) return null;
+  const winnerIds = last.scoreA > last.scoreB ? last.teamAPlayerIds : last.teamBPlayerIds;
+  const playedIds = new Set([...last.teamAPlayerIds, ...last.teamBPlayerIds]);
+  const sittingOut = attendees.filter((a) => !playedIds.has(a.id)).map((a) => a.id);
+  return { teamAPlayerIds: winnerIds, teamBPlayerIds: sittingOut, scoreA: 0, scoreB: 0 };
+}
+
 export function SessionMatchPanel({
   sessionId,
   attendees,
@@ -250,14 +264,17 @@ export function SessionMatchPanel({
 }: Props) {
   const [matches, setMatches] = useState(initialMatches);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [newMatchInitial, setNewMatchInitial] = useState<FormData | undefined>(undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function openNew() {
     setEditingId(null);
-    setShowNewForm(true);
     setError(null);
+    const defaults = computeNextMatchDefaults(matches, attendees);
+    setNewMatchInitial(defaults ?? undefined);
+    setShowNewForm(true);
   }
 
   function openEdit(id: string) {
@@ -349,11 +366,19 @@ export function SessionMatchPanel({
       {/* New match form */}
       {showNewForm && (
         <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/20">
-          <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            משחק חדש
-          </p>
+          <div className="mb-3 flex items-center gap-2">
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              משחק חדש
+            </p>
+            {newMatchInitial && (
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                (מולאו אוטומטית — ניתן לשנות)
+              </span>
+            )}
+          </div>
           <MatchForm
             attendees={attendees}
+            initial={newMatchInitial}
             onSubmit={handleCreate}
             onCancel={closeAll}
             isPending={isPending}
