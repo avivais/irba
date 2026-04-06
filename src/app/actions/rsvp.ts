@@ -18,7 +18,7 @@ import { notifyPlayerRegistered, notifyPlayerCancelled } from "@/lib/wa-notify";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { writeAuditLog } from "@/lib/audit";
 
-export type RsvpActionState = { ok: boolean; message?: string };
+export type RsvpActionState = { ok: boolean; message?: string; isWaitlisted?: boolean };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
 
@@ -152,7 +152,7 @@ export async function attendAction(
   });
 
   revalidatePath("/");
-  return { ok: true, message: "נרשמת בהצלחה" };
+  return { ok: true, message: isConfirmed ? "נרשמת בהצלחה!" : "נוספת לרשימת ההמתנה", isWaitlisted: !isConfirmed };
 }
 
 /**
@@ -233,7 +233,7 @@ export async function rsvpAuthenticatedAction(
   });
 
   revalidatePath("/");
-  return { ok: true, message: "נרשמת בהצלחה" };
+  return { ok: true, message: isConfirmed ? "נרשמת בהצלחה!" : "נוספת לרשימת ההמתנה", isWaitlisted: !isConfirmed };
 }
 
 export async function cancelAttendanceAction(

@@ -11,6 +11,7 @@ import { getPlayerDisplayName } from "@/lib/player-display";
 import { prisma } from "@/lib/prisma";
 import { getSessionPlayerId } from "@/lib/rsvp-session";
 import { getPlayerSessionPlayerId } from "@/lib/player-session";
+import { sortAttendancesByPrecedence } from "@/lib/sort-attendances";
 
 import type { Metadata } from "next";
 
@@ -54,12 +55,16 @@ export default async function HomePage() {
     !game.isClosed &&
     nowMs < game.date.getTime();
 
-  const attendances = game
+  const rawAttendances = game
     ? await prisma.attendance.findMany({
         where: { gameSessionId: game.id },
         orderBy: { createdAt: "asc" },
         include: { player: true },
       })
+    : [];
+
+  const attendances = game
+    ? await sortAttendancesByPrecedence(rawAttendances, game.date.getFullYear())
     : [];
 
   const max = game?.maxPlayers ?? 15;
@@ -211,6 +216,12 @@ export default async function HomePage() {
           </section>
         )}
 
+        {userIsAttending && userAttendance && (
+          <p className="mx-auto mt-2 w-full max-w-lg text-center text-xs text-zinc-500 dark:text-zinc-400 md:max-w-2xl">
+            נרשמת למפגש זה ב-{formatGameDate(userAttendance.createdAt)}
+          </p>
+        )}
+
         {game && (
           <section
             className="mx-auto mt-10 w-full max-w-lg md:max-w-2xl"
@@ -257,7 +268,7 @@ export default async function HomePage() {
             )}
 
             {waiting.length > 0 && (
-              <div className="mt-8">
+              <div id="waiting-list" className="mt-8">
                 <h3 className="mb-3 text-base font-semibold text-zinc-800 dark:text-zinc-200">
                   רשימת המתנה
                 </h3>
