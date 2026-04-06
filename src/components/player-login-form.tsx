@@ -145,6 +145,12 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
     initialState,
   );
 
+  // Set name (drop-in onboarding)
+  const [nameState, nameAction, namePending] = useActionState(
+    setNameAction,
+    initialState,
+  );
+
   // Reset: request OTP
   const [resetReqState, resetReqAction, resetReqPending] = useActionState(
     async (prev: PlayerAuthState, fd: FormData) => {
@@ -424,10 +430,6 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
   }
 
   if (mode === "set_name") {
-    const [nameState, nameAction, namePending] = useActionState(
-      setNameAction,
-      initialState,
-    );
     const nameError =
       !namePending && !nameState.ok && nameState.message
         ? nameState.message
