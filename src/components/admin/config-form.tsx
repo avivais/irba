@@ -743,14 +743,99 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </section>
       )}
 
-      {/* Pass-through hidden fields for alert settings not yet in the UI */}
-      <input type="hidden" name={CONFIG.ALERT_LOW_ATTENDANCE_ENABLED} value={values[CONFIG.ALERT_LOW_ATTENDANCE_ENABLED]} />
-      <input type="hidden" name={CONFIG.ALERT_EARLY_ENABLED} value={values[CONFIG.ALERT_EARLY_ENABLED]} />
-      <input type="hidden" name={CONFIG.ALERT_EARLY_HOURS_BEFORE} value={values[CONFIG.ALERT_EARLY_HOURS_BEFORE]} />
-      <input type="hidden" name={CONFIG.ALERT_EARLY_TEMPLATE} value={values[CONFIG.ALERT_EARLY_TEMPLATE]} />
-      <input type="hidden" name={CONFIG.ALERT_CRITICAL_ENABLED} value={values[CONFIG.ALERT_CRITICAL_ENABLED]} />
-      <input type="hidden" name={CONFIG.ALERT_CRITICAL_HOURS_BEFORE} value={values[CONFIG.ALERT_CRITICAL_HOURS_BEFORE]} />
-      <input type="hidden" name={CONFIG.ALERT_CRITICAL_TEMPLATE} value={values[CONFIG.ALERT_CRITICAL_TEMPLATE]} />
+      {/* ── Low-Attendance Alerts ───────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>התראות נוכחות נמוכה</SectionTitle>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          שליחה אוטומטית לקבוצת הוואטסאפ כשמספר הנרשמים נמוך ממינימום הנדרש לפני המפגש.
+        </p>
+
+        {/* Master toggle */}
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            name={CONFIG.ALERT_LOW_ATTENDANCE_ENABLED}
+            value="true"
+            defaultChecked={values[CONFIG.ALERT_LOW_ATTENDANCE_ENABLED] === "true"}
+            className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+          />
+          הפעל התראות נוכחות נמוכה
+        </label>
+
+        {/* Early alert */}
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name={CONFIG.ALERT_EARLY_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.ALERT_EARLY_ENABLED] === "true"}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            התראה מוקדמת
+          </label>
+          <Field label="שעות לפני המפגש" htmlFor={CONFIG.ALERT_EARLY_HOURS_BEFORE} error={errors[CONFIG.ALERT_EARLY_HOURS_BEFORE]}>
+            <input
+              id={CONFIG.ALERT_EARLY_HOURS_BEFORE}
+              name={CONFIG.ALERT_EARLY_HOURS_BEFORE}
+              type="number"
+              min="1"
+              defaultValue={values[CONFIG.ALERT_EARLY_HOURS_BEFORE]}
+              className={`${inputBase} w-24 ${errors[CONFIG.ALERT_EARLY_HOURS_BEFORE] ? inputError : inputNormal}`}
+            />
+          </Field>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.ALERT_EARLY_TEMPLATE} error={errors[CONFIG.ALERT_EARLY_TEMPLATE]}>
+            <textarea
+              id={CONFIG.ALERT_EARLY_TEMPLATE}
+              name={CONFIG.ALERT_EARLY_TEMPLATE}
+              defaultValue={values[CONFIG.ALERT_EARLY_TEMPLATE]}
+              rows={2}
+              maxLength={500}
+              className={`${inputBase} resize-y ${errors[CONFIG.ALERT_EARLY_TEMPLATE] ? inputError : inputNormal}`}
+            />
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              משתנים זמינים: {"{date}"}, {"{confirmed}"}, {"{min_players}"}
+            </p>
+          </Field>
+        </div>
+
+        {/* Critical alert */}
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name={CONFIG.ALERT_CRITICAL_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.ALERT_CRITICAL_ENABLED] === "true"}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            התראה קריטית
+          </label>
+          <Field label="שעות לפני המפגש" htmlFor={CONFIG.ALERT_CRITICAL_HOURS_BEFORE} error={errors[CONFIG.ALERT_CRITICAL_HOURS_BEFORE]}>
+            <input
+              id={CONFIG.ALERT_CRITICAL_HOURS_BEFORE}
+              name={CONFIG.ALERT_CRITICAL_HOURS_BEFORE}
+              type="number"
+              min="1"
+              defaultValue={values[CONFIG.ALERT_CRITICAL_HOURS_BEFORE]}
+              className={`${inputBase} w-24 ${errors[CONFIG.ALERT_CRITICAL_HOURS_BEFORE] ? inputError : inputNormal}`}
+            />
+          </Field>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.ALERT_CRITICAL_TEMPLATE} error={errors[CONFIG.ALERT_CRITICAL_TEMPLATE]}>
+            <textarea
+              id={CONFIG.ALERT_CRITICAL_TEMPLATE}
+              name={CONFIG.ALERT_CRITICAL_TEMPLATE}
+              defaultValue={values[CONFIG.ALERT_CRITICAL_TEMPLATE]}
+              rows={2}
+              maxLength={500}
+              className={`${inputBase} resize-y ${errors[CONFIG.ALERT_CRITICAL_TEMPLATE] ? inputError : inputNormal}`}
+            />
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              משתנים זמינים: {"{date}"}, {"{confirmed}"}, {"{min_players}"}
+            </p>
+          </Field>
+        </div>
+      </section>
 
       {/* ── Submit ──────────────────────────────────────── */}
       <button
