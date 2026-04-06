@@ -27,6 +27,9 @@ export async function updateConfigAction(
   }
   // Checkboxes omit their key when unchecked — supply the "off" value explicitly.
   raw[CONFIG.SESSION_SCHEDULE_ENABLED] ??= "false";
+  raw[CONFIG.ALERT_LOW_ATTENDANCE_ENABLED] ??= "false";
+  raw[CONFIG.ALERT_EARLY_ENABLED] ??= "false";
+  raw[CONFIG.ALERT_CRITICAL_ENABLED] ??= "false";
   raw[CONFIG.WA_NOTIFY_SESSION_OPEN_ENABLED] ??= "false";
   raw[CONFIG.WA_NOTIFY_SESSION_CLOSE_ENABLED] ??= "false";
   raw[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_ENABLED] ??= "false";

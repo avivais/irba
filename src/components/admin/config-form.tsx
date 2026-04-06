@@ -167,6 +167,7 @@ function RegulationsMacroHelp() {
 export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
+  const [isDirty, setIsDirty] = useState(false);
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
   const [sendPending, startSendTransition] = useTransition();
   const [runNowPending, startRunNowTransition] = useTransition();
@@ -180,7 +181,10 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const { showToast, dismiss, toast } = useToast();
 
   useEffect(() => {
-    if (state.message) showToast(state.message, state.ok);
+    if (state.message) {
+      showToast(state.message, state.ok);
+      if (state.ok) setIsDirty(false);
+    }
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSend() {
@@ -215,7 +219,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-8">
+    <form action={formAction} onChange={() => setIsDirty(true)} className="flex flex-col gap-8">
       {/* ── Sessions ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>מפגשים</SectionTitle>
@@ -734,6 +738,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
                             type="button"
                             onClick={() => {
                               setGroupJidValue(g.id);
+                              setIsDirty(true);
                               setGroupsOpen(false);
                             }}
                             className="flex w-full items-center justify-between gap-3 rounded px-2 py-1.5 text-right hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -1026,7 +1031,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       {/* ── Submit ──────────────────────────────────────── */}
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !isDirty}
         className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50 sm:w-auto sm:min-w-[14rem]"
       >
         {pending ? (
