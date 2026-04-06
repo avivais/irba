@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getNextGame } from "@/lib/game";
 import { getConfigInt, CONFIG } from "@/lib/config";
@@ -151,8 +152,11 @@ export async function attendAction(
     after: { phone, name, sessionId: game.id, status },
   });
 
+  if (!isConfirmed) {
+    redirect("/?waitlisted=1");
+  }
   revalidatePath("/");
-  return { ok: true, message: isConfirmed ? "נרשמת בהצלחה!" : "נוספת לרשימת ההמתנה", isWaitlisted: !isConfirmed };
+  return { ok: true, message: "נרשמת בהצלחה!" };
 }
 
 /**
@@ -232,8 +236,11 @@ export async function rsvpAuthenticatedAction(
     after: { name, sessionId: game.id, status },
   });
 
+  if (!isConfirmed) {
+    redirect("/?waitlisted=1");
+  }
   revalidatePath("/");
-  return { ok: true, message: isConfirmed ? "נרשמת בהצלחה!" : "נוספת לרשימת ההמתנה", isWaitlisted: !isConfirmed };
+  return { ok: true, message: "נרשמת בהצלחה!" };
 }
 
 export async function cancelAttendanceAction(

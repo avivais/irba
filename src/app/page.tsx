@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionPlayerId } from "@/lib/rsvp-session";
 import { getPlayerSessionPlayerId } from "@/lib/player-session";
 import { sortAttendancesByPrecedence } from "@/lib/sort-attendances";
+import { AutoScroll } from "@/components/auto-scroll";
 
 import type { Metadata } from "next";
 
@@ -20,7 +21,12 @@ export const metadata: Metadata = { title: { absolute: "IRBA · המפגש הב�
 /** RSVP reads live DB state — do not prerender at build time without a database. */
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ waitlisted?: string }>;
+}) {
+  const justWaitlisted = (await searchParams)?.waitlisted === "1";
   const [game, closeHours, sessionPlayerId, authenticatedPlayerId] =
     await Promise.all([
       getNextGame(),
@@ -212,6 +218,15 @@ export default async function HomePage() {
           <section className="mx-auto mt-6 w-full max-w-lg md:max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30">
             <p className="text-center text-sm text-amber-800 dark:text-amber-300">
               ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל
+            </p>
+          </section>
+        )}
+
+        {userIsWaitlisted && (
+          <section className="mx-auto mt-4 w-full max-w-lg md:max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30">
+            {justWaitlisted && <AutoScroll id="waiting-list" />}
+            <p className="text-center text-sm font-medium text-amber-800 dark:text-amber-300">
+              אתה ברשימת ההמתנה — ההרשמה תאושר אם יפנה מקום
             </p>
           </section>
         )}

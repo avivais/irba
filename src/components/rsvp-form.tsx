@@ -72,12 +72,6 @@ export function RsvpForm({
     return () => clearTimeout(t);
   }, [state]);
 
-  useEffect(() => {
-    if (!state.ok || !state.isWaitlisted) return;
-    const el = document.getElementById("waiting-list");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [state]);
-
   const serverError =
     !pending &&
     !state.ok &&
@@ -161,21 +155,12 @@ export function RsvpForm({
       )}
 
       {showSuccess && (
-        state.isWaitlisted ? (
-          <p
-            role="status"
-            className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
-          >
-            {state.message} — הרשמה תאושר אם יפנה מקום
-          </p>
-        ) : (
-          <p
-            role="status"
-            className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
-          >
-            {state.message}
-          </p>
-        )
+        <p
+          role="status"
+          className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-900 dark:bg-green-950/50 dark:text-green-100"
+        >
+          {state.message}
+        </p>
       )}
 
       <button
