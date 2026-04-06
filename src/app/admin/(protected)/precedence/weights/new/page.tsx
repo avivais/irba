@@ -12,7 +12,7 @@ export default function AdminWeightsNewPage() {
           href="/admin/precedence/weights"
           className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
-          → חזרה לרשימה
+          → חזרה
         </Link>
         <span className="text-zinc-300 dark:text-zinc-600">|</span>
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">

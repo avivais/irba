@@ -282,7 +282,7 @@ export function PlayerForm(props: Props) {
           onClick={handleBack}
           className="self-start text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white cursor-pointer"
         >
-          → חזרה לרשימה
+          → חזרה
         </button>
 
         {/* Phone */}

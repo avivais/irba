@@ -181,7 +181,7 @@ export default async function AdminSessionPage({ params }: Props) {
             href="/admin/sessions"
             className="text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white"
           >
-            → חזרה לרשימה
+            → חזרה
           </Link>
           <span className="text-zinc-300 dark:text-zinc-600">|</span>
           <h1 className="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">

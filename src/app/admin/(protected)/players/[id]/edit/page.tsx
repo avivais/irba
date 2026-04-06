@@ -37,7 +37,7 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
   const { id } = await params;
   const { from } = await searchParams;
   const backHref = from === "finance" ? "/admin/finance" : "/admin/players";
-  const backLabel = from === "finance" ? "→ חזרה לפיננסים" : "→ חזרה לשחקנים";
+  const backLabel = "→ חזרה";
   const currentYear = new Date().getFullYear();
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear + 1, 0, 1);

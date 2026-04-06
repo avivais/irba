@@ -25,7 +25,7 @@ export default async function NewAdjustmentPage({ params }: Props) {
           href={`/admin/players/${playerId}/edit`}
           className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
-          → חזרה ל{getPlayerDisplayName(player)}
+          → חזרה
         </Link>
         <span className="text-zinc-300 dark:text-zinc-600">|</span>
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
