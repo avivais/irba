@@ -108,14 +108,14 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
         <button
           type="submit"
           disabled={pending || !isValid}
-          className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 active:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          aria-label="הוסף מזדמן"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:bg-zinc-800 active:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           ) : (
             <UserPlus className="h-4 w-4" aria-hidden />
           )}
-          הוסף
         </button>
       </div>
 

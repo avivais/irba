@@ -16,7 +16,7 @@ type Session = {
   _count: { attendances: number };
 };
 
-export function SessionList({ sessions }: { sessions: Session[] }) {
+export function SessionList({ sessions, minPlayers = 10 }: { sessions: Session[]; minPlayers?: number }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   return (
@@ -58,8 +58,17 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                   {session.isArchived ? "ארכיון" : session.isClosed ? "סגור" : "פתוח"}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
-                <span>
+              <div className="flex items-center gap-3 text-sm">
+                <span
+                  dir="ltr"
+                  className={
+                    session._count.attendances >= session.maxPlayers
+                      ? "text-green-700 dark:text-green-400"
+                      : session._count.attendances < minPlayers
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-zinc-500 dark:text-zinc-400"
+                  }
+                >
                   {session._count.attendances} / {session.maxPlayers} נרשמים
                 </span>
               </div>

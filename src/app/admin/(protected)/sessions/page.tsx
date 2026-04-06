@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getConfigInt, CONFIG } from "@/lib/config";
 import { SessionList } from "@/components/admin/session-list";
 
 export const metadata: Metadata = { title: "מפגשים" };
@@ -20,7 +21,8 @@ export default async function AdminSessionsPage({
   const fromDate = sp.from ? new Date(sp.from) : undefined;
   const toDate = sp.to ? new Date(sp.to + "T23:59:59") : undefined;
 
-  const sessions = await prisma.gameSession.findMany({
+  const [sessions, minPlayers] = await Promise.all([
+    prisma.gameSession.findMany({
     where: {
       isArchived: showArchived ? true : false,
       ...(fromDate || toDate
@@ -32,9 +34,11 @@ export default async function AdminSessionsPage({
           }
         : {}),
     },
-    orderBy: { date: "desc" },
-    include: { _count: { select: { attendances: true } } },
-  });
+      orderBy: { date: "desc" },
+      include: { _count: { select: { attendances: true } } },
+    }),
+    getConfigInt(CONFIG.SESSION_MIN_PLAYERS),
+  ]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -118,7 +122,7 @@ export default async function AdminSessionsPage({
             אין מפגשים להצגה.
           </p>
         ) : (
-          <SessionList sessions={sessions} />
+          <SessionList sessions={sessions} minPlayers={minPlayers} />
         )}
       </section>
     </div>

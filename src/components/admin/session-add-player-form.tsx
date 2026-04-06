@@ -41,14 +41,14 @@ export function SessionAddPlayerForm({
         <button
           type="submit"
           disabled={pending || players.length === 0}
-          className="flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
+          aria-label="הוסף שחקן"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           ) : (
             <UserPlus className="h-4 w-4" aria-hidden />
           )}
-          הוסף
         </button>
       </div>
       {!state.ok && state.message && (

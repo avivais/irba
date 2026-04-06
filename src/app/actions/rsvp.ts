@@ -253,7 +253,11 @@ export async function cancelAttendanceAction(
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
-  const playerId = await getSessionPlayerId();
+  const [rsvpPlayerId, playerSessionId] = await Promise.all([
+    getSessionPlayerId(),
+    getPlayerSessionPlayerId(),
+  ]);
+  const playerId = rsvpPlayerId ?? playerSessionId;
   if (!playerId) {
     return { ok: false, message: "לא נמצאה הרשמה פעילה" };
   }
