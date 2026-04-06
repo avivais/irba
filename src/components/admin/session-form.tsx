@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import {
   createSessionAction,
@@ -91,6 +92,37 @@ export function SessionForm(props: Props) {
   const [maxPlayersBlurred, setMaxPlayersBlurred] = useState(false);
   const [durationBlurred, setDurationBlurred] = useState(false);
 
+  // Dirty tracking — mirrors PlayerForm pattern
+  const lastSavedRef = useRef({
+    date: session ? toJerusalemLocalInput(session.date) : defaults!.date,
+    maxPlayers: String(session?.maxPlayers ?? defaults!.maxPlayers),
+    isClosed: session?.isClosed ?? false,
+    durationMinutes: session?.durationMinutes != null ? String(session.durationMinutes) : String(defaults?.durationMinutes ?? ""),
+    locationName: session?.locationName ?? defaults?.locationName ?? "",
+    locationLat: session?.locationLat != null ? String(session.locationLat) : defaults?.locationLat ?? "",
+    locationLng: session?.locationLng != null ? String(session.locationLng) : defaults?.locationLng ?? "",
+  });
+  const [, setDirtyVersion] = useState(0);
+
+  const s = lastSavedRef.current;
+  const isDirty = isEdit
+    ? (
+      date !== s.date ||
+      maxPlayers !== s.maxPlayers ||
+      isClosed !== s.isClosed ||
+      durationMinutes !== s.durationMinutes ||
+      locationName !== s.locationName ||
+      locationLat !== s.locationLat ||
+      locationLng !== s.locationLng
+    )
+    : true;
+
+  const isDirtyRef = useRef(isDirty);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+
+  const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   // WA notification override — create mode only
   const [waOpen, setWaOpen] = useState(false);
   const [waSessionOpenEnabled, setWaSessionOpenEnabled] = useState(
@@ -136,6 +168,43 @@ export function SessionForm(props: Props) {
     setter(value);
     setSuppressServerError(true);
   }
+
+  function handleBack() {
+    if (isDirty) {
+      setConfirmOpen(true);
+    } else {
+      router.push("/admin/sessions");
+    }
+  }
+
+  // beforeunload guard (covers refresh / close tab / address bar navigation)
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  // popstate guard (covers mobile browser back button / soft navigation back)
+  useEffect(() => {
+    history.pushState(null, "", window.location.href);
+    const handler = () => {
+      if (isDirtyRef.current) {
+        history.pushState(null, "", window.location.href);
+        setConfirmOpen(true);
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  // Reset dirty tracking after successful save
+  useEffect(() => {
+    if (!state.ok) return;
+    lastSavedRef.current = { date, maxPlayers, isClosed, durationMinutes, locationName, locationLat, locationLng };
+    setDirtyVersion((v) => v + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ok]);
 
   const serverError =
     !pending && !state.ok && state.message && !suppressServerError
@@ -444,7 +513,7 @@ export function SessionForm(props: Props) {
 
       <button
         type="submit"
-        disabled={pending || !formValid}
+        disabled={pending || !formValid || (isEdit && !isDirty)}
         className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50"
       >
         {pending ? (
@@ -458,6 +527,37 @@ export function SessionForm(props: Props) {
           "צור מפגש"
         )}
       </button>
+
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-base font-semibold text-zinc-900 dark:text-zinc-50">יש שינויים שלא נשמרו</p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">האם לעזוב את הדף? השינויים לא יישמרו.</p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setConfirmOpen(false); router.push("/admin/sessions"); }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 active:bg-red-700"
+              >
+                עזוב
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600 dark:active:bg-zinc-500"
+              >
+                המשך עריכה
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

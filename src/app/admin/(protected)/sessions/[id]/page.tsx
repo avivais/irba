@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatGameDate } from "@/lib/format-date";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePrecedenceScores } from "@/lib/precedence";
 import { getAllConfigs } from "@/lib/config";
@@ -183,11 +182,6 @@ export default async function AdminSessionPage({ params }: Props) {
           >
             → חזרה
           </Link>
-          <span className="text-zinc-300 dark:text-zinc-600">|</span>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">
-            <CalendarDays className="h-5 w-5" aria-hidden />
-            {formatGameDate(session.date)}
-          </h1>
         </div>
         <div className="flex items-center gap-2">
           <SessionArchiveButton id={id} isArchived={session.isArchived} />
