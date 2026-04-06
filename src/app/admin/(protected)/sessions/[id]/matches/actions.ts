@@ -14,8 +14,8 @@ function validateMatchInput(
   scoreB: number,
   confirmedIds: Set<string>,
 ): string | null {
-  if (teamAPlayerIds.length < 1) return "קבוצה א׳ חייבת לכלול לפחות שחקן אחד";
-  if (teamBPlayerIds.length < 1) return "קבוצה ב׳ חייבת לכלול לפחות שחקן אחד";
+  if (teamAPlayerIds.length !== 5) return "קבוצה א׳ חייבת לכלול בדיוק 5 שחקנים";
+  if (teamBPlayerIds.length !== 5) return "קבוצה ב׳ חייבת לכלול בדיוק 5 שחקנים";
   const overlap = teamAPlayerIds.filter((id) => teamBPlayerIds.includes(id));
   if (overlap.length > 0) return "שחקן לא יכול להיות בשתי הקבוצות";
   const allIds = [...teamAPlayerIds, ...teamBPlayerIds];

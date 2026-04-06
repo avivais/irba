@@ -176,12 +176,15 @@ export default async function HomePage() {
           </section>
         )}
 
-        {game && isRsvpOpen && (
+        {game && isRsvpOpen && !userIsAttending && (
           <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
             <h2 className="sr-only">הרשמה</h2>
             <RsvpForm
-              defaultName={authDisplayName}
-              defaultPhone={authenticatedPlayer?.phone ?? ""}
+              lockedPlayer={
+                authenticatedPlayer
+                  ? { name: authDisplayName, phone: authenticatedPlayer.phone }
+                  : undefined
+              }
             />
           </section>
         )}

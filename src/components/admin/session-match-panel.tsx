@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   createMatchAction,
   updateMatchAction,
@@ -31,15 +31,6 @@ type FormData = {
   scoreA: number;
   scoreB: number;
 };
-
-const teamBtnBase =
-  "h-10 w-12 rounded-lg border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
-const teamASelected =
-  "border-transparent bg-blue-600 text-white dark:bg-blue-500";
-const teamBSelected =
-  "border-transparent bg-orange-500 text-white dark:bg-orange-400";
-const teamUnselected =
-  "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:bg-zinc-700";
 
 const stepperBtn =
   "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-bold text-zinc-700 transition-colors hover:bg-zinc-100 active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:active:bg-zinc-600";
@@ -88,6 +79,8 @@ function MatchForm({
     setter((prev) => Math.max(0, prev + delta));
   }
 
+  const canSubmit = teamA.size === 5 && teamB.size === 5;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit({
@@ -106,33 +99,42 @@ function MatchForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* ── Player assignment ── */}
-      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {attendees.map((p) => (
-          <li key={p.id} className="flex items-center gap-3 px-1 py-2.5">
-            <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">
-              {p.displayName}
-            </span>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={() => assignPlayer(p.id, "A")}
-                disabled={isPending}
-                className={`${teamBtnBase} ${teamA.has(p.id) ? teamASelected : teamUnselected}`}
-              >
-                א׳
-              </button>
-              <button
-                type="button"
-                onClick={() => assignPlayer(p.id, "B")}
-                disabled={isPending}
-                className={`${teamBtnBase} ${teamB.has(p.id) ? teamBSelected : teamUnselected}`}
-              >
-                ב׳
-              </button>
+      <div className="grid grid-cols-2 gap-3">
+        {(["A", "B"] as const).map((team) => {
+          const teamSet = team === "A" ? teamA : teamB;
+          return (
+            <div key={team} className="flex flex-col gap-1.5">
+              <h4 className="text-center text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                {team === "A" ? "קבוצה א׳" : "קבוצה ב׳"}{" "}
+                <span className={teamSet.size === 5 ? "text-green-600 dark:text-green-400" : ""}>
+                  ({teamSet.size}/5)
+                </span>
+              </h4>
+              {attendees.map((p) => {
+                const isSelected = teamSet.has(p.id);
+                const isTeamFull = teamSet.size >= 5 && !isSelected;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => assignPlayer(p.id, team)}
+                    disabled={isPending || isTeamFull}
+                    className={`w-full rounded-lg px-2 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      isSelected
+                        ? team === "A"
+                          ? "bg-blue-600 text-white dark:bg-blue-500"
+                          : "bg-orange-500 text-white dark:bg-orange-400"
+                        : "border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    {p.displayName}
+                  </button>
+                );
+              })}
             </div>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
 
       {/* ── Score steppers ── */}
       <div className="flex flex-col gap-3 rounded-xl border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
@@ -186,7 +188,8 @@ function MatchForm({
         </button>
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || !canSubmit}
+          title={!canSubmit ? "יש לבחור 5 שחקנים לכל קבוצה" : undefined}
           className="flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600 sm:w-auto sm:px-6"
         >
           {isPending ? "שומר..." : "שמור"}
@@ -226,7 +229,7 @@ function ScoreDisplay({
       >
         {scoreA}
       </span>
-      <span className="mx-0.5 text-zinc-400">:</span>
+      <span className="mx-0.5 text-zinc-400">–</span>
       <span
         className={
           bWins
@@ -411,44 +414,25 @@ export function SessionMatchPanel({
                   />
                 </div>
               ) : (
-                <div className="flex items-start gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-800/50">
-                  {/* Match number */}
-                  <span className="mt-0.5 shrink-0 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                <div
+                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                  onClick={() => !isPending && openEdit(match.id)}
+                >
+                  <span className="shrink-0 text-xs font-medium text-zinc-400 dark:text-zinc-500">
                     #{index + 1}
                   </span>
-
-                  {/* Teams + score */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="min-w-0 truncate text-sm text-zinc-700 dark:text-zinc-300">
-                        {nameList(match.teamAPlayerIds, attendees)}
-                      </span>
-                      <ScoreDisplay scoreA={match.scoreA} scoreB={match.scoreB} />
-                      <span className="min-w-0 truncate text-sm text-zinc-700 dark:text-zinc-300">
-                        {nameList(match.teamBPlayerIds, attendees)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => openEdit(match.id)}
-                      disabled={isPending}
-                      title="ערוך משחק"
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(match.id)}
-                      disabled={isPending}
-                      title="מחק משחק"
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <span className="min-w-0 flex-1 truncate text-sm text-zinc-700 dark:text-zinc-300">
+                    {nameList(match.teamAPlayerIds, attendees)} · {nameList(match.teamBPlayerIds, attendees)}
+                  </span>
+                  <ScoreDisplay scoreA={match.scoreA} scoreB={match.scoreB} />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(match.id); }}
+                    disabled={isPending}
+                    title="מחק משחק"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
             </div>
