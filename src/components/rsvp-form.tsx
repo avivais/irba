@@ -21,18 +21,16 @@ const inputInvalid =
 export function RsvpForm({
   defaultName = "",
   defaultPhone = "",
-  lockedPlayer,
 }: {
   defaultName?: string;
   defaultPhone?: string;
-  lockedPlayer?: { name: string; phone: string };
 } = {}) {
   const [state, formAction, pending] = useActionState(
     attendAction,
     initialState,
   );
-  const [name, setName] = useState(lockedPlayer?.name ?? defaultName);
-  const [phone, setPhone] = useState(lockedPlayer?.phone ?? defaultPhone);
+  const [name, setName] = useState(defaultName);
+  const [phone, setPhone] = useState(defaultPhone);
   /** Show field-level errors after blur, or after a blocked submit (e.g. Enter while invalid). */
   const [nameBlurred, setNameBlurred] = useState(Boolean(defaultName));
   const [phoneBlurred, setPhoneBlurred] = useState(Boolean(defaultPhone));
@@ -92,75 +90,60 @@ export function RsvpForm({
       className="mx-auto flex w-full max-w-md flex-col gap-4"
       noValidate
     >
-      {lockedPlayer ? (
-        <>
-          <input type="hidden" name="name" value={lockedPlayer.name} />
-          <input type="hidden" name="phone" value={lockedPlayer.phone} />
-          <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
-            נרשם כ:{" "}
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              {lockedPlayer.name}
-            </span>
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="name"
+          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
+          שם מלא
+        </label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          autoComplete="name"
+          maxLength={80}
+          value={name}
+          onChange={(e) => onFieldChange(setName, e.target.value)}
+          onBlur={() => setNameBlurred(true)}
+          aria-invalid={nameErrorVisible}
+          aria-describedby={nameErrorVisible ? "name-error" : undefined}
+          className={`rounded-lg border bg-white px-3 py-3 text-base text-zinc-900 shadow-sm focus:outline-none focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100 ${nameErrorVisible ? inputInvalid : inputNormal}`}
+          placeholder="השם שלך"
+        />
+        {nameErrorVisible ? (
+          <p id="name-error" className="text-xs text-red-600 dark:text-red-400">
+            {nameError}
           </p>
-        </>
-      ) : (
-        <>
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="name"
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              שם מלא
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              autoComplete="name"
-              maxLength={80}
-              value={name}
-              onChange={(e) => onFieldChange(setName, e.target.value)}
-              onBlur={() => setNameBlurred(true)}
-              aria-invalid={nameErrorVisible}
-              aria-describedby={nameErrorVisible ? "name-error" : undefined}
-              className={`rounded-lg border bg-white px-3 py-3 text-base text-zinc-900 shadow-sm focus:outline-none focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100 ${nameErrorVisible ? inputInvalid : inputNormal}`}
-              placeholder="השם שלך"
-            />
-            {nameErrorVisible ? (
-              <p id="name-error" className="text-xs text-red-600 dark:text-red-400">
-                {nameError}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="phone"
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              טלפון נייד
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              value={phone}
-              onChange={(e) => onFieldChange(setPhone, e.target.value)}
-              onBlur={() => setPhoneBlurred(true)}
-              aria-invalid={phoneErrorVisible}
-              aria-describedby={phoneErrorVisible ? "phone-error" : undefined}
-              className={`rounded-lg border bg-white px-3 py-3 text-base text-zinc-900 shadow-sm focus:outline-none focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100 ${phoneErrorVisible ? inputInvalid : inputNormal}`}
-              placeholder="05xxxxxxxx"
-            />
-            {phoneErrorVisible ? (
-              <p id="phone-error" className="text-xs text-red-600 dark:text-red-400">
-                {phoneError}
-              </p>
-            ) : null}
-          </div>
-        </>
-      )}
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="phone"
+          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
+          טלפון נייד
+        </label>
+        <input
+          id="phone"
+          name="phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          value={phone}
+          onChange={(e) => onFieldChange(setPhone, e.target.value)}
+          onBlur={() => setPhoneBlurred(true)}
+          aria-invalid={phoneErrorVisible}
+          aria-describedby={phoneErrorVisible ? "phone-error" : undefined}
+          className={`rounded-lg border bg-white px-3 py-3 text-base text-zinc-900 shadow-sm focus:outline-none focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100 ${phoneErrorVisible ? inputInvalid : inputNormal}`}
+          placeholder="05xxxxxxxx"
+        />
+        {phoneErrorVisible ? (
+          <p id="phone-error" className="text-xs text-red-600 dark:text-red-400">
+            {phoneError}
+          </p>
+        ) : null}
+      </div>
 
       {serverError && (
         <p

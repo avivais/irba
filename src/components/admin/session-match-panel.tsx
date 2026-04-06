@@ -204,46 +204,6 @@ function nameList(ids: string[], attendees: AttendeeOption[]): string {
   return ids.map((id) => map.get(id) ?? "?").join(", ");
 }
 
-function ScoreDisplay({
-  scoreA,
-  scoreB,
-}: {
-  scoreA: number;
-  scoreB: number;
-}) {
-  const aWins = scoreA > scoreB;
-  const bWins = scoreB > scoreA;
-  return (
-    <span
-      className="shrink-0 font-mono text-base tabular-nums"
-      dir="ltr"
-    >
-      <span
-        className={
-          aWins
-            ? "font-bold text-green-600 dark:text-green-400"
-            : bWins
-              ? "text-zinc-400"
-              : "text-zinc-700 dark:text-zinc-300"
-        }
-      >
-        {scoreA}
-      </span>
-      <span className="mx-0.5 text-zinc-400">–</span>
-      <span
-        className={
-          bWins
-            ? "font-bold text-green-600 dark:text-green-400"
-            : aWins
-              ? "text-zinc-400"
-              : "text-zinc-700 dark:text-zinc-300"
-        }
-      >
-        {scoreB}
-      </span>
-    </span>
-  );
-}
 
 function computeNextMatchDefaults(
   matches: MatchRow[],
@@ -413,28 +373,49 @@ export function SessionMatchPanel({
                     isPending={isPending}
                   />
                 </div>
-              ) : (
-                <div
-                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
-                  onClick={() => !isPending && openEdit(match.id)}
-                >
-                  <span className="shrink-0 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                    #{index + 1}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-zinc-700 dark:text-zinc-300">
-                    {nameList(match.teamAPlayerIds, attendees)} · {nameList(match.teamBPlayerIds, attendees)}
-                  </span>
-                  <ScoreDisplay scoreA={match.scoreA} scoreB={match.scoreB} />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(match.id); }}
-                    disabled={isPending}
-                    title="מחק משחק"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+              ) : (() => {
+                const aWins = match.scoreA > match.scoreB;
+                const winnerIds = aWins ? match.teamAPlayerIds : match.teamBPlayerIds;
+                const loserIds = aWins ? match.teamBPlayerIds : match.teamAPlayerIds;
+                const winnerScore = aWins ? match.scoreA : match.scoreB;
+                const loserScore = aWins ? match.scoreB : match.scoreA;
+                return (
+                  <div
+                    className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                    onClick={() => !isPending && openEdit(match.id)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
+                    <span className="shrink-0 self-start pt-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                      #{index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 py-0.5">
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                          {nameList(winnerIds, attendees)}
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-green-600 tabular-nums dark:text-green-400">
+                          {winnerScore}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 py-0.5">
+                        <span className="min-w-0 flex-1 truncate text-sm text-zinc-500 dark:text-zinc-400">
+                          {nameList(loserIds, attendees)}
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-zinc-400 tabular-nums dark:text-zinc-500">
+                          {loserScore}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(match.id); }}
+                      disabled={isPending}
+                      title="מחק משחק"
+                      className="flex h-9 w-9 shrink-0 self-center items-center justify-center rounded-lg text-zinc-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

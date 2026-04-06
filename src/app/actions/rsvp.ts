@@ -12,6 +12,7 @@ import {
   getClientIpFromHeaders,
 } from "@/lib/rate-limit";
 import { getSessionPlayerId, setRsvpSessionCookie } from "@/lib/rsvp-session";
+import { getPlayerSessionPlayerId } from "@/lib/player-session";
 import { getAllConfigs } from "@/lib/config";
 import { notifyPlayerRegistered, notifyPlayerCancelled } from "@/lib/wa-notify";
 import { getPlayerDisplayName } from "@/lib/player-display";
@@ -148,6 +149,87 @@ export async function attendAction(
     entityType: "Attendance",
     entityId: playerId,
     after: { phone, name, sessionId: game.id, status },
+  });
+
+  revalidatePath("/");
+  return { ok: true, message: "נרשמת בהצלחה" };
+}
+
+/**
+ * RSVP for an already-authenticated player. Uses their player session
+ * directly — no name/phone form fields needed.
+ */
+export async function rsvpAuthenticatedAction(
+  _prev: RsvpActionState,
+  _formData: FormData,
+): Promise<RsvpActionState> {
+  const headerList = await headers();
+  const clientIp = getClientIpFromHeaders((name) => headerList.get(name));
+  if (!consumeRsvpRateLimit("attend", clientIp)) {
+    return { ok: false, message: RATE_LIMIT_MESSAGE };
+  }
+
+  const playerId = await getPlayerSessionPlayerId();
+  if (!playerId) return { ok: false, message: "לא מחובר" };
+
+  const game = await getNextGame();
+  if (!game) return { ok: false, message: "אין מפגש מתוזמן" };
+  if (game.isClosed || Date.now() >= game.date.getTime()) {
+    return { ok: false, message: "ההרשמה למפגש סגורה" };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const gameRow = await tx.gameSession.findUnique({ where: { id: game.id } });
+      if (!gameRow || gameRow.isClosed || Date.now() >= gameRow.date.getTime()) {
+        throw new Error("GAME_CLOSED");
+      }
+      const dup = await tx.attendance.findUnique({
+        where: { playerId_gameSessionId: { playerId, gameSessionId: game.id } },
+      });
+      if (dup) throw new Error("ALREADY_REGISTERED");
+      await tx.attendance.create({ data: { playerId, gameSessionId: game.id } });
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === "GAME_CLOSED") {
+      return { ok: false, message: "ההרשמה למפגש סגורה" };
+    }
+    if (e instanceof Error && e.message === "ALREADY_REGISTERED") {
+      return { ok: false, message: "כבר נרשמת למפגש הזה" };
+    }
+    console.error("rsvpAuthenticatedAction failed");
+    return { ok: false, message: GENERIC_ERROR };
+  }
+
+  await setRsvpSessionCookie(playerId);
+
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true },
+  });
+  const name = player ? getPlayerDisplayName(player) : "שחקן";
+
+  const [configs, attendanceCount] = await Promise.all([
+    getAllConfigs(),
+    prisma.attendance.count({ where: { gameSessionId: game.id } }),
+  ]);
+  const isConfirmed = attendanceCount <= game.maxPlayers;
+  const status = isConfirmed ? "מאושר" : "רשימת המתנה";
+  const dateStr = game.date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  void notifyPlayerRegistered(dateStr, name, status, configs);
+
+  writeAuditLog({
+    actor: player?.phone ?? playerId,
+    actorIp: clientIp,
+    action: "RSVP_ATTEND",
+    entityType: "Attendance",
+    entityId: playerId,
+    after: { name, sessionId: game.id, status },
   });
 
   revalidatePath("/");

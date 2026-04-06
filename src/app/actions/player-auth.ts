@@ -25,15 +25,13 @@ const isDev = () => process.env.NODE_ENV === "development";
 export type PlayerAuthState = {
   ok: boolean;
   message?: string;
-  step?: "otp_sent" | "set_profile" | "logged_in";
+  step?: "otp_sent" | "set_profile" | "set_name" | "logged_in";
   /** Dev mode only — raw OTP for testing when WA is not enabled. */
   devOtp?: string;
 };
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב.";
 const RATE_LIMIT_MESSAGE = "יותר מדי ניסיונות. נסה שוב בעוד כמה דקות.";
-const PLAYER_NOT_FOUND =
-  "מספר הטלפון לא קיים במערכת. פנה למנהל להוספה.";
 
 const phoneSchema = z.string().min(1, "נא להזין מספר טלפון");
 const otpSchema = z
@@ -118,13 +116,13 @@ export async function requestOtpAction(
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
-  const player = await prisma.player.findUnique({
+  // Find existing player or auto-provision a DROP_IN for unknown phones
+  const player = await prisma.player.upsert({
     where: { phone },
+    create: { phone, playerKind: "DROP_IN" },
+    update: {},
     select: { id: true, phone: true },
   });
-  if (!player) {
-    return { ok: false, message: PLAYER_NOT_FOUND };
-  }
 
   let rawOtp: string;
   try {
@@ -191,6 +189,8 @@ export async function verifyOtpAction(
       passwordHash: true,
       otpCode: true,
       otpExpiresAt: true,
+      playerKind: true,
+      firstNameHe: true,
     },
   });
 
@@ -241,12 +241,17 @@ export async function verifyOtpAction(
     after: { method: "otp" },
   });
 
-  // First login: no password set yet → prompt to complete profile
   if (!player.passwordHash) {
+    // New DROP_IN with no name → ask for name first (simplified onboarding)
+    if (player.playerKind === "DROP_IN" && !player.firstNameHe) {
+      return { ok: true, step: "set_name" };
+    }
+    // Other first-time players → full profile setup
     return { ok: true, step: "set_profile" };
   }
 
-  redirect("/profile");
+  const redirectTo = (formData.get("redirectTo") as string) || "/profile";
+  redirect(redirectTo);
 }
 
 // ── Password flow ─────────────────────────────────────────────────────────────
@@ -584,6 +589,36 @@ export async function changePasswordAction(
   });
 
   return { ok: true, message: isFirstTime ? "הסיסמה הוגדרה בהצלחה" : "הסיסמה עודכנה בהצלחה" };
+}
+
+// ── Drop-in name setup ────────────────────────────────────────────────────────
+
+/**
+ * After OTP verification for a new DROP_IN player: optionally set a display
+ * name and redirect to the homepage to complete RSVP.
+ */
+export async function setNameAction(
+  _prev: PlayerAuthState,
+  formData: FormData,
+): Promise<PlayerAuthState> {
+  const playerId = await getPlayerSessionPlayerId();
+  if (!playerId) return { ok: false, message: "לא מחובר. נא להתחבר שוב." };
+
+  const name = ((formData.get("name") as string | null) ?? "").trim();
+  if (name) {
+    await prisma.player.update({
+      where: { id: playerId },
+      data: { firstNameHe: name },
+    });
+    writeAuditLog({
+      actor: playerId,
+      action: "PLAYER_NAME_SET",
+      entityType: "Player",
+      entityId: playerId,
+    });
+  }
+
+  redirect("/");
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────

@@ -43,7 +43,12 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 
 ### RSVP flow (public)
 
-- Home page (`/`): **dynamic** server render — next open game, Hebrew copy, **”אני מגיע”** form (name + phone). Shows **location card** with name + Waze + Google Maps buttons + OpenStreetMap iframe minimap when lat/lng are set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`. **RSVP form guards**: (1) logged-in registered users see only the cancel option, not the registration form; (2) logged-in unregistered users see the form with name/phone locked (static display + hidden inputs) — identity is known from their player session; (3) anonymous users see the full editable form.
+- Home page (`/`): **dynamic** server render — next open game, Hebrew copy. Shows **location card** with name + Waze + Google Maps buttons + OpenStreetMap iframe minimap when lat/lng are set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
+- **RSVP flow**:
+  - **Logged-in + already registered**: only cancel option shown (no form). Fixed: `userAttendance` now checks both the RSVP session cookie AND the player session cookie, so players who registered via admin (no RSVP cookie) are correctly detected.
+  - **Logged-in + not yet registered**: shows player's name as a header + single “אני מגיע” button (`AuthenticatedRsvpForm` component, calls `rsvpAuthenticatedAction` — no name/phone inputs, uses player session directly).
+  - **Not logged in**: shows `PlayerLoginForm` (which now auto-provisions unknown phones as DROP_IN players). After OTP verification for a new unnamed DROP_IN, shows a “set_name” step (enter name or skip). After login/name-step, page reloads showing the authenticated RSVP form above.
+- **Drop-in self-registration**: `requestOtpAction` now uses `upsert` — unknown phones auto-create a DROP_IN player before issuing OTP (no more “לא קיים במערכת” error). `verifyOtpAction` redirects to `redirectTo` param (homepage passes `”/”`) so login stays on the homepage. `setNameAction` saves optional name and redirects to `/`.
 - **Theme**: `ThemeProvider` in `layout.tsx`; `ThemeToggle` (popup button) still exists but is no longer in the nav. Theme is changed via `ThemeSelector` (`src/components/theme-selector.tsx`) — an inline 3-button row (כהה / מערכת / בהיר) in the profile page "מראה" section.
 - **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
 - **RSVP window**: registration open until `session.date` (not the close window). `isRsvpOpen = !isClosed && now < session.date`. Close window (`rsvp_close_hours`) only affects cancellation for confirmed players.

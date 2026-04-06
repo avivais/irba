@@ -1,6 +1,6 @@
 import { CalendarDays, MapPin, Users } from "lucide-react";
 import { CancelRsvpForm } from "@/components/cancel-rsvp-form";
-import { RsvpForm } from "@/components/rsvp-form";
+import { AuthenticatedRsvpForm } from "@/components/authenticated-rsvp-form";
 import { PlayerLoginForm } from "@/components/player-login-form";
 import { PlayerNav } from "@/components/player-nav";
 import { formatGameDate } from "@/lib/format-date";
@@ -66,9 +66,9 @@ export default async function HomePage() {
   const confirmed = attendances.slice(0, max);
   const waiting = attendances.slice(max);
 
-  const userAttendance = sessionPlayerId
-    ? attendances.find((a) => a.playerId === sessionPlayerId)
-    : null;
+  const userAttendance =
+    (sessionPlayerId ? attendances.find((a) => a.playerId === sessionPlayerId) : null) ??
+    (authenticatedPlayerId ? attendances.find((a) => a.playerId === authenticatedPlayerId) : null);
   const userIsAttending = !!userAttendance;
 
   // Waitlisted players can always cancel; confirmed players cannot cancel within the close window
@@ -172,20 +172,14 @@ export default async function HomePage() {
         {!authenticatedPlayer && (
           <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
             <h2 className="sr-only">כניסה לחשבון</h2>
-            <PlayerLoginForm />
+            <PlayerLoginForm redirectTo="/" />
           </section>
         )}
 
-        {game && isRsvpOpen && !userIsAttending && (
+        {game && isRsvpOpen && !userIsAttending && authenticatedPlayer && (
           <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
             <h2 className="sr-only">הרשמה</h2>
-            <RsvpForm
-              lockedPlayer={
-                authenticatedPlayer
-                  ? { name: authDisplayName, phone: authenticatedPlayer.phone }
-                  : undefined
-              }
-            />
+            <AuthenticatedRsvpForm playerName={authDisplayName} />
           </section>
         )}
 

@@ -54,7 +54,9 @@ export type AuditAction =
   | "CASCADE_RECALC"
   | "CREATE_MATCH"
   | "UPDATE_MATCH"
-  | "DELETE_MATCH";
+  | "DELETE_MATCH"
+  | "PLAYER_CREATED_SELF"
+  | "PLAYER_NAME_SET";
 
 export type AuditParams = {
   actor: string;

@@ -9,6 +9,7 @@ import {
   completeProfileAction,
   requestPasswordResetAction,
   confirmPasswordResetAction,
+  setNameAction,
   type PlayerAuthState,
 } from "@/app/actions/player-auth";
 
@@ -16,6 +17,7 @@ type Mode =
   | "phone_entry"
   | "otp_sent"
   | "set_profile"
+  | "set_name"
   | "reset_phone"
   | "reset_otp"
   | "reset_pw";
@@ -93,7 +95,7 @@ function SpinnerLabel({
   );
 }
 
-export function PlayerLoginForm() {
+export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
   const [mode, setMode] = useState<Mode>("phone_entry");
   const [phone, setPhone] = useState("");
   const [usePassword, setUsePassword] = useState(false);
@@ -117,9 +119,8 @@ export function PlayerLoginForm() {
   const [otpVerifyState, otpVerifyAction, otpVerifyPending] = useActionState(
     async (prev: PlayerAuthState, fd: FormData) => {
       const result = await verifyOtpAction(prev, fd);
-      if (result.ok && result.step === "set_profile") {
-        setMode("set_profile");
-      }
+      if (result.ok && result.step === "set_profile") setMode("set_profile");
+      if (result.ok && result.step === "set_name") setMode("set_name");
       return result;
     },
     initialState,
@@ -319,6 +320,7 @@ export function PlayerLoginForm() {
           />
         </div>
         <input type="hidden" name="rememberMe" value={rememberMe ? "on" : ""} />
+        {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
         {errorMsg && <ErrorBanner message={errorMsg} />}
         <button
           type="submit"
@@ -416,6 +418,54 @@ export function PlayerLoginForm() {
             label="שמור והמשך"
             loadingLabel="שומר…"
           />
+        </button>
+      </form>
+    );
+  }
+
+  if (mode === "set_name") {
+    const [nameState, nameAction, namePending] = useActionState(
+      setNameAction,
+      initialState,
+    );
+    const nameError =
+      !namePending && !nameState.ok && nameState.message
+        ? nameState.message
+        : null;
+
+    return (
+      <form action={nameAction} className={`${card} gap-4`} noValidate>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          ברוך הבא! איך לקרוא לך? (אופציונלי)
+        </p>
+        <div className="flex flex-col gap-1">
+          <FieldLabel htmlFor="player-name">שם</FieldLabel>
+          <input
+            id="player-name"
+            name="name"
+            type="text"
+            autoComplete="given-name"
+            maxLength={80}
+            placeholder="השם שלך"
+            className={`${inputBase} ${inputNormal}`}
+          />
+        </div>
+        {nameError && <ErrorBanner message={nameError} />}
+        <button type="submit" disabled={namePending} className={btnPrimary}>
+          <SpinnerLabel
+            pending={namePending}
+            label="שמור והמשך"
+            loadingLabel="שומר…"
+          />
+        </button>
+        <button
+          type="submit"
+          name="name"
+          value=""
+          disabled={namePending}
+          className={btnSecondary}
+        >
+          דלג — הירשם ללא שם
         </button>
       </form>
     );
