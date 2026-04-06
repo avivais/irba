@@ -67,6 +67,7 @@ export async function sortAttendancesByPrecedence(
   const scoreById = new Map(scored.map((r) => [r.playerId, r.totalScore]));
 
   const sortedRegistered = [...registered].sort((a, b) => {
+    if (a.player.isAdmin !== b.player.isAdmin) return a.player.isAdmin ? -1 : 1;
     const scoreA = scoreById.get(a.player.id) ?? 0;
     const scoreB = scoreById.get(b.player.id) ?? 0;
     return scoreB - scoreA;
