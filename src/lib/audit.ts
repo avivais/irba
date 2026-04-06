@@ -56,7 +56,8 @@ export type AuditAction =
   | "UPDATE_MATCH"
   | "DELETE_MATCH"
   | "PLAYER_CREATED_SELF"
-  | "PLAYER_NAME_SET";
+  | "PLAYER_NAME_SET"
+  | "PLAYER_ACCEPTED_REGULATIONS";
 
 export type AuditParams = {
   actor: string;

@@ -349,7 +349,123 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} ${errors[CONFIG.MATCH_WIN_SCORE] ? inputError : inputNormal}`}
             />
           </Field>
+
+          <Field label="משך משחק" hint="דקות לסיום משחק" htmlFor={CONFIG.MATCH_DURATION_MIN} error={errors[CONFIG.MATCH_DURATION_MIN]}>
+            <input
+              id={CONFIG.MATCH_DURATION_MIN}
+              type="number"
+              name={CONFIG.MATCH_DURATION_MIN}
+              defaultValue={values[CONFIG.MATCH_DURATION_MIN]}
+              min={1}
+              max={60}
+              className={`${inputBase} ${errors[CONFIG.MATCH_DURATION_MIN] ? inputError : inputNormal}`}
+            />
+          </Field>
         </div>
+      </section>
+
+      {/* ── Precedence fines ────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>קנסות עדיפות</SectionTitle>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="אי-הגעה לאחר הרשמה" hint="נקודות" htmlFor={CONFIG.FINE_NO_SHOW} error={errors[CONFIG.FINE_NO_SHOW]}>
+            <input
+              id={CONFIG.FINE_NO_SHOW}
+              type="number"
+              name={CONFIG.FINE_NO_SHOW}
+              defaultValue={values[CONFIG.FINE_NO_SHOW]}
+              min={0}
+              max={100}
+              className={`${inputBase} ${errors[CONFIG.FINE_NO_SHOW] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field label="בעיטה בכדור" hint="נקודות" htmlFor={CONFIG.FINE_KICK_BALL} error={errors[CONFIG.FINE_KICK_BALL]}>
+            <input
+              id={CONFIG.FINE_KICK_BALL}
+              type="number"
+              name={CONFIG.FINE_KICK_BALL}
+              defaultValue={values[CONFIG.FINE_KICK_BALL]}
+              min={0}
+              max={100}
+              className={`${inputBase} ${errors[CONFIG.FINE_KICK_BALL] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field label="עזיבה מוקדמת ללא הודעה" hint="נקודות" htmlFor={CONFIG.FINE_EARLY_LEAVE} error={errors[CONFIG.FINE_EARLY_LEAVE]}>
+            <input
+              id={CONFIG.FINE_EARLY_LEAVE}
+              type="number"
+              name={CONFIG.FINE_EARLY_LEAVE}
+              defaultValue={values[CONFIG.FINE_EARLY_LEAVE]}
+              min={0}
+              max={100}
+              className={`${inputBase} ${errors[CONFIG.FINE_EARLY_LEAVE] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+      </section>
+
+      {/* ── Regulations ─────────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>תקנון</SectionTitle>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="גרסת תקנון"
+            hint="הגדל ב-1 כדי לאלץ אישור מחדש מכל השחקנים"
+            htmlFor={CONFIG.REGULATIONS_VERSION}
+            error={errors[CONFIG.REGULATIONS_VERSION]}
+          >
+            <input
+              id={CONFIG.REGULATIONS_VERSION}
+              type="number"
+              name={CONFIG.REGULATIONS_VERSION}
+              defaultValue={values[CONFIG.REGULATIONS_VERSION]}
+              min={1}
+              className={`${inputBase} ${errors[CONFIG.REGULATIONS_VERSION] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+
+        <Field
+          label="טקסט התקנון"
+          htmlFor={CONFIG.REGULATIONS_TEXT}
+          error={errors[CONFIG.REGULATIONS_TEXT]}
+        >
+          <textarea
+            id={CONFIG.REGULATIONS_TEXT}
+            name={CONFIG.REGULATIONS_TEXT}
+            defaultValue={values[CONFIG.REGULATIONS_TEXT]}
+            rows={20}
+            maxLength={10000}
+            className={`${inputBase} resize-y font-mono text-sm ${errors[CONFIG.REGULATIONS_TEXT] ? inputError : inputNormal}`}
+          />
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+            תחביר: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">## כותרת</code> לכותרת סעיף,{" "}
+            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">**טקסט**</code> להדגשה,{" "}
+            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{"{משתנה}"}</code> לערך מקונפיגורציה.
+            <br />
+            משתנים זמינים:{" "}
+            {[
+              "match_win_score",
+              "match_duration_min",
+              "debt_threshold",
+              "rsvp_close_hours",
+              "session_schedule_day_name",
+              "session_schedule_time",
+              "fine_no_show",
+              "fine_kick_ball",
+              "fine_early_leave",
+            ].map((v, i, arr) => (
+              <span key={v}>
+                <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{`{${v}}`}</code>
+                {i < arr.length - 1 ? ", " : ""}
+              </span>
+            ))}
+          </p>
+        </Field>
       </section>
 
       {/* ── Hourly rates (outside the form submit — links + delete) ── */}

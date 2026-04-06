@@ -58,6 +58,9 @@ model Player {
   otpExpiresAt  DateTime?
   emailVerified Boolean   @default(false)
 
+  regulationsAcceptedAt      DateTime?
+  regulationsAcceptedVersion Int?
+
   attendances    Attendance[]
   yearAggregates PlayerYearAggregate[]
   adjustments    PlayerAdjustment[]

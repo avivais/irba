@@ -28,6 +28,14 @@ export const CONFIG = {
   DEFAULT_PLAYER_RANK:          "default_player_rank",          // used when rank is null
   // Matches
   MATCH_WIN_SCORE:              "match_win_score",              // points to win a match
+  MATCH_DURATION_MIN:           "match_duration_min",           // per-match time limit (minutes)
+  // Regulations
+  REGULATIONS_VERSION:          "regulations_version",          // bump to force all players to re-accept
+  REGULATIONS_TEXT:             "regulations_text",             // admin-editable template with {vars} and ## / ** formatting
+  // Precedence fines
+  FINE_NO_SHOW:                 "fine_no_show",                 // precedence points deducted for no-show after RSVP
+  FINE_KICK_BALL:               "fine_kick_ball",               // precedence points deducted for kicking the ball
+  FINE_EARLY_LEAVE:             "fine_early_leave",             // precedence points deducted for leaving early
   // WhatsApp notifications
   WA_GROUP_JID:                          "wa_group_jid",                          // group JID for broadcasts, e.g. "XXXXXXXXXX@g.us"
   WA_NOTIFY_SESSION_OPEN_ENABLED:        "wa_notify_session_open_enabled",        // "true" | "false"
@@ -65,6 +73,46 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   alert_critical_template:      "🚨 מפגש ב-{date}: רק {confirmed} מתוך {min_players} נרשמו (שעתיים לפני)",
   default_player_rank:          "50",
   match_win_score:              "12",
+  match_duration_min:           "7",
+  regulations_version:          "1",
+  regulations_text:             `## ידידות
+אנחנו חברים — לא פרופסיונלים. המשחק נועד ליהנות ולהתחבר, לא להתחרות.
+
+## הוגנות וספורטיביות
+משחק נקי והוגן. כבד את השחקנים האחרים. ניצחון בכבוד, הפסד בכבוד.
+
+## כיף
+המטרה הסופית היא לצאת עם חיוך. אל תיקחו את זה יותר מדי ברצינות.
+
+## כללי המשחק
+משחק נגמר ב-**{match_win_score} נקודות** או ב-**{match_duration_min} דקות** — הראשון מביניהם.
+
+## סמכות מנהל המפגש
+החלטות המנהל סופיות ואינן ניתנות לערעור. **אין ויכוחים עם המנהל.** במקרה של ספק שלא ניתן להכריע — יורים על זה.
+
+## לוח זמנים ברירת מחדל
+מפגשים מתקיימים ביום **{session_schedule_day_name}** בשעה **{session_schedule_time}**. ההרשמה נסגרת **{rsvp_close_hours} שעות** לפני תחילת המפגש. עדיפות ניתנת לשחקנים קבועים על פני מזדמנים. שינויים יפורסמו בקבוצת הוואטסאפ.
+
+## כספים
+עלות כל מפגש מחושבת לפי עלות המגרש חלקי מספר המשתתפים. תשלום מצופה לפני תחילת כל מפגש שנרשמת אליו. שחקן שחובו עולה על **₪{debt_threshold}** ייכנס כ"מזדמן" (בתעריף גבוה יותר) עד לסילוק החוב.
+
+## הרשמה והגעה
+הרשמה למפגש מחייבת הגעה. ביטול לאחר סגירת ההרשמה אפשרי רק בתיאום עם המנהל.
+
+## קנסות עדיפות
+הפרת כללי ההתנהגות גוררת קנסות בנקודות עדיפות:
+**אי-הגעה לאחר הרשמה** — {fine_no_show}– נקודות
+**בעיטה בכדור** — {fine_kick_ball}– נקודות
+**עזיבה מוקדמת ללא הודעה** — {fine_early_leave}– נקודות
+
+## אפס סובלנות לאלימות
+**אין כל סובלנות לאלימות פיזית או מילולית**, גזענות, או התנהגות פוגענית. הפרה תגרור הרחקה מיידית מהקבוצה.
+
+## הסכמה לקבלת הודעות וואטסאפ
+בהצטרפות לקבוצה ובאישור תקנון זה, אתה מסכים לקבל הודעות וואטסאפ מ-IRBA בנושאי מפגשים, שינויים ועדכוני ארגון. לא ישלחו הודעות שיווקיות.`,
+  fine_no_show:                 "3",
+  fine_kick_ball:               "2",
+  fine_early_leave:             "1",
   wa_group_jid:                          "",
   wa_notify_session_open_enabled:        "true",
   wa_notify_session_open_template:       "ההרשמה למפגש ב{date} פתוחה! כנסו ל-irba.sportgroup.cl להירשם",

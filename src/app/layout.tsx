@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { RegulationsOverlay } from "@/components/regulations-overlay";
+import { getPlayerSessionPlayerId } from "@/lib/player-session";
+import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
+import { prisma } from "@/lib/prisma";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -20,11 +24,37 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const playerId = await getPlayerSessionPlayerId();
+
+  let needsRegulations = false;
+  let regulationsText = "";
+  let allConfigs: Record<string, string> = {};
+
+  if (playerId) {
+    const [player, version, configs] = await Promise.all([
+      prisma.player.findUnique({
+        where: { id: playerId },
+        select: { regulationsAcceptedVersion: true },
+      }),
+      getConfigInt(CONFIG.REGULATIONS_VERSION),
+      getAllConfigs(),
+    ]);
+
+    needsRegulations =
+      !player?.regulationsAcceptedVersion ||
+      player.regulationsAcceptedVersion < version;
+
+    if (needsRegulations) {
+      regulationsText = configs[CONFIG.REGULATIONS_TEXT];
+      allConfigs = configs;
+    }
+  }
+
   return (
     <html
       lang="he"
@@ -40,6 +70,12 @@ export default function RootLayout({
           storageKey="irba-theme"
           disableTransitionOnChange
         >
+          {needsRegulations && (
+            <RegulationsOverlay
+              templateText={regulationsText}
+              configValues={allConfigs}
+            />
+          )}
           {children}
         </ThemeProvider>
       </body>
