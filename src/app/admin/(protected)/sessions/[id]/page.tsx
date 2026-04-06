@@ -16,6 +16,7 @@ import { SessionArchiveButton } from "@/components/admin/session-archive-button"
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { SessionPromoteButton } from "@/components/admin/session-promote-button";
 import { SessionMatchPanel } from "@/components/admin/session-match-panel";
+import { TeamBalancePanel } from "@/components/admin/team-balance-panel";
 
 export const metadata: Metadata = { title: "עריכת מפגש" };
 export const dynamic = "force-dynamic";
@@ -77,6 +78,12 @@ export default async function AdminSessionPage({ params }: Props) {
   const confirmedAttendees = confirmed.map((a) => ({
     id: a.playerId,
     displayName: a.player.nickname ?? a.player.firstNameHe ?? a.player.firstNameEn ?? getPlayerDisplayName(a.player),
+  }));
+  const attendeesWithRank = confirmed.map((a) => ({
+    id: a.playerId,
+    displayName: a.player.nickname ?? a.player.firstNameHe ?? a.player.firstNameEn ?? getPlayerDisplayName(a.player),
+    rank: a.player.rank,
+    positions: a.player.positions as string[],
   }));
   const waitlistRaw = session.attendances.slice(session.maxPlayers);
   const attendingIds = new Set(session.attendances.map((a) => a.playerId));
@@ -142,6 +149,7 @@ export default async function AdminSessionPage({ params }: Props) {
   };
 
   const minPlayers = parseInt(config[CONFIG.SESSION_MIN_PLAYERS] ?? "10", 10);
+  const defaultRank = parseInt(config[CONFIG.DEFAULT_PLAYER_RANK] ?? "50", 10);
   const confirmedCount = confirmed.length;
 
   // Determine if we can charge this session
@@ -302,6 +310,11 @@ export default async function AdminSessionPage({ params }: Props) {
             <SessionQuickDropInForm sessionId={id} />
           </div>
         </div>
+      </section>
+
+      {/* Balanced teams */}
+      <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <TeamBalancePanel attendees={attendeesWithRank} defaultRank={defaultRank} />
       </section>
 
       {/* Match results */}
