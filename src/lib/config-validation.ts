@@ -88,6 +88,7 @@ export const configSchema = z.object({
   match_duration_min:           positiveInt("משך משחק"),
   regulations_version:          positiveInt("גרסת תקנון"),
   regulations_text:             z.string().min(1, "טקסט התקנון לא יכול להיות ריק").max(10000, "טקסט התקנון ארוך מדי (מקסימום 10,000 תווים)"),
+  fouls_until_penalty:          positiveInt("עבירות קבוצה עד עונשין"),
   fine_no_show:                 nonNegativeInt("קנס אי-הגעה"),
   fine_kick_ball:               nonNegativeInt("קנס בעיטה בכדור"),
   fine_early_leave:             nonNegativeInt("קנס עזיבה מוקדמת"),

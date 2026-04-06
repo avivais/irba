@@ -31,7 +31,8 @@ export const CONFIG = {
   MATCH_DURATION_MIN:           "match_duration_min",           // per-match time limit (minutes)
   // Regulations
   REGULATIONS_VERSION:          "regulations_version",          // bump to force all players to re-accept
-  REGULATIONS_TEXT:             "regulations_text",             // admin-editable template with {vars} and ## / ** formatting
+  REGULATIONS_TEXT:             "regulations_text",             // admin-editable template with {vars}, ##/###, **, - bullets
+  FOULS_UNTIL_PENALTY:          "fouls_until_penalty",          // team fouls before opponents shoot free throws
   // Precedence fines
   FINE_NO_SHOW:                 "fine_no_show",                 // precedence points deducted for no-show after RSVP
   FINE_KICK_BALL:               "fine_kick_ball",               // precedence points deducted for kicking the ball
@@ -87,6 +88,9 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
 ## כללי המשחק
 משחק נגמר ב-**{match_win_score} נקודות** או ב-**{match_duration_min} דקות** — הראשון מביניהם.
 
+### עבירות קבוצה
+לאחר **{fouls_until_penalty} עבירות קבוצה**, היריב מקבל זריקות עונשין.
+
 ## סמכות מנהל המפגש
 החלטות המנהל סופיות ואינן ניתנות לערעור. **אין ויכוחים עם המנהל.** במקרה של ספק שלא ניתן להכריע — יורים על זה.
 
@@ -101,15 +105,17 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
 
 ## קנסות עדיפות
 הפרת כללי ההתנהגות גוררת קנסות בנקודות עדיפות:
-**אי-הגעה לאחר הרשמה** — {fine_no_show}– נקודות
-**בעיטה בכדור** — {fine_kick_ball}– נקודות
-**עזיבה מוקדמת ללא הודעה** — {fine_early_leave}– נקודות
+
+- **אי-הגעה לאחר הרשמה** — {fine_no_show} נקודות
+- **בעיטה בכדור** — {fine_kick_ball} נקודות
+- **עזיבה מוקדמת ללא הודעה** — {fine_early_leave} נקודות
 
 ## אפס סובלנות לאלימות
 **אין כל סובלנות לאלימות פיזית או מילולית**, גזענות, או התנהגות פוגענית. הפרה תגרור הרחקה מיידית מהקבוצה.
 
 ## הסכמה לקבלת הודעות וואטסאפ
 בהצטרפות לקבוצה ובאישור תקנון זה, אתה מסכים לקבל הודעות וואטסאפ מ-IRBA בנושאי מפגשים, שינויים ועדכוני ארגון. לא ישלחו הודעות שיווקיות.`,
+  fouls_until_penalty:          "5",
   fine_no_show:                 "3",
   fine_kick_ball:               "2",
   fine_early_leave:             "1",

@@ -40,29 +40,28 @@ function RegulationsContent({ blocks }: { blocks: RenderedBlock[] }) {
             </h3>
           );
         }
-        // paragraph — may contain internal newlines (e.g. fine list)
-        const lines = block.spans
-          .map((s) => s.text)
-          .join("")
-          .split("\n");
-
-        if (lines.length > 1) {
-          // Multi-line paragraph: render each line, using spans for the whole block
-          // Re-parse each line individually for bold support
+        if (block.type === "subheading") {
           return (
-            <p key={i} className="text-sm leading-relaxed text-zinc-300">
-              {block.spans.length === 1 && block.spans[0].type === "text"
-                ? lines.map((line, li) => (
-                    <span key={li}>
-                      {line}
-                      {li < lines.length - 1 && <br />}
-                    </span>
-                  ))
-                : renderSpans(block.spans)}
-            </p>
+            <h4
+              key={i}
+              className="mt-4 text-sm font-semibold text-zinc-200"
+            >
+              {renderSpans(block.spans)}
+            </h4>
           );
         }
-
+        if (block.type === "list") {
+          return (
+            <ul key={i} className="mt-1 space-y-1 pe-4 text-sm leading-relaxed text-zinc-300">
+              {block.items.map((item, li) => (
+                <li key={li} className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500" aria-hidden />
+                  <span>{renderSpans(item)}</span>
+                </li>
+              ))}
+            </ul>
+          );
+        }
         return (
           <p key={i} className="text-sm leading-relaxed text-zinc-300">
             {renderSpans(block.spans)}

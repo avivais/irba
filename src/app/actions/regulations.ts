@@ -12,7 +12,10 @@ export async function acceptRegulationsAction(): Promise<{ ok: boolean; message?
   const playerId = await getPlayerSessionPlayerId();
   if (!playerId) return { ok: false, message: "לא מחובר" };
 
-  const version = await getConfigInt(CONFIG.REGULATIONS_VERSION);
+  const [version, player] = await Promise.all([
+    getConfigInt(CONFIG.REGULATIONS_VERSION),
+    prisma.player.findUnique({ where: { id: playerId }, select: { phone: true } }),
+  ]);
 
   await prisma.player.update({
     where: { id: playerId },
@@ -26,7 +29,7 @@ export async function acceptRegulationsAction(): Promise<{ ok: boolean; message?
   const clientIp = getClientIpFromHeaders((name) => headerList.get(name));
 
   writeAuditLog({
-    actor: playerId,
+    actor: player?.phone ?? playerId,
     actorIp: clientIp,
     action: "PLAYER_ACCEPTED_REGULATIONS",
     entityType: "Player",

@@ -291,8 +291,9 @@ Persistent action log covering every mutation in the system.
 - **Public RSVP**: `RSVP_ATTEND` (actor = player phone + IP, with session + status), `RSVP_CANCEL` (actor = player phone + IP)
 
 **Admin page** (`/admin/audit`): server-rendered, 75 entries/page.
-- **Filters** (URL params): `action` dropdown, `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
+- **Filters** (URL params): `action` dropdown (all ~55 actions with Hebrew labels), `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
 - **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=admin auth, violet=player auth, amber=OTP events, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label. **Responsive**: entity column hidden on mobile (`hidden sm:table-cell`), action badge truncated, no forced min-width — no horizontal scroll on 430px.
+- **Human-readable display**: all action names translated to Hebrew (`ACTION_LABELS` map); actor column resolves player cuid IDs to display names (nickname/firstNameHe/phone), shows "מנהל"/"מערכת" for admin/cron; entity column resolves player IDs to names and session IDs to Hebrew date strings. Column headers renamed: "על מה" (entity), "מבצע" (actor). `JsonDiff` headers: "שדה"/"לפני"/"אחרי". Server-side ID resolution via two batch queries (player names + session dates) passed as maps to the client component.
 - **Expandable rows**: clicking anywhere on a row (that has details) reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron. The chevron icon is decorative (`aria-hidden`); the `<tr>` itself carries the `onClick`.
 - **Pagination**: prev/next links with page N of M counter.
 
@@ -521,11 +522,11 @@ Players must read and accept the IRBA regulations before using the app.
 
 **Versioning:** Admin bumps `regulations_version` in the config panel → all players see the overlay again on next visit.
 
-**Template engine (`src/lib/regulations-renderer.ts`):** `parseRegulationsTemplate(text, configValues)` — pure function. Supports `## Heading`, `**bold**`, `{variable}` substitution (all config keys + special `{session_schedule_day_name}` derived from `session_schedule_day`). Admin can fully edit the text via `/admin/config` → "תקנון" section.
+**Template engine (`src/lib/regulations-renderer.ts`):** `parseRegulationsTemplate(text, configValues)` — pure function, line-by-line parser with buffer/flush pattern. Supports `## Heading` (h3), `### Sub-heading` (h4), `**bold**` inline, `- bullet` list items (consecutive `-` lines form one `<ul>` block), blank line (paragraph break), `{variable}` substitution (all config keys + special `{session_schedule_day_name}` derived from `session_schedule_day`). Admin can fully edit the text via `/admin/config` → "תקנון" section. The "תקנון" section has a toggle button to show/hide a macro/syntax reference overlay instead of always-visible inline hints.
 
-**Regulations content (default):** 10 sections — ידידות, הוגנות וספורטיביות, כיף, כללי המשחק (`{match_win_score}` נק׳ / `{match_duration_min}` דק׳), סמכות מנהל, לוח זמנים, כספים (סף חוב `{debt_threshold}₪`), הרשמה והגעה, קנסות עדיפות (`{fine_no_show/kick_ball/early_leave}`), אפס סובלנות לאלימות, הסכמה לוואטסאפ.
+**Regulations content (default):** 10 sections — ידידות, הוגנות וספורטיביות, כיף, כללי המשחק (`{match_win_score}` נק׳ / `{match_duration_min}` דק׳ — with `### עבירות קבוצה` sub-heading using `{fouls_until_penalty}`), סמכות מנהל, לוח זמנים, כספים (סף חוב `{debt_threshold}₪`), הרשמה והגעה, קנסות עדיפות (bullet list with `{fine_no_show/kick_ball/early_leave}`), אפס סובלנות לאלימות, הסכמה לוואטסאפ.
 
-**New config keys:** `regulations_version`, `regulations_text`, `match_duration_min`, `fine_no_show`, `fine_kick_ball`, `fine_early_leave` — all admin-editable on `/admin/config`.
+**New config keys:** `regulations_version`, `regulations_text`, `match_duration_min`, `fine_no_show`, `fine_kick_ball`, `fine_early_leave`, `fouls_until_penalty` — all admin-editable on `/admin/config`.
 
 **Audit:** `PLAYER_ACCEPTED_REGULATIONS` action type added to `AuditAction` union.
 

@@ -2,8 +2,10 @@
 // Renders an admin-editable regulations template into React-renderable data.
 //
 // Template syntax:
-//   ## Heading text        → section heading
-//   **bold text**          → inline bold (within a normal line)
+//   ## Heading text        → section heading (h3)
+//   ### Sub-heading        → sub-heading (h4)
+//   **bold text**          → inline bold
+//   - item text            → bullet list item (consecutive - lines form one list block)
 //   {variable_name}        → replaced with config value
 //   blank line             → paragraph break
 //
@@ -14,7 +16,9 @@ const HEBREW_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמי
 export type RenderedSpan = { type: "text" | "bold"; text: string };
 export type RenderedBlock =
   | { type: "heading"; spans: RenderedSpan[] }
-  | { type: "paragraph"; spans: RenderedSpan[] };
+  | { type: "subheading"; spans: RenderedSpan[] }
+  | { type: "paragraph"; spans: RenderedSpan[] }
+  | { type: "list"; items: RenderedSpan[][] };
 
 /** Parse inline `**bold**` spans within a single line of text. */
 function parseSpans(line: string): RenderedSpan[] {
@@ -37,7 +41,6 @@ function parseSpans(line: string): RenderedSpan[] {
 
 /** Substitute {variable} placeholders with values from the config map. */
 function substituteVars(text: string, values: Record<string, string>): string {
-  // Add special derived variable
   const dayNum = parseInt(values["session_schedule_day"] ?? "1", 10);
   const enriched: Record<string, string> = {
     ...values,
@@ -48,41 +51,61 @@ function substituteVars(text: string, values: Record<string, string>): string {
 
 /**
  * Parse a regulations template string into an array of blocks ready for rendering.
- * Returns an array of RenderedBlock objects (headings and paragraphs).
  */
 export function parseRegulationsTemplate(
   template: string,
   configValues: Record<string, string>
 ): RenderedBlock[] {
   const substituted = substituteVars(template, configValues);
-  const rawParagraphs = substituted.split(/\n{2,}/);
 
+  // Work line-by-line so we can group consecutive bullet lines into a list block
+  const lines = substituted.split("\n");
   const blocks: RenderedBlock[] = [];
+  let pendingBullets: RenderedSpan[][] = [];
+  let pendingParagraphLines: string[] = [];
 
-  for (const para of rawParagraphs) {
-    const trimmed = para.trim();
-    if (!trimmed) continue;
-
-    // Each paragraph is a single line (or may have internal newlines we join)
-    const lines = trimmed.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) continue;
-
-    const firstLine = lines[0];
-
-    if (firstLine.startsWith("## ")) {
-      // Heading — render first line as heading, remaining lines (if any) as separate paragraph
-      const headingText = firstLine.slice(3).trim();
-      blocks.push({ type: "heading", spans: parseSpans(headingText) });
-      if (lines.length > 1) {
-        const bodyText = lines.slice(1).join("\n");
-        blocks.push({ type: "paragraph", spans: parseSpans(bodyText) });
-      }
-    } else {
-      // Paragraph — join all lines with a newline so the component can choose how to render them
-      const bodyText = lines.join("\n");
-      blocks.push({ type: "paragraph", spans: parseSpans(bodyText) });
+  function flushBullets() {
+    if (pendingBullets.length > 0) {
+      blocks.push({ type: "list", items: pendingBullets });
+      pendingBullets = [];
     }
   }
+
+  function flushParagraph() {
+    const text = pendingParagraphLines.join("\n").trim();
+    if (text) {
+      blocks.push({ type: "paragraph", spans: parseSpans(text) });
+    }
+    pendingParagraphLines = [];
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+
+    if (line.startsWith("## ")) {
+      flushParagraph();
+      flushBullets();
+      blocks.push({ type: "heading", spans: parseSpans(line.slice(3).trim()) });
+    } else if (line.startsWith("### ")) {
+      flushParagraph();
+      flushBullets();
+      blocks.push({ type: "subheading", spans: parseSpans(line.slice(4).trim()) });
+    } else if (/^- /.test(line)) {
+      flushParagraph();
+      pendingBullets.push(parseSpans(line.slice(2).trim()));
+    } else if (line.trim() === "") {
+      // Blank line — flush paragraph accumulator; bullets only flush on non-bullet content
+      flushParagraph();
+      flushBullets();
+    } else {
+      // Regular text line — flush any pending bullets first
+      flushBullets();
+      pendingParagraphLines.push(line);
+    }
+  }
+
+  flushParagraph();
+  flushBullets();
 
   return blocks;
 }

@@ -81,14 +81,95 @@ function formatRatePrice(p: number): string {
 
 const initialState: ConfigActionState = { ok: false };
 
+const SYNTAX_ITEMS = [
+  { syntax: "## כותרת ראשית", desc: "כותרת סעיף גדולה" },
+  { syntax: "### כותרת משנה", desc: "כותרת סעיף קטנה" },
+  { syntax: "**טקסט**", desc: "טקסט מודגש" },
+  { syntax: "- פריט", desc: "פריט ברשימה (שורות עוקבות יוצרות רשימה)" },
+  { syntax: "(שורה ריקה)", desc: "מעבר פסקה" },
+];
+
+const MACRO_ITEMS = [
+  { macro: "match_win_score", desc: "נקודות לניצחון" },
+  { macro: "match_duration_min", desc: "דקות למשחק" },
+  { macro: "fouls_until_penalty", desc: "עבירות קבוצה עד עונשין" },
+  { macro: "debt_threshold", desc: "סף חוב (₪)" },
+  { macro: "rsvp_close_hours", desc: "שעות לסגירת הרשמה" },
+  { macro: "session_schedule_day_name", desc: "יום המפגש (עברית)" },
+  { macro: "session_schedule_time", desc: "שעת המפגש" },
+  { macro: "fine_no_show", desc: "קנס אי-הגעה (נקודות)" },
+  { macro: "fine_kick_ball", desc: "קנס בעיטה בכדור (נקודות)" },
+  { macro: "fine_early_leave", desc: "קנס עזיבה מוקדמת (נקודות)" },
+];
+
+function RegulationsMacroHelp() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 self-start rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-600 shadow-sm transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+      >
+        <span className="flex h-4 w-4 items-center justify-center rounded-full border border-zinc-400 text-[10px] font-bold leading-none dark:border-zinc-500">?</span>
+        תחביר ומשתנים
+      </button>
+
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          {/* Overlay panel */}
+          <div className="absolute left-0 top-8 z-50 w-80 rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 sm:w-96">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">תחביר ומשתנים</h3>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                aria-label="סגור"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">תחביר עיצוב</p>
+            <div className="mb-4 flex flex-col gap-1.5">
+              {SYNTAX_ITEMS.map(({ syntax, desc }) => (
+                <div key={syntax} className="flex items-start gap-2">
+                  <code className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">{syntax}</code>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{desc}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">משתנים זמינים</p>
+            <div className="flex flex-col gap-1.5">
+              {MACRO_ITEMS.map(({ macro, desc }) => (
+                <div key={macro} className="flex items-start gap-2">
+                  <code className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">{`{${macro}}`}</code>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
   const [sendPending, startSendTransition] = useTransition();
   const [runNowPending, startRunNowTransition] = useTransition();
-  const [formKey, setFormKey] = useState(0);
-
   function handleRunNow() {
     startRunNowTransition(async () => {
       const result = await runAutoCreateAction();
@@ -100,7 +181,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
 
   useEffect(() => {
     if (state.message) showToast(state.message, state.ok);
-    if (state.ok) setFormKey((k) => k + 1); // eslint-disable-line react-hooks/set-state-in-effect
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSend() {
@@ -135,7 +215,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   }
 
   return (
-    <form key={formKey} action={formAction} className="flex flex-col gap-8">
+    <form action={formAction} className="flex flex-col gap-8">
       {/* ── Sessions ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>מפגשים</SectionTitle>
@@ -361,6 +441,18 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} ${errors[CONFIG.MATCH_DURATION_MIN] ? inputError : inputNormal}`}
             />
           </Field>
+
+          <Field label="עבירות קבוצה עד עונשין" hint="מספר עבירות" htmlFor={CONFIG.FOULS_UNTIL_PENALTY} error={errors[CONFIG.FOULS_UNTIL_PENALTY]}>
+            <input
+              id={CONFIG.FOULS_UNTIL_PENALTY}
+              type="number"
+              name={CONFIG.FOULS_UNTIL_PENALTY}
+              defaultValue={values[CONFIG.FOULS_UNTIL_PENALTY]}
+              min={1}
+              max={20}
+              className={`${inputBase} ${errors[CONFIG.FOULS_UNTIL_PENALTY] ? inputError : inputNormal}`}
+            />
+          </Field>
         </div>
       </section>
 
@@ -434,6 +526,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           htmlFor={CONFIG.REGULATIONS_TEXT}
           error={errors[CONFIG.REGULATIONS_TEXT]}
         >
+          <RegulationsMacroHelp />
           <textarea
             id={CONFIG.REGULATIONS_TEXT}
             name={CONFIG.REGULATIONS_TEXT}
@@ -442,29 +535,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             maxLength={10000}
             className={`${inputBase} resize-y font-mono text-sm ${errors[CONFIG.REGULATIONS_TEXT] ? inputError : inputNormal}`}
           />
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            תחביר: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">## כותרת</code> לכותרת סעיף,{" "}
-            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">**טקסט**</code> להדגשה,{" "}
-            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{"{משתנה}"}</code> לערך מקונפיגורציה.
-            <br />
-            משתנים זמינים:{" "}
-            {[
-              "match_win_score",
-              "match_duration_min",
-              "debt_threshold",
-              "rsvp_close_hours",
-              "session_schedule_day_name",
-              "session_schedule_time",
-              "fine_no_show",
-              "fine_kick_ball",
-              "fine_early_leave",
-            ].map((v, i, arr) => (
-              <span key={v}>
-                <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{`{${v}}`}</code>
-                {i < arr.length - 1 ? ", " : ""}
-              </span>
-            ))}
-          </p>
         </Field>
       </section>
 
@@ -826,39 +896,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </div>
       </section>
 
-      {/* ── WA Send to Group ────────────────────────────── */}
-      {values[CONFIG.WA_GROUP_JID] && (
-        <section className="flex flex-col gap-4">
-          <SectionTitle>שליחת הודעה לקבוצה</SectionTitle>
-          <div className="flex flex-col gap-3">
-            <Field label="הודעה" htmlFor="wa-send-message">
-              <textarea
-                id="wa-send-message"
-                ref={sendMessageRef}
-                rows={3}
-                maxLength={1000}
-                className={`${inputBase} resize-y ${inputNormal}`}
-              />
-            </Field>
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={sendPending}
-              className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-600 dark:hover:bg-green-500 dark:active:bg-green-700 dark:focus:ring-green-500/40 sm:w-auto"
-            >
-              {sendPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  שולח…
-                </>
-              ) : (
-                "שלח"
-              )}
-            </button>
-          </div>
-        </section>
-      )}
-
       {/* ── Low-Attendance Alerts ───────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>התראות נוכחות נמוכה</SectionTitle>
@@ -952,6 +989,39 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           </Field>
         </div>
       </section>
+
+      {/* ── WA Send to Group ────────────────────────────── */}
+      {values[CONFIG.WA_GROUP_JID] && (
+        <section className="flex flex-col gap-4">
+          <SectionTitle>שליחת הודעה לקבוצה</SectionTitle>
+          <div className="flex flex-col gap-3">
+            <Field label="הודעה" htmlFor="wa-send-message">
+              <textarea
+                id="wa-send-message"
+                ref={sendMessageRef}
+                rows={3}
+                maxLength={1000}
+                className={`${inputBase} resize-y ${inputNormal}`}
+              />
+            </Field>
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={sendPending}
+              className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-600 dark:hover:bg-green-500 dark:active:bg-green-700 dark:focus:ring-green-500/40 sm:w-auto"
+            >
+              {sendPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  שולח…
+                </>
+              ) : (
+                "שלח"
+              )}
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* ── Submit ──────────────────────────────────────── */}
       <button

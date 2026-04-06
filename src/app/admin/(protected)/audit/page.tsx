@@ -25,6 +25,10 @@ const ENTITY_TYPES = [
 
 const ACTIONS = [
   "ADMIN_LOGIN", "ADMIN_LOGIN_FAIL", "ADMIN_LOGOUT",
+  "PLAYER_LOGIN", "PLAYER_LOGIN_FAIL", "PLAYER_LOGOUT",
+  "PLAYER_OTP_SENT", "PLAYER_OTP_VERIFIED",
+  "PLAYER_PASSWORD_SET", "PLAYER_PASSWORD_CHANGE", "PLAYER_PASSWORD_RESET",
+  "PLAYER_CREATED_SELF", "PLAYER_NAME_SET", "PLAYER_ACCEPTED_REGULATIONS",
   "CREATE_PLAYER", "UPDATE_PLAYER", "DELETE_PLAYER",
   "CREATE_SESSION", "UPDATE_SESSION", "DELETE_SESSION",
   "ARCHIVE_SESSION", "UNARCHIVE_SESSION", "OPEN_SESSION", "CLOSE_SESSION",
@@ -35,6 +39,9 @@ const ACTIONS = [
   "CREATE_YEAR_WEIGHT", "UPDATE_YEAR_WEIGHT", "DELETE_YEAR_WEIGHT",
   "UPDATE_CONFIG",
   "CREATE_RATE", "UPDATE_RATE", "DELETE_RATE",
+  "CHARGE_SESSION", "UNCHARGE_SESSION", "UPDATE_SESSION_CHARGE", "CASCADE_RECALC",
+  "ADD_PAYMENT", "DELETE_PAYMENT",
+  "CREATE_MATCH", "UPDATE_MATCH", "DELETE_MATCH",
   "IMPORT_PLAYERS", "IMPORT_PAYMENTS", "IMPORT_AGGREGATES",
   "SEND_WA_MESSAGE", "WA_LOGOUT", "RUN_AUTO_CREATE", "AUTO_CREATE_SESSION",
 ];
@@ -88,6 +95,50 @@ export default async function AuditPage({
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Resolve player IDs → display names (for actor and entityId columns)
+  // Collect cuid-shaped values that need resolution
+  const CUID_RE = /^c[a-z0-9]{20,}$/;
+  const playerIdSet = new Set<string>();
+  for (const e of entries) {
+    if (CUID_RE.test(e.actor)) playerIdSet.add(e.actor);
+    if (e.entityType === "Player" && e.entityId) playerIdSet.add(e.entityId);
+    if (e.entityType === "GameSession" && e.entityId) {/* resolved below */}
+  }
+  const sessionIdSet = new Set<string>();
+  for (const e of entries) {
+    if (e.entityType === "GameSession" && e.entityId) sessionIdSet.add(e.entityId);
+  }
+
+  const [playerRows, sessionRows] = await Promise.all([
+    playerIdSet.size > 0
+      ? prisma.player.findMany({
+          where: { id: { in: Array.from(playerIdSet) } },
+          select: { id: true, phone: true, nickname: true, firstNameHe: true, lastNameHe: true },
+        })
+      : [],
+    sessionIdSet.size > 0
+      ? prisma.gameSession.findMany({
+          where: { id: { in: Array.from(sessionIdSet) } },
+          select: { id: true, date: true },
+        })
+      : [],
+  ]);
+
+  const playerNames: Record<string, string> = {};
+  for (const p of playerRows) {
+    const display = p.nickname ?? (p.firstNameHe ? `${p.firstNameHe} ${p.lastNameHe ?? ""}`.trim() : p.phone);
+    playerNames[p.id] = display;
+  }
+  const sessionNames: Record<string, string> = {};
+  for (const s of sessionRows) {
+    sessionNames[s.id] = s.date.toLocaleDateString("he-IL", {
+      timeZone: "Asia/Jerusalem",
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+    });
+  }
 
   // Serialize for client component (Dates → strings)
   const serialized = entries.map((e) => ({
@@ -240,7 +291,7 @@ export default async function AuditPage({
 
       {/* Table */}
       <section className="mx-auto mt-4 w-full max-w-5xl">
-        <AuditLogTable entries={serialized} />
+        <AuditLogTable entries={serialized} playerNames={playerNames} sessionNames={sessionNames} />
       </section>
 
       {/* Pagination */}
