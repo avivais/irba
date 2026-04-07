@@ -54,7 +54,7 @@ type PerPage = (typeof VALID_PER)[number];
 type StatementType = "all" | "payments" | "charges";
 
 type Props = {
-  searchParams: Promise<{ page?: string; per?: string; type?: string; view?: string }>;
+  searchParams: Promise<{ page?: string; per?: string; type?: string }>;
 };
 
 export default async function ProfilePage({ searchParams }: Props) {
@@ -62,7 +62,6 @@ export default async function ProfilePage({ searchParams }: Props) {
   if (!session) redirect("/");
 
   const rawParams = await searchParams;
-  const viewParam = rawParams.view === "session" ? "session" : "monthly";
   const typeParam = (rawParams.type ?? "all") as StatementType;
   const statementType: StatementType = ["all", "payments", "charges"].includes(typeParam)
     ? typeParam
@@ -280,7 +279,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           </section>
 
           {/* Match stats */}
-          <MatchStatsSection analytics={analytics} view={viewParam} />
+          <MatchStatsSection analytics={analytics} />
 
           {/* Appearance */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

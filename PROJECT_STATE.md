@@ -581,13 +581,13 @@ Dependencies: #11 (analytics) is prerequisite for #12 and #13 — all three depe
 
 ---
 
-#### 10. Player precedence leaderboard ✅ DONE
+#### 10. Player precedence table ✅ DONE
 
-Players see the full precedence ranking at `/leaderboard`. Their own row is highlighted in blue with "(אתה)" label. Medals (🥇🥈🥉) for top 3. Admins filtered out.
+Players see the full precedence ranking at `/precedence` (login-gated). `ListOrdered` icon in nav for all logged-in players.
 
-- `src/app/leaderboard/page.tsx` — Server Component; reuses `computePrecedenceScores`; reads player session to know which row to highlight; no auth gate
-- `src/components/leaderboard-table.tsx` — Client Component; rank + name + score; highlighted row for current player
-- `src/components/nav-links.tsx` — Trophy icon link to `/leaderboard` for all logged-in players
+- `src/app/precedence/page.tsx` — Server Component; reuses `computePrecedenceScores`; filters out players with no history (no sessions, no adjustments); reads player session for row highlight
+- `src/components/precedence-table.tsx` — Client Component; expandable accordion rows (one open at a time); each row shows rank + name + score; tapping expands inline detail: year-by-year table (sessions × weight = points) + adjustments list (date, description, ±points); current player highlighted in blue with "(אתה)" label
+- `src/components/nav-links.tsx` — `ListOrdered` icon link to `/precedence`
 
 No schema changes. No migrations.
 
@@ -599,15 +599,17 @@ Players see their match stats at the bottom of `/profile`.
 
 **UI sections:**
 - Summary: wins / losses / ties counts + win% (ties excluded from ratio denominator)
-- Breakdown (toggle between "לפי חודש" and "לפי מפגש") — URL-param driven (`?view=monthly|session`); CSS-only colored bar per row
+- Breakdown toggle ("לפי סבב" / "לפי מפגש") — `useState` client-side only (no URL param, no scroll-to-top); CSS-only colored bar per row
+  - Per-round view: "סבב N · [start date] — [end date]"; round size driven by `round_size` config key (default 5 sessions)
+  - Per-session view: each session date with that night's wins/losses
 - Teammate affinity: top 5 by shared wins; shows "X ניצחונות מתוך Y משחקים יחד"
 
 **Implementation:**
-- `src/lib/match-analytics.ts` — pure functions: `computeMatchStats`, `computeMonthlyBreakdown`, `computeSessionBreakdown`, `computeTeammateAffinity`; no Prisma
-- `src/lib/match-analytics.test.ts` — 20 unit tests
-- `src/app/profile/analytics.ts` — server fetcher; single raw SQL query (`$1 = ANY("teamAPlayerIds") OR $1 = ANY("teamBPlayerIds")`); resolves teammate names + session dates in two follow-up queries
-- `src/components/match-stats-section.tsx` — Client Component (needs `usePathname`/`useSearchParams` for tab URL building)
-- `src/app/profile/page.tsx` — analytics fetched in `Promise.all`; `?view` param parsed; section rendered below appearance section
+- `src/lib/match-analytics.ts` — pure functions: `computeMatchStats`, `computeSessionBreakdown`, `computeRoundBreakdown`, `computeTeammateAffinity`; no Prisma
+- `src/lib/match-analytics.test.ts` — 25 unit tests
+- `src/app/profile/analytics.ts` — server fetcher; single raw SQL query; fetches all sessions for ordering; reads `round_size` config; resolves teammate names
+- `src/components/match-stats-section.tsx` — Client Component; `useState` toggle
+- `src/lib/config-keys.ts` — added `round_size` key (default 5)
 
 ---
 
@@ -629,14 +631,16 @@ The blended formula is the key design challenge. High effort — the peer rating
 
 #### 13. Competitions / challenges
 
-Admin creates a `Challenge` with a time window, a metric (e.g. win ratio), an eligibility rule (e.g. played ≥70% of max sessions anyone played in the period), and a prize description. The system tracks it passively and shows a live leaderboard.
+Admin creates a `Challenge` with a metric (e.g. win ratio), an eligibility rule (e.g. played ≥X% of max sessions anyone played in the period), and a prize description. The system tracks it passively and shows a live leaderboard.
+
+**Round concept:** A round = a fixed number of consecutive sessions (configurable via `round_size`, default 5). Challenges are scoped to a round or a configurable number of last N sessions. This avoids calendar-date ranges which break when weeks are skipped.
 
 **Rough schema additions:**
-- `Challenge(id, title, metric, eligibilityThreshold Float, startDate, endDate, prize String?, createdAt)`
+- `Challenge(id, title, metric, eligibilityThreshold Float, roundCount Int, prize String?, createdAt)`
 - Leaderboard is a computed view — no separate model needed
 
-**Depends on:** #11 (win ratio metric) + existing attendance data
+**Depends on:** #11 (win ratio metric, round concept, `round_size` config) + existing attendance data
 
 ---
 
-*Last updated: Apr 2026 — Phase 2 items #10 (player leaderboard) and #11 (personal match analytics) shipped. Remaining: #12 dynamic ranking, #13 competitions (round-based, configurable X sessions per round).*
+*Last updated: Apr 2026 — Phase 2 items #10 (precedence table at `/precedence`) and #11 (match analytics on `/profile`) shipped. Round concept defined for #13. Remaining: #12 dynamic ranking, #13 competitions.*

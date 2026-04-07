@@ -32,6 +32,18 @@ export type SessionRecord = {
   ties: number;
 };
 
+export type RoundRecord = {
+  /** 1-based round number */
+  round: number;
+  /** Date of the first session in this round */
+  startDate: Date;
+  /** Date of the last session in this round (may be same as startDate for single-session rounds) */
+  endDate: Date;
+  wins: number;
+  losses: number;
+  ties: number;
+};
+
 export type TeammateAffinity = {
   teammateId: string;
   sharedWins: number;
@@ -124,6 +136,77 @@ export function computeSessionBreakdown(
   }
 
   return Array.from(map.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+/**
+ * Groups matches into rounds based on session order.
+ *
+ * @param sessionOrder - Map of sessionId → 0-based sequential index (sorted by date ascending)
+ * @param sessionDates - Map of sessionId → session date (for start/end date labels)
+ * @param roundSize    - Number of sessions per round
+ */
+export function computeRoundBreakdown(
+  playerId: string,
+  matches: MatchRecord[],
+  sessionOrder: Map<string, number>,
+  sessionDates: Map<string, Date>,
+  roundSize: number,
+): RoundRecord[] {
+  if (roundSize < 1) roundSize = 1;
+
+  const map = new Map<number, { wins: number; losses: number; ties: number; sessionIndices: number[] }>();
+
+  for (const m of matches) {
+    const outcome = outcomeFor(playerId, m);
+    if (outcome === null) continue;
+
+    const idx = sessionOrder.get(m.sessionId);
+    if (idx === undefined) continue;
+
+    const roundNumber = Math.floor(idx / roundSize) + 1; // 1-based
+
+    if (!map.has(roundNumber)) {
+      map.set(roundNumber, { wins: 0, losses: 0, ties: 0, sessionIndices: [] });
+    }
+    const rec = map.get(roundNumber)!;
+    if (outcome === "win") rec.wins++;
+    else if (outcome === "loss") rec.losses++;
+    else rec.ties++;
+    if (!rec.sessionIndices.includes(idx)) rec.sessionIndices.push(idx);
+  }
+
+  // Build result with start/end dates derived from session indices within each round
+  const results: RoundRecord[] = [];
+
+  for (const [round, rec] of map) {
+    // The round spans session indices [(round-1)*roundSize .. round*roundSize - 1]
+    const firstIdx = (round - 1) * roundSize;
+    const lastIdx = round * roundSize - 1;
+
+    // Find dates for the boundary sessions
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+
+    for (const [sid, idx] of sessionOrder) {
+      if (idx === firstIdx) startDate = sessionDates.get(sid);
+      if (idx === lastIdx) endDate = sessionDates.get(sid);
+    }
+
+    // Fallback: use the actual sessions seen in this round
+    if (!startDate || !endDate) {
+      const sortedIndices = [...rec.sessionIndices].sort((a, b) => a - b);
+      for (const [sid, idx] of sessionOrder) {
+        if (idx === sortedIndices[0]) startDate = sessionDates.get(sid);
+        if (idx === sortedIndices[sortedIndices.length - 1]) endDate = sessionDates.get(sid);
+      }
+    }
+
+    if (!startDate || !endDate) continue;
+
+    results.push({ round, startDate, endDate, wins: rec.wins, losses: rec.losses, ties: rec.ties });
+  }
+
+  return results.sort((a, b) => a.round - b.round);
 }
 
 /**

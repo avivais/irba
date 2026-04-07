@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { PlayerNav } from "@/components/player-nav";
-import { LeaderboardTable } from "@/components/leaderboard-table";
+import { PrecedenceTable, type PrecedencePlayerDetail } from "@/components/precedence-table";
 import { prisma } from "@/lib/prisma";
 import { computePrecedenceScores } from "@/lib/precedence";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { getPlayerSession } from "@/lib/player-session";
 
-export const metadata: Metadata = { title: "לוח קדימות" };
+export const metadata: Metadata = { title: "רשימת קדימות" };
 
 export const dynamic = "force-dynamic";
 
-export default async function LeaderboardPage() {
+export default async function PrecedencePage() {
   const session = await getPlayerSession();
+  if (!session) redirect("/");
 
   const currentYear = new Date().getFullYear();
   const yearStart = new Date(currentYear, 0, 1);
@@ -22,7 +24,7 @@ export default async function LeaderboardPage() {
       where: { isAdmin: false },
       include: {
         yearAggregates: true,
-        adjustments: true,
+        adjustments: { orderBy: { date: "desc" } },
       },
     }),
     prisma.yearWeight.findMany({ orderBy: { year: "asc" } }),
@@ -37,8 +39,16 @@ export default async function LeaderboardPage() {
     liveCountMap.set(a.playerId, (liveCountMap.get(a.playerId) ?? 0) + 1);
   }
 
+  // Only players with some history
+  const playersWithHistory = players.filter(
+    (p) =>
+      p.yearAggregates.length > 0 ||
+      p.adjustments.length > 0 ||
+      (liveCountMap.get(p.id) ?? 0) > 0,
+  );
+
   const rows = computePrecedenceScores(
-    players.map((p) => ({
+    playersWithHistory.map((p) => ({
       id: p.id,
       playerName: getPlayerDisplayName(p),
       aggregates: p.yearAggregates,
@@ -49,13 +59,35 @@ export default async function LeaderboardPage() {
     currentYear,
   );
 
+  const yearWeightMap: Record<number, number> = Object.fromEntries(
+    yearWeights.map((yw) => [yw.year, yw.weight]),
+  );
+
+  const details: Record<string, PrecedencePlayerDetail> = Object.fromEntries(
+    playersWithHistory.map((p) => [
+      p.id,
+      {
+        playerId: p.id,
+        aggregates: p.yearAggregates,
+        liveCount: liveCountMap.get(p.id) ?? 0,
+        currentYear,
+        adjustments: p.adjustments.map((adj) => ({
+          id: adj.id,
+          date: adj.date,
+          points: adj.points,
+          description: adj.description,
+        })),
+      },
+    ]),
+  );
+
   return (
     <>
       <PlayerNav />
       <div className="flex flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
         <header className="mx-auto w-full max-w-lg md:max-w-2xl">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            לוח קדימות
+            רשימת קדימות
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             דירוג שחקנים לפי ניקוד קדימות — {currentYear}
@@ -66,10 +98,15 @@ export default async function LeaderboardPage() {
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             {rows.length === 0 ? (
               <p className="px-5 py-6 text-sm text-zinc-500 dark:text-zinc-400">
-                אין שחקנים רשומים עדיין.
+                אין שחקנים עם היסטוריה עדיין.
               </p>
             ) : (
-              <LeaderboardTable rows={rows} currentPlayerId={session?.playerId ?? null} />
+              <PrecedenceTable
+                rows={rows}
+                details={details}
+                yearWeights={yearWeightMap}
+                currentPlayerId={session.playerId}
+              />
             )}
           </section>
         </main>

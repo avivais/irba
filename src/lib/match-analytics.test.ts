@@ -3,6 +3,7 @@ import {
   computeMatchStats,
   computeMonthlyBreakdown,
   computeSessionBreakdown,
+  computeRoundBreakdown,
   computeTeammateAffinity,
   type MatchRecord,
 } from "./match-analytics";
@@ -190,5 +191,73 @@ describe("computeTeammateAffinity", () => {
     });
     const result = computeTeammateAffinity("p1", [m]);
     expect(result.every((r) => !["p6", "p7", "p8", "p9", "p10"].includes(r.teammateId))).toBe(true);
+  });
+});
+
+// ── computeRoundBreakdown ────────────────────────────────────────────────────
+
+describe("computeRoundBreakdown", () => {
+  function makeOrders(sessionIds: string[]): Map<string, number> {
+    return new Map(sessionIds.map((id, i) => [id, i]));
+  }
+  function makeDates(sessionIds: string[]): Map<string, Date> {
+    return new Map(sessionIds.map((id, i) => [id, new Date(2026, 0, i + 1)]));
+  }
+
+  it("returns empty for no matches", () => {
+    expect(computeRoundBreakdown("p1", [], new Map(), new Map(), 5)).toEqual([]);
+  });
+
+  it("groups sessions into rounds of given size", () => {
+    const sessions = ["s1", "s2", "s3", "s4", "s5", "s6"];
+    const orders = makeOrders(sessions);
+    const dates = makeDates(sessions);
+    const matches = [
+      makeMatch({ id: "m1", sessionId: "s1", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+      makeMatch({ id: "m2", sessionId: "s3", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 5, scoreB: 12 }),
+      makeMatch({ id: "m3", sessionId: "s6", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+    ];
+    const result = computeRoundBreakdown("p1", matches, orders, dates, 5);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ round: 1, wins: 1, losses: 1 });
+    expect(result[1]).toMatchObject({ round: 2, wins: 1, losses: 0 });
+  });
+
+  it("sorts rounds ascending", () => {
+    const sessions = ["s1", "s2", "s3", "s4", "s5", "s6"];
+    const orders = makeOrders(sessions);
+    const dates = makeDates(sessions);
+    const matches = [
+      makeMatch({ id: "m1", sessionId: "s6", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+      makeMatch({ id: "m2", sessionId: "s1", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+    ];
+    const result = computeRoundBreakdown("p1", matches, orders, dates, 5);
+    expect(result[0].round).toBeLessThan(result[1].round);
+  });
+
+  it("ignores matches for unknown sessions", () => {
+    const orders = new Map([["s1", 0]]);
+    const dates = new Map<string, Date>([["s1", new Date(2026, 0, 1)]]);
+    const matches = [
+      makeMatch({ id: "m1", sessionId: "s_unknown", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+      makeMatch({ id: "m2", sessionId: "s1", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+    ];
+    const result = computeRoundBreakdown("p1", matches, orders, dates, 5);
+    expect(result).toHaveLength(1);
+    expect(result[0].wins).toBe(1);
+  });
+
+  it("single-session rounds work with roundSize=1", () => {
+    const sessions = ["s1", "s2"];
+    const orders = makeOrders(sessions);
+    const dates = makeDates(sessions);
+    const matches = [
+      makeMatch({ id: "m1", sessionId: "s1", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 12, scoreB: 8 }),
+      makeMatch({ id: "m2", sessionId: "s2", teamAPlayerIds: ["p1", "p2", "p3", "p4", "p5"], scoreA: 5, scoreB: 12 }),
+    ];
+    const result = computeRoundBreakdown("p1", matches, orders, dates, 1);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ round: 1, wins: 1 });
+    expect(result[1]).toMatchObject({ round: 2, losses: 1 });
   });
 });

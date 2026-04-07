@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, ShieldCheck, LogOut, MessageCircle, Trophy } from "lucide-react";
+import { User, ShieldCheck, LogOut, MessageCircle, ListOrdered } from "lucide-react";
 import { playerLogoutAction } from "@/app/actions/player-auth";
 import { WaStatusDot } from "@/components/admin/wa-status-dot";
 
@@ -15,7 +15,7 @@ const activeCls =
 export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const onProfile = pathname === "/profile";
-  const onLeaderboard = pathname === "/leaderboard";
+  const onPrecedence = pathname === "/precedence";
   const onWaPage = pathname === "/admin/wa";
   const onAdminPage = pathname.startsWith("/admin") && !onWaPage;
 
@@ -31,12 +31,12 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
       </Link>
 
       <Link
-        href="/leaderboard"
-        className={`${linkCls} ${onLeaderboard ? activeCls : ""}`}
-        aria-label="לוח קדימות"
-        aria-current={onLeaderboard ? "page" : undefined}
+        href="/precedence"
+        className={`${linkCls} ${onPrecedence ? activeCls : ""}`}
+        aria-label="רשימת קדימות"
+        aria-current={onPrecedence ? "page" : undefined}
       >
-        <Trophy className="h-4 w-4" aria-hidden />
+        <ListOrdered className="h-4 w-4" aria-hidden />
       </Link>
 
       {isAdmin && (

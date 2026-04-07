@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { getPlayerDisplayName } from "@/lib/player-display";
+import { getConfigInt, CONFIG } from "@/lib/config";
 import {
   computeMatchStats,
-  computeMonthlyBreakdown,
   computeSessionBreakdown,
+  computeRoundBreakdown,
   computeTeammateAffinity,
   type MatchRecord,
   type MatchStats,
-  type MonthlyRecord,
   type SessionRecord,
+  type RoundRecord,
   type TeammateAffinity,
 } from "@/lib/match-analytics";
 
@@ -16,33 +17,42 @@ export type TeammateWithName = TeammateAffinity & { displayName: string };
 
 export type PlayerAnalytics = {
   stats: MatchStats;
-  monthlyBreakdown: MonthlyRecord[];
   sessionBreakdown: SessionRecord[];
-  /** Session dates keyed by sessionId, for display */
+  roundBreakdown: RoundRecord[];
+  /** Session dates keyed by sessionId, for display in session breakdown */
   sessionDates: Record<string, Date>;
+  roundSize: number;
   topTeammates: TeammateWithName[];
 };
 
 export async function fetchPlayerMatchAnalytics(
   playerId: string,
 ): Promise<PlayerAnalytics> {
-  // Single round-trip: fetch all matches involving the player
-  const rawMatches = await prisma.$queryRaw<
-    {
-      id: string;
-      sessionId: string;
-      teamAPlayerIds: string[];
-      teamBPlayerIds: string[];
-      scoreA: number;
-      scoreB: number;
-      createdAt: Date;
-    }[]
-  >`
-    SELECT id, "sessionId", "teamAPlayerIds", "teamBPlayerIds", "scoreA", "scoreB", "createdAt"
-    FROM "Match"
-    WHERE ${playerId} = ANY("teamAPlayerIds") OR ${playerId} = ANY("teamBPlayerIds")
-    ORDER BY "createdAt" ASC
-  `;
+  // Fetch all matches involving the player + all sessions (for ordering) in parallel
+  const [rawMatches, allSessions, roundSize] = await Promise.all([
+    prisma.$queryRaw<
+      {
+        id: string;
+        sessionId: string;
+        teamAPlayerIds: string[];
+        teamBPlayerIds: string[];
+        scoreA: number;
+        scoreB: number;
+        createdAt: Date;
+      }[]
+    >`
+      SELECT id, "sessionId", "teamAPlayerIds", "teamBPlayerIds", "scoreA", "scoreB", "createdAt"
+      FROM "Match"
+      WHERE ${playerId} = ANY("teamAPlayerIds") OR ${playerId} = ANY("teamBPlayerIds")
+      ORDER BY "createdAt" ASC
+    `,
+    // All sessions ordered by date — used to assign round numbers
+    prisma.gameSession.findMany({
+      orderBy: { date: "asc" },
+      select: { id: true, date: true },
+    }),
+    getConfigInt(CONFIG.ROUND_SIZE),
+  ]);
 
   const matches: MatchRecord[] = rawMatches.map((m) => ({
     id: m.id,
@@ -54,22 +64,22 @@ export async function fetchPlayerMatchAnalytics(
     createdAt: new Date(m.createdAt),
   }));
 
+  // Build session order map (sessionId → 0-based index) and date map
+  const sessionOrder = new Map<string, number>(
+    allSessions.map((s, i) => [s.id, i]),
+  );
+  const sessionDateMap = new Map<string, Date>(
+    allSessions.map((s) => [s.id, s.date]),
+  );
+
   const stats = computeMatchStats(playerId, matches);
-  const monthlyBreakdown = computeMonthlyBreakdown(playerId, matches);
   const sessionBreakdown = computeSessionBreakdown(playerId, matches);
+  const roundBreakdown = computeRoundBreakdown(playerId, matches, sessionOrder, sessionDateMap, roundSize);
   const affinityRaw = computeTeammateAffinity(playerId, matches, 5);
 
-  // Resolve session dates from the DB for display
-  const sessionIds = Array.from(new Set(matches.map((m) => m.sessionId)));
-  const sessions =
-    sessionIds.length > 0
-      ? await prisma.gameSession.findMany({
-          where: { id: { in: sessionIds } },
-          select: { id: true, date: true },
-        })
-      : [];
+  // Session dates for the per-session breakdown display
   const sessionDates: Record<string, Date> = Object.fromEntries(
-    sessions.map((s) => [s.id, s.date]),
+    allSessions.map((s) => [s.id, s.date]),
   );
 
   // Resolve teammate display names
@@ -96,5 +106,5 @@ export async function fetchPlayerMatchAnalytics(
     displayName: nameById.get(a.teammateId) ?? "שחקן",
   }));
 
-  return { stats, monthlyBreakdown, sessionBreakdown, sessionDates, topTeammates };
+  return { stats, sessionBreakdown, roundBreakdown, sessionDates, roundSize, topTeammates };
 }

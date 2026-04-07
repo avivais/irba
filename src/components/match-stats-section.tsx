@@ -1,20 +1,11 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useState } from "react";
 import type { PlayerAnalytics } from "@/app/profile/analytics";
 
 type Props = {
   analytics: PlayerAnalytics;
-  view: "monthly" | "session";
 };
-
-function formatMonthHe(yyyyMM: string): string {
-  const [year, month] = yyyyMM.split("-").map(Number);
-  return new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric" }).format(
-    new Date(year, month - 1, 1),
-  );
-}
 
 function formatDateHe(date: Date): string {
   return new Intl.DateTimeFormat("he-IL", {
@@ -52,21 +43,14 @@ function WinBar({ wins, losses, ties }: { wins: number; losses: number; ties: nu
   );
 }
 
-export function MatchStatsSection({ analytics, view }: Props) {
-  const { stats, monthlyBreakdown, sessionBreakdown, sessionDates, topTeammates } = analytics;
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+type View = "round" | "session";
 
-  function buildViewUrl(v: string) {
-    const sp = new URLSearchParams(searchParams.toString());
-    sp.set("view", v);
-    return `${pathname}?${sp.toString()}`;
-  }
+export function MatchStatsSection({ analytics }: Props) {
+  const { stats, sessionBreakdown, roundBreakdown, sessionDates, roundSize, topTeammates } = analytics;
+  const [view, setView] = useState<View>("round");
 
-  const breakdown =
-    view === "monthly"
-      ? [...monthlyBreakdown].reverse()
-      : [...sessionBreakdown].reverse();
+  const sessionRows = [...sessionBreakdown].reverse();
+  const roundRows = [...roundBreakdown].reverse();
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -105,23 +89,25 @@ export function MatchStatsSection({ analytics, view }: Props) {
             </div>
           </div>
 
-          {/* Breakdown with view toggle */}
-          {breakdown.length > 0 && (
+          {/* Breakdown */}
+          {(roundRows.length > 0 || sessionRows.length > 0) && (
             <div>
-              {/* Tab toggle */}
+              {/* Tab toggle — pure client state, no navigation */}
               <div className="flex items-center gap-1 px-5 pt-4 pb-2">
-                <Link
-                  href={buildViewUrl("monthly")}
+                <button
+                  type="button"
+                  onClick={() => setView("round")}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    view === "monthly"
+                    view === "round"
                       ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                       : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                   }`}
                 >
-                  לפי חודש
-                </Link>
-                <Link
-                  href={buildViewUrl("session")}
+                  לפי סבב
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("session")}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                     view === "session"
                       ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
@@ -129,28 +115,58 @@ export function MatchStatsSection({ analytics, view }: Props) {
                   }`}
                 >
                   לפי מפגש
-                </Link>
+                </button>
               </div>
 
-              {/* Breakdown rows */}
-              <ul className="divide-y divide-zinc-50 px-5 pb-3 dark:divide-zinc-800/60">
-                {breakdown.map((row) => {
-                  const label =
-                    view === "monthly"
-                      ? formatMonthHe((row as typeof monthlyBreakdown[0]).month)
-                      : (() => {
-                          const sr = row as typeof sessionBreakdown[0];
-                          const d = sessionDates[sr.sessionId] ?? sr.date;
-                          return formatDateHe(d);
-                        })();
-                  return (
-                    <li key={view === "monthly" ? (row as typeof monthlyBreakdown[0]).month : (row as typeof sessionBreakdown[0]).sessionId} className="flex items-center justify-between py-2.5">
-                      <span className="text-sm text-zinc-700 dark:text-zinc-300">{label}</span>
-                      <WinBar wins={row.wins} losses={row.losses} ties={row.ties} />
-                    </li>
-                  );
-                })}
-              </ul>
+              {/* Round breakdown */}
+              {view === "round" && (
+                <ul className="divide-y divide-zinc-50 px-5 pb-3 dark:divide-zinc-800/60">
+                  {roundRows.length === 0 ? (
+                    <li className="py-3 text-sm text-zinc-400 dark:text-zinc-500">אין נתוני סבבים.</li>
+                  ) : (
+                    roundRows.map((row) => (
+                      <li key={row.round} className="flex items-center justify-between py-2.5">
+                        <div>
+                          <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                            סבב {row.round}
+                          </span>
+                          <span className="mr-2 text-xs text-zinc-400 dark:text-zinc-500">
+                            {formatDateHe(row.startDate)}
+                            {row.startDate.getTime() !== row.endDate.getTime()
+                              ? ` — ${formatDateHe(row.endDate)}`
+                              : ""}
+                          </span>
+                        </div>
+                        <WinBar wins={row.wins} losses={row.losses} ties={row.ties} />
+                      </li>
+                    ))
+                  )}
+                  <li className="pt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                    {roundSize} מפגשים לסבב
+                  </li>
+                </ul>
+              )}
+
+              {/* Session breakdown */}
+              {view === "session" && (
+                <ul className="divide-y divide-zinc-50 px-5 pb-3 dark:divide-zinc-800/60">
+                  {sessionRows.length === 0 ? (
+                    <li className="py-3 text-sm text-zinc-400 dark:text-zinc-500">אין נתוני מפגשים.</li>
+                  ) : (
+                    sessionRows.map((row) => {
+                      const d = sessionDates[row.sessionId] ?? row.date;
+                      return (
+                        <li key={row.sessionId} className="flex items-center justify-between py-2.5">
+                          <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                            {formatDateHe(d)}
+                          </span>
+                          <WinBar wins={row.wins} losses={row.losses} ties={row.ties} />
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              )}
             </div>
           )}
 
@@ -166,7 +182,7 @@ export function MatchStatsSection({ analytics, view }: Props) {
                 {topTeammates.map((t, i) => (
                   <li key={t.teammateId} className="flex items-center justify-between py-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500 w-4">
+                      <span className="w-4 text-xs font-medium text-zinc-400 dark:text-zinc-500">
                         {i + 1}
                       </span>
                       <span className="text-sm text-zinc-800 dark:text-zinc-200">{t.displayName}</span>

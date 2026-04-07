@@ -26,9 +26,10 @@ export const CONFIG = {
   ALERT_CRITICAL_TEMPLATE:      "alert_critical_template",
   // Players
   DEFAULT_PLAYER_RANK:          "default_player_rank",          // used when rank is null
-  // Matches
+  // Matches / rounds
   MATCH_WIN_SCORE:              "match_win_score",              // points to win a match
   MATCH_DURATION_MIN:           "match_duration_min",           // per-match time limit (minutes)
+  ROUND_SIZE:                   "round_size",                   // number of sessions per round
   // Regulations
   REGULATIONS_VERSION:          "regulations_version",          // bump to force all players to re-accept
   REGULATIONS_TEXT:             "regulations_text",             // admin-editable template with {vars}, ##/###, **, - bullets
@@ -75,6 +76,7 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   default_player_rank:          "50",
   match_win_score:              "12",
   match_duration_min:           "7",
+  round_size:                   "5",
   regulations_version:          "1",
   regulations_text:             `## ידידות
 אנחנו חברים — לא פרופסיונלים. המשחק נועד ליהנות ולהתחבר, לא להתחרות.
