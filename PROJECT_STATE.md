@@ -538,6 +538,7 @@ Players must read and accept the IRBA regulations before using the app.
 
 #### 9. Balanced team selection ✅ DONE
 
+
 **Algorithm (`src/lib/team-balance.ts`):**
 - Input: `PlayerInput[]` with `rank` (null → `default_player_rank` config), `positions`, `displayName`
 - Snake-draft assigns players sorted by rank desc: A B C C B A A B C… (minimises rank-sum variance)
@@ -572,4 +573,70 @@ All items shipped in earlier sessions: waitlist sorted by precedence score, manu
 
 ---
 
-*Last updated: Apr 2026 — **All roadmap features complete.** Final additions: low-attendance alert config UI exposed in `/admin/config` ("התראות נוכחות נמוכה" section with master toggle + early/critical tiers); balanced team selection on session detail page (`TeamBalancePanel` — snake-draft algorithm, 3 options, clipboard copy for WhatsApp). All 9 roadmap items done.*
+### Phase 2 roadmap — post-MVP features
+
+Dependencies: #11 (analytics) is prerequisite for #12 and #13 — all three depend on per-player win/loss data. #12's peer rating is independent of #11 but adds complexity. #13 depends on both #11 (win ratio metric) and attendance data (already exists).
+
+**Suggested build order: 10 → 11 → 13 → 12** (peer rating last — changes how rank works, needs careful UX design).
+
+---
+
+#### 10. Player precedence leaderboard ✅ DONE
+
+Players see the full precedence ranking at `/leaderboard`. Their own row is highlighted in blue with "(אתה)" label. Medals (🥇🥈🥉) for top 3. Admins filtered out.
+
+- `src/app/leaderboard/page.tsx` — Server Component; reuses `computePrecedenceScores`; reads player session to know which row to highlight; no auth gate
+- `src/components/leaderboard-table.tsx` — Client Component; rank + name + score; highlighted row for current player
+- `src/components/nav-links.tsx` — Trophy icon link to `/leaderboard` for all logged-in players
+
+No schema changes. No migrations.
+
+---
+
+#### 11. Personal match analytics on `/profile` ✅ DONE
+
+Players see their match stats at the bottom of `/profile`.
+
+**UI sections:**
+- Summary: wins / losses / ties counts + win% (ties excluded from ratio denominator)
+- Breakdown (toggle between "לפי חודש" and "לפי מפגש") — URL-param driven (`?view=monthly|session`); CSS-only colored bar per row
+- Teammate affinity: top 5 by shared wins; shows "X ניצחונות מתוך Y משחקים יחד"
+
+**Implementation:**
+- `src/lib/match-analytics.ts` — pure functions: `computeMatchStats`, `computeMonthlyBreakdown`, `computeSessionBreakdown`, `computeTeammateAffinity`; no Prisma
+- `src/lib/match-analytics.test.ts` — 20 unit tests
+- `src/app/profile/analytics.ts` — server fetcher; single raw SQL query (`$1 = ANY("teamAPlayerIds") OR $1 = ANY("teamBPlayerIds")`); resolves teammate names + session dates in two follow-up queries
+- `src/components/match-stats-section.tsx` — Client Component (needs `usePathname`/`useSearchParams` for tab URL building)
+- `src/app/profile/page.tsx` — analytics fetched in `Promise.all`; `?view` param parsed; section rendered below appearance section
+
+---
+
+#### 12. Dynamic player ranking
+
+Replace the single manual `rank` field with a computed score from three inputs:
+- **Admin weight** — current manual `rank` kept as multiplier/base
+- **Peer rating** — players rate each other 1–5 stars post-session; new `PeerRating` model; needs UX design (trigger, anti-abuse)
+- **Win/loss ratio** — computed from `Match` data (depends on #11)
+
+The blended formula is the key design challenge. High effort — the peer rating UI and aggregation are the most novel parts.
+
+**Rough schema additions:**
+- `PeerRating(id, raterId, ratedPlayerId, sessionId, score Int, createdAt)` — unique on `(raterId, ratedPlayerId, sessionId)`
+
+**Depends on:** #11 (win/loss data)
+
+---
+
+#### 13. Competitions / challenges
+
+Admin creates a `Challenge` with a time window, a metric (e.g. win ratio), an eligibility rule (e.g. played ≥70% of max sessions anyone played in the period), and a prize description. The system tracks it passively and shows a live leaderboard.
+
+**Rough schema additions:**
+- `Challenge(id, title, metric, eligibilityThreshold Float, startDate, endDate, prize String?, createdAt)`
+- Leaderboard is a computed view — no separate model needed
+
+**Depends on:** #11 (win ratio metric) + existing attendance data
+
+---
+
+*Last updated: Apr 2026 — Phase 2 items #10 (player leaderboard) and #11 (personal match analytics) shipped. Remaining: #12 dynamic ranking, #13 competitions (round-based, configurable X sessions per round).*

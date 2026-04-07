@@ -9,6 +9,8 @@ import { ChangePasswordForm } from "@/components/change-password-form";
 import { ThemeSelector } from "@/components/theme-selector";
 import { AccountStatement } from "@/components/account-statement";
 import { RegulationsViewer } from "@/components/regulations-viewer";
+import { MatchStatsSection } from "@/components/match-stats-section";
+import { fetchPlayerMatchAnalytics } from "@/app/profile/analytics";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
@@ -52,7 +54,7 @@ type PerPage = (typeof VALID_PER)[number];
 type StatementType = "all" | "payments" | "charges";
 
 type Props = {
-  searchParams: Promise<{ page?: string; per?: string; type?: string }>;
+  searchParams: Promise<{ page?: string; per?: string; type?: string; view?: string }>;
 };
 
 export default async function ProfilePage({ searchParams }: Props) {
@@ -60,6 +62,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   if (!session) redirect("/");
 
   const rawParams = await searchParams;
+  const viewParam = rawParams.view === "session" ? "session" : "monthly";
   const typeParam = (rawParams.type ?? "all") as StatementType;
   const statementType: StatementType = ["all", "payments", "charges"].includes(typeParam)
     ? typeParam
@@ -70,7 +73,7 @@ export default async function ProfilePage({ searchParams }: Props) {
     : 20;
   const page = Math.max(1, parseInt(rawParams.page ?? "1", 10));
 
-  const [player, balance, allPayments, allCharges, allConfigs] = await Promise.all([
+  const [player, balance, allPayments, allCharges, allConfigs, analytics] = await Promise.all([
     prisma.player.findUnique({
       where: { id: session.playerId },
       select: {
@@ -119,6 +122,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       },
     }),
     getAllConfigs(),
+    fetchPlayerMatchAnalytics(session.playerId),
   ]);
 
   if (!player) redirect("/");
@@ -274,6 +278,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               />
             </div>
           </section>
+
+          {/* Match stats */}
+          <MatchStatsSection analytics={analytics} view={viewParam} />
 
           {/* Appearance */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
