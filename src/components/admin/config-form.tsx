@@ -191,6 +191,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
     }
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [dayValue, setDayValue] = useState(values[CONFIG.SESSION_SCHEDULE_DAY]);
   const [groupJidValue, setGroupJidValue] = useState(values[CONFIG.WA_GROUP_JID]);
   const [waGroups, setWaGroups] = useState<WaGroup[] | null>(null);
   const [groupFilter, setGroupFilter] = useState("");
@@ -223,7 +224,8 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             <select
               id={CONFIG.SESSION_SCHEDULE_DAY}
               name={CONFIG.SESSION_SCHEDULE_DAY}
-              defaultValue={values[CONFIG.SESSION_SCHEDULE_DAY]}
+              value={dayValue}
+              onChange={(e) => setDayValue(e.target.value)}
               className={`${inputBase} ${errors[CONFIG.SESSION_SCHEDULE_DAY] ? inputError : inputNormal}`}
             >
               {DAYS.map((day, i) => (
