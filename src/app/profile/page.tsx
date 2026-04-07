@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { getPlayerSession } from "@/lib/player-session";
 import { prisma } from "@/lib/prisma";
 import { computePlayerBalance } from "@/lib/balance";
+import { getAllConfigs, CONFIG } from "@/lib/config";
 import { PlayerNav } from "@/components/player-nav";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { ThemeSelector } from "@/components/theme-selector";
 import { AccountStatement } from "@/components/account-statement";
+import { RegulationsViewer } from "@/components/regulations-viewer";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
@@ -68,7 +70,7 @@ export default async function ProfilePage({ searchParams }: Props) {
     : 20;
   const page = Math.max(1, parseInt(rawParams.page ?? "1", 10));
 
-  const [player, balance, allPayments, allCharges] = await Promise.all([
+  const [player, balance, allPayments, allCharges, allConfigs] = await Promise.all([
     prisma.player.findUnique({
       where: { id: session.playerId },
       select: {
@@ -116,6 +118,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         session: { select: { date: true } },
       },
     }),
+    getAllConfigs(),
   ]);
 
   if (!player) redirect("/");
@@ -256,6 +259,19 @@ export default async function ProfilePage({ searchParams }: Props) {
             </div>
             <div className="px-5 py-4">
               <ChangePasswordForm hasPassword={!!player.passwordHash} />
+            </div>
+          </section>
+
+          {/* Regulations */}
+          <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">תקנון</h2>
+            </div>
+            <div className="px-5 py-4">
+              <RegulationsViewer
+                templateText={allConfigs[CONFIG.REGULATIONS_TEXT]}
+                configValues={allConfigs}
+              />
             </div>
           </section>
 

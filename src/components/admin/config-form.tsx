@@ -14,6 +14,8 @@ import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-bu
 import { useToast, Toast } from "@/components/ui/toast";
 import { CONFIG } from "@/lib/config-keys";
 import type { ConfigKey } from "@/lib/config-keys";
+import { parseRegulationsTemplate } from "@/lib/regulations-renderer";
+import { RegulationsContent } from "@/components/regulations-overlay";
 
 type HourlyRate = { id: string; effectiveFrom: Date; pricePerHour: number };
 
@@ -192,6 +194,8 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [dayValue, setDayValue] = useState(values[CONFIG.SESSION_SCHEDULE_DAY]);
+  const [regulationsText, setRegulationsText] = useState(values[CONFIG.REGULATIONS_TEXT]);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [groupJidValue, setGroupJidValue] = useState(values[CONFIG.WA_GROUP_JID]);
   const [waGroups, setWaGroups] = useState<WaGroup[] | null>(null);
   const [groupFilter, setGroupFilter] = useState("");
@@ -530,12 +534,31 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           <textarea
             id={CONFIG.REGULATIONS_TEXT}
             name={CONFIG.REGULATIONS_TEXT}
-            defaultValue={values[CONFIG.REGULATIONS_TEXT]}
+            value={regulationsText}
+            onChange={(e) => setRegulationsText(e.target.value)}
             rows={20}
             maxLength={10000}
             className={`${inputBase} resize-y font-mono text-sm ${errors[CONFIG.REGULATIONS_TEXT] ? inputError : inputNormal}`}
           />
         </Field>
+
+        {/* Preview toggle */}
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((v) => !v)}
+            className="flex items-center gap-1.5 self-start rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 shadow-sm transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          >
+            {previewOpen ? "הסתר תצוגה מקדימה" : "תצוגה מקדימה"}
+          </button>
+          {previewOpen && (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-950 px-5 py-5 dark:border-zinc-700">
+              <RegulationsContent
+                blocks={parseRegulationsTemplate(regulationsText, { ...values, [CONFIG.SESSION_SCHEDULE_DAY]: dayValue })}
+              />
+            </div>
+          )}
+        </div>
       </section>
 
       {/* ── Hourly rates (outside the form submit — links + delete) ── */}

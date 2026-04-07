@@ -14,7 +14,7 @@ type Props = {
   configValues: Record<string, string>;
 };
 
-function renderSpans(spans: RenderedSpan[]) {
+export function renderSpans(spans: RenderedSpan[]) {
   return spans.map((span, i) =>
     span.type === "bold" ? (
       <strong key={i} className="font-semibold text-zinc-100">
@@ -26,7 +26,7 @@ function renderSpans(spans: RenderedSpan[]) {
   );
 }
 
-function RegulationsContent({ blocks }: { blocks: RenderedBlock[] }) {
+export function RegulationsContent({ blocks }: { blocks: RenderedBlock[] }) {
   return (
     <div className="space-y-1">
       {blocks.map((block, i) => {
