@@ -5,7 +5,7 @@ import { LogOut, MessageCircle, RefreshCw } from "lucide-react";
 import {
   fetchWaStatusAction,
   logoutWaAction,
-} from "@/app/admin/(protected)/config/actions";
+} from "@/app/admin/(protected)/wa/actions";
 
 type Status = "loading" | "ready" | "disconnected";
 

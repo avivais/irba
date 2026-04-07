@@ -233,9 +233,11 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 
 **Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
 
-**Bot status & re-link** — `WaBotStatus` component rendered at the top of the `/admin/config` WA section. Shows green/red connection dot, QR code when disconnected (auto-refreshes every 15s as Baileys regenerates), logout button when connected. Calls `fetchWaStatusAction` on mount and polls every 15s; `logoutWaAction` clears session and triggers reconnect for a fresh QR. All WA management (status, JID config, notifications, manual send) is in one place.
+**Bot status & re-link** — dedicated `/admin/wa` page (`src/app/admin/(protected)/wa/page.tsx`). Shows `WaBotStatus` widget (green/red dot, QR code when disconnected, logout button; polls every 15s). Bot status actions (`fetchWaStatusAction`, `logoutWaAction`) live in `src/app/admin/(protected)/wa/actions.ts`.
 
-**Manual group send** — `/admin/config` WA section (visible only when `wa_group_jid` is set) has a free-text textarea + "שלח" button (`sendWaGroupMessageAction`). Calls the sidecar directly (bypasses `WA_NOTIFY_ENABLED` kill switch) — useful for ad-hoc messages and smoke-testing the pipeline. The "שלח" button is **green** (`bg-green-600`) to distinguish it from the "שמור הגדרות" save button.
+**Global status indicator** — `WaStatusDot` (`src/components/admin/wa-status-dot.tsx`) renders a green/red `h-2 w-2` dot in the admin nav (via `NavLinks`), positioned as a badge on the MessageCircle icon. Polls `fetchWaStatusAction` every 15s; shows nothing until first response. Admins see connection state on every page without visiting `/admin/wa`.
+
+**Manual group send** — also on `/admin/wa` (`WaSendForm` component, `src/components/admin/wa-send-form.tsx`). Shows read-only group JID + resolved group name (fetched from sidecar on mount if bot is connected). Textarea + green "שלח לקבוצה" button. If `wa_group_jid` is not configured, a hint links to `/admin/config`. `/admin/config` WA section now only has JID field + notification toggles — no bot status, no send form.
 
 ### Auto-create cron (`GET /api/cron/auto-create`)
 

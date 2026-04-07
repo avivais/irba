@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, ShieldCheck, LogOut } from "lucide-react";
+import { User, ShieldCheck, LogOut, MessageCircle } from "lucide-react";
 import { playerLogoutAction } from "@/app/actions/player-auth";
+import { WaStatusDot } from "@/components/admin/wa-status-dot";
 
 const linkCls =
   "flex items-center rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
@@ -28,14 +29,27 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
       </Link>
 
       {isAdmin && (
-        <Link
-          href="/admin"
-          className={`${linkCls} ${onAdminPage ? activeCls : ""}`}
-          aria-label="ניהול"
-          aria-current={onAdminPage ? "page" : undefined}
-        >
-          <ShieldCheck className="h-4 w-4" aria-hidden />
-        </Link>
+        <>
+          <Link
+            href="/admin/wa"
+            className={`${linkCls} relative ${pathname === "/admin/wa" ? activeCls : ""}`}
+            aria-label="וואטסאפ"
+            aria-current={pathname === "/admin/wa" ? "page" : undefined}
+          >
+            <MessageCircle className="h-4 w-4" aria-hidden />
+            <span className="absolute -top-0.5 -end-0.5">
+              <WaStatusDot />
+            </span>
+          </Link>
+          <Link
+            href="/admin"
+            className={`${linkCls} ${onAdminPage ? activeCls : ""}`}
+            aria-label="ניהול"
+            aria-current={onAdminPage ? "page" : undefined}
+          >
+            <ShieldCheck className="h-4 w-4" aria-hidden />
+          </Link>
+        </>
       )}
 
       <form action={playerLogoutAction}>

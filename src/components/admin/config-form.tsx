@@ -1,18 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition, useRef } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { ChevronDown, ChevronUp, Loader2, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import {
   updateConfigAction,
-  sendWaGroupMessageAction,
   fetchWaGroupsAction,
   runAutoCreateAction,
   type ConfigActionState,
   type WaGroup,
 } from "@/app/admin/(protected)/config/actions";
 import { HourlyRateDeleteButton } from "@/components/admin/hourly-rate-delete-button";
-import { WaBotStatus } from "@/components/admin/wa-bot-status";
 import { useToast, Toast } from "@/components/ui/toast";
 import { CONFIG } from "@/lib/config-keys";
 import type { ConfigKey } from "@/lib/config-keys";
@@ -169,7 +167,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   const errors = state.ok ? {} : (state.errors ?? {});
   const [isDirty, setIsDirty] = useState(false);
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
-  const [sendPending, startSendTransition] = useTransition();
   const [runNowPending, startRunNowTransition] = useTransition();
   function handleRunNow() {
     startRunNowTransition(async () => {
@@ -177,7 +174,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       showToast(result.message, result.ok);
     });
   }
-  const sendMessageRef = useRef<HTMLTextAreaElement>(null);
   const { showToast, dismiss, toast } = useToast();
 
   useEffect(() => {
@@ -187,16 +183,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
     }
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleSend() {
-    const text = sendMessageRef.current?.value.trim() ?? "";
-    const fd = new FormData();
-    fd.append("message", text);
-    startSendTransition(async () => {
-      const result = await sendWaGroupMessageAction({ ok: false, message: "" }, fd);
-      showToast(result.message, result.ok);
-      if (result.ok && sendMessageRef.current) sendMessageRef.current.value = "";
-    });
-  }
   const [groupJidValue, setGroupJidValue] = useState(values[CONFIG.WA_GROUP_JID]);
   const [waGroups, setWaGroups] = useState<WaGroup[] | null>(null);
   const [groupFilter, setGroupFilter] = useState("");
@@ -672,7 +658,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
       {/* ── WhatsApp ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>וואטסאפ</SectionTitle>
-        <WaBotStatus />
 
         <div className="flex flex-col gap-1">
           <label htmlFor={CONFIG.WA_GROUP_JID} className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -994,39 +979,6 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           </Field>
         </div>
       </section>
-
-      {/* ── WA Send to Group ────────────────────────────── */}
-      {values[CONFIG.WA_GROUP_JID] && (
-        <section className="flex flex-col gap-4">
-          <SectionTitle>שליחת הודעה לקבוצה</SectionTitle>
-          <div className="flex flex-col gap-3">
-            <Field label="הודעה" htmlFor="wa-send-message">
-              <textarea
-                id="wa-send-message"
-                ref={sendMessageRef}
-                rows={3}
-                maxLength={1000}
-                className={`${inputBase} resize-y ${inputNormal}`}
-              />
-            </Field>
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={sendPending}
-              className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-600 dark:hover:bg-green-500 dark:active:bg-green-700 dark:focus:ring-green-500/40 sm:w-auto"
-            >
-              {sendPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  שולח…
-                </>
-              ) : (
-                "שלח"
-              )}
-            </button>
-          </div>
-        </section>
-      )}
 
       {/* ── Submit ──────────────────────────────────────── */}
       <button

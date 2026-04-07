@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Users, CalendarDays, FileUp, Settings, ClipboardList, Banknote } from "lucide-react";
+import { Users, CalendarDays, FileUp, Settings, ClipboardList, Banknote, MessageCircle } from "lucide-react";
 
 export const metadata: Metadata = { title: "ניהול" };
 
@@ -103,6 +103,21 @@ export default function AdminHomePage() {
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">לוג פעולות</p>
             <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
               היסטוריית פעולות מלאה
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/wa"
+          className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md active:bg-zinc-100 active:border-zinc-300 focus:outline-none focus:ring-4 focus:ring-zinc-400/30 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:active:bg-zinc-800 dark:active:border-zinc-600 dark:focus:ring-zinc-500/30"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
+            <MessageCircle className="h-5 w-5 text-zinc-700 dark:text-zinc-300" aria-hidden />
+          </span>
+          <div>
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100">וואטסאפ</p>
+            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+              סטטוס בוט ושליחת הודעות
             </p>
           </div>
         </Link>
