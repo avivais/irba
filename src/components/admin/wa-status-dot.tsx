@@ -19,12 +19,15 @@ export function WaStatusDot() {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  if (ready === null) return null;
+  const color =
+    ready === null ? "bg-zinc-400" : ready ? "bg-green-500" : "bg-red-500";
+  const label =
+    ready === null ? "" : ready ? "וואטסאפ מחובר" : "וואטסאפ מנותק";
 
   return (
     <span
-      className={`h-2 w-2 shrink-0 rounded-full ${ready ? "bg-green-500" : "bg-red-500"}`}
-      title={ready ? "וואטסאפ מחובר" : "וואטסאפ מנותק"}
+      className={`absolute -top-1 -end-1 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-zinc-950 ${color}`}
+      title={label}
       aria-hidden
     />
   );

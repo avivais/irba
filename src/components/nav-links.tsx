@@ -15,7 +15,8 @@ const activeCls =
 export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const onProfile = pathname === "/profile";
-  const onAdminPage = pathname.startsWith("/admin");
+  const onWaPage = pathname === "/admin/wa";
+  const onAdminPage = pathname.startsWith("/admin") && !onWaPage;
 
   return (
     <>
@@ -32,14 +33,12 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
         <>
           <Link
             href="/admin/wa"
-            className={`${linkCls} relative ${pathname === "/admin/wa" ? activeCls : ""}`}
+            className={`${linkCls} relative overflow-visible ${onWaPage ? activeCls : ""}`}
             aria-label="וואטסאפ"
-            aria-current={pathname === "/admin/wa" ? "page" : undefined}
+            aria-current={onWaPage ? "page" : undefined}
           >
             <MessageCircle className="h-4 w-4" aria-hidden />
-            <span className="absolute -top-0.5 -end-0.5">
-              <WaStatusDot />
-            </span>
+            <WaStatusDot />
           </Link>
           <Link
             href="/admin"
