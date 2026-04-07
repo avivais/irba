@@ -165,7 +165,13 @@ function RegulationsMacroHelp() {
 export function ConfigForm({ values, rates, currentRateId }: Props) {
   const [state, formAction, pending] = useActionState(updateConfigAction, initialState);
   const errors = state.ok ? {} : (state.errors ?? {});
-  const [isDirty, setIsDirty] = useState(false);
+  // isDirty: counts changes vs saves to avoid calling setState inside an effect.
+  const [changeCount, setChangeCount] = useState(0);
+  const [saveCount, setSaveCount] = useState(0);
+  const isDirty = changeCount > saveCount;
+  // markDirty is called by onChange / JID picker to record a user change
+  const markDirty = () => setChangeCount((n) => n + 1);
+
   const [ratesHistoryOpen, setRatesHistoryOpen] = useState(false);
   const [runNowPending, startRunNowTransition] = useTransition();
   function handleRunNow() {
@@ -179,7 +185,9 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   useEffect(() => {
     if (state.message) {
       showToast(state.message, state.ok);
-      if (state.ok) setIsDirty(false);
+      if (state.ok) {
+        setSaveCount((n) => n + 1); // eslint-disable-line react-hooks/set-state-in-effect
+      }
     }
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -205,7 +213,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
   }
 
   return (
-    <form action={formAction} onChange={() => setIsDirty(true)} className="flex flex-col gap-8">
+    <form action={formAction} onChange={() => markDirty()} className="flex flex-col gap-8">
       {/* ── Sessions ────────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>מפגשים</SectionTitle>
@@ -723,7 +731,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
                             type="button"
                             onClick={() => {
                               setGroupJidValue(g.id);
-                              setIsDirty(true);
+                              markDirty();
                               setGroupsOpen(false);
                             }}
                             className="flex w-full items-center justify-between gap-3 rounded px-2 py-1.5 text-right hover:bg-zinc-100 dark:hover:bg-zinc-800"
