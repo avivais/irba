@@ -276,14 +276,16 @@ export function PlayerForm(props: Props) {
         className="flex w-full flex-col gap-5"
         noValidate
       >
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={handleBack}
-          className="self-start text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white cursor-pointer"
-        >
-          → חזרה
-        </button>
+        {/* Back link — only in create mode; edit mode has a back link in the page header */}
+        {!isEdit && (
+          <button
+            type="button"
+            onClick={handleBack}
+            className="self-start text-sm text-zinc-500 hover:text-zinc-700 active:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 dark:active:text-white cursor-pointer"
+          >
+            → חזרה
+          </button>
+        )}
 
         {/* Phone */}
         <div className="flex flex-col gap-1">
