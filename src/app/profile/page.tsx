@@ -208,6 +208,9 @@ export default async function ProfilePage({ searchParams }: Props) {
             </p>
           </section>
 
+          {/* Match stats */}
+          <MatchStatsSection analytics={analytics} />
+
           {/* Account statement */}
           <AccountStatement
             entries={pageEntries}
@@ -253,40 +256,32 @@ export default async function ProfilePage({ searchParams }: Props) {
             )}
           </section>
 
-          {/* Change password */}
+          {/* Settings — password, regulations, appearance */}
           <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {player.passwordHash ? "שינוי סיסמה" : "הגדרת סיסמה"}
-              </h2>
+              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">הגדרות</h2>
             </div>
-            <div className="px-5 py-4">
+
+            {/* Password */}
+            <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+              <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {player.passwordHash ? "שינוי סיסמה" : "הגדרת סיסמה"}
+              </p>
               <ChangePasswordForm hasPassword={!!player.passwordHash} />
             </div>
-          </section>
 
-          {/* Regulations */}
-          <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            {/* Regulations */}
             <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">תקנון</h2>
-            </div>
-            <div className="px-5 py-4">
+              <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">תקנון</p>
               <RegulationsViewer
                 templateText={allConfigs[CONFIG.REGULATIONS_TEXT]}
                 configValues={allConfigs}
               />
             </div>
-          </section>
 
-          {/* Match stats */}
-          <MatchStatsSection analytics={analytics} />
-
-          {/* Appearance */}
-          <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">עיצוב</h2>
-            </div>
+            {/* Appearance */}
             <div className="px-5 py-4">
+              <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">מראה</p>
               <ThemeSelector />
             </div>
           </section>

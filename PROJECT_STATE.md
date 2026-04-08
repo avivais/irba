@@ -194,7 +194,7 @@ Current year is auto-counted from live `Attendance` records; no `PlayerYearAggre
 - **Favicon / icons**: `src/app/icon.svg` (desktop SVG favicon), `src/app/icon.png` (48×48 PNG fallback), `src/app/apple-icon.png` (180×180 PNG, served as `apple-touch-icon` for iOS Safari / Add to Home Screen). PNGs generated from icon.svg via sharp.
 - **Docker**: `docker-compose.yml` with 3 services: `db` (Postgres 16-alpine), `app` (Next.js on `127.0.0.1:3004`), `wa` (Baileys/Express sidecar on internal port 3100). `Dockerfile` uses `output: standalone` — runner stage copies `.next/standalone` to WORKDIR so `server.js` sits at `/app/server.js` alongside `public/` and `.next/static/`. `docker-entrypoint.sh` runs `prisma migrate deploy` then `exec node server.js`. `init: true` on the app service uses Docker's built-in tini as PID 1 to reap zombie processes.
 - **Deploy**: `./scripts/deploy.sh` — pre-deploy DB backup, then SSH to EC2: `git pull → COMMIT_HASH=$(git rev-parse --short HEAD) docker compose build → docker compose up -d → prisma migrate deploy`. See `RUNBOOK.md` for full ops guide.
-- **Versioning**: `COMMIT_HASH` build arg passed through `docker-compose.yml` → `Dockerfile` → baked as `NEXT_PUBLIC_COMMIT_HASH` at `next build` time. Displayed as a subtle footer on all admin pages and in the `/api/health` response.
+- **Versioning**: `COMMIT_HASH` build arg passed through `docker-compose.yml` → `Dockerfile` → baked as `NEXT_PUBLIC_COMMIT_HASH` at `next build` time. Displayed as a subtle footer on all admin pages (`src/app/admin/(protected)/layout.tsx`) and in the `/api/health` response. Footer uses `CommitInfo` client component (`src/components/admin/commit-info.tsx`) to show local-timezone date and a Hebrew relative time ("לפני X שעות") — avoids showing UTC server time to the user.
 - **Production**: live at `https://irba.sportgroup.cl` (EC2 → Apache TLS → localhost:3004).
 - **Custom 404**: `src/app/not-found.tsx` — Hebrew page ("הדף לא נמצא") with back-to-home link; fixes RTL layout issue with the default Next.js 404 page.
 - **Backup**: `scripts/backup.sh` — `pg_dump | gzip`, 30-day retention. Runs daily at 03:00 via EC2 cron.
@@ -489,7 +489,12 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 **Tests:** `balance.test.ts` (6), `charging.test.ts` (15), `cascade-recalc.test.ts` (11). All pure — no DB required.
 
-**Player-facing balance (`/profile`):** Balance card shows totals + breakdown. Below it: **היסטוריית פעולות** — paginated account statement with interleaved payments and charges, running balance per row, filter tabs (הכל / תשלומים / חיובים), per-page selector (10/20/50). All URL-param-driven (`?type`, `?per`, `?page`) — server-rendered, no JS state. Component: `src/components/account-statement.tsx`.
+**Player-facing `/profile` page — section order:**
+1. **יתרה** — balance card (total paid / charged / net)
+2. **סטטיסטיקות משחק** — match analytics (wins/losses/rounds/teammate affinity)
+3. **היסטוריית פעולות** — paginated account statement (payments + charges, running balance, filter tabs, per-page selector); URL-param driven
+4. **נוכחות אחרונה** — last 10 sessions attended
+5. **הגדרות** — single card grouping: password change + regulations viewer + theme selector (previously three separate cards)
 
 ---
 
