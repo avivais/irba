@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Shuffle, Copy, Check } from "lucide-react";
+import { Shuffle, Copy, Check, Send } from "lucide-react";
 import { generateTeamOptions, ALL_POSITIONS, type TeamOption } from "@/lib/team-balance";
+import { sendTeamOptionsAction } from "@/app/admin/(protected)/sessions/[id]/actions";
 
 type AttendeeWithRank = {
   id: string;
@@ -14,6 +15,8 @@ type AttendeeWithRank = {
 type Props = {
   attendees: AttendeeWithRank[];
   defaultRank: number;
+  sessionDate: Date;
+  sessionId: string;
 };
 
 const TEAM_LABELS = ["קבוצה א׳", "קבוצה ב׳", "קבוצה ג׳"] as const;
@@ -25,6 +28,14 @@ function buildCopyText(opt: TeamOption): string {
       return `${TEAM_LABELS[i]} (ניקוד: ${team.rankSum}):\n${names}`;
     })
     .join("\n\n");
+}
+
+function buildWAMessage(opt: TeamOption, idx: number): string {
+  const lines = [`אפשרות ${idx + 1}`];
+  opt.teams.forEach((team, i) => {
+    lines.push(`${TEAM_LABELS[i]}: ${team.players.map((p) => p.displayName).join(", ")}`);
+  });
+  return lines.join("\n");
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -42,7 +53,7 @@ function CopyButton({ text }: { text: string }) {
       type="button"
       onClick={handleCopy}
       className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-      aria-label="העתק לוואטסאפ"
+      aria-label="העתק"
     >
       {copied ? (
         <>
@@ -59,8 +70,10 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function TeamBalancePanel({ attendees, defaultRank }: Props) {
+export function TeamBalancePanel({ attendees, defaultRank, sessionDate, sessionId }: Props) {
   const [options, setOptions] = useState<TeamOption[] | null>(null);
+  const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [sendError, setSendError] = useState<string | null>(null);
   const canGenerate = attendees.length >= 3;
 
   function handleGenerate() {
@@ -71,6 +84,28 @@ export function TeamBalancePanel({ attendees, defaultRank }: Props) {
       positions: a.positions,
     }));
     setOptions(generateTeamOptions(players, Math.floor(Math.random() * 0xffffffff)));
+    setSendState("idle");
+    setSendError(null);
+  }
+
+  async function handleSendToWA() {
+    if (!options || options.length === 0) return;
+    setSendState("sending");
+    setSendError(null);
+
+    const d = new Date(sessionDate);
+    const pollQuestion = `כוחות ל-${d.getDate()}.${d.getMonth() + 1}`;
+    const messages = options.map((opt, i) => buildWAMessage(opt, i));
+    const pollOptions = options.map((_, i) => `אפשרות ${i + 1}`);
+
+    const result = await sendTeamOptionsAction(sessionId, messages, pollQuestion, pollOptions);
+    if (result.ok) {
+      setSendState("sent");
+      setTimeout(() => setSendState("idle"), 3000);
+    } else {
+      setSendState("error");
+      setSendError(result.error ?? "שליחה נכשלה");
+    }
   }
 
   return (
@@ -82,14 +117,43 @@ export function TeamBalancePanel({ attendees, defaultRank }: Props) {
       {!canGenerate ? (
         <p className="text-sm text-zinc-400 dark:text-zinc-500">נדרשים לפחות 3 שחקנים מאושרים.</p>
       ) : (
-        <button
-          type="button"
-          onClick={handleGenerate}
-          className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 sm:w-auto"
-        >
-          <Shuffle className="h-4 w-4" aria-hidden />
-          {options ? "ערבב מחדש" : "צור קבוצות"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            <Shuffle className="h-4 w-4" aria-hidden />
+            {options ? "ערבב מחדש" : "צור קבוצות"}
+          </button>
+
+          {options && options.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSendToWA}
+              disabled={sendState === "sending"}
+              className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-medium text-green-700 transition hover:bg-green-100 active:bg-green-200 disabled:opacity-60 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
+            >
+              {sendState === "sending" ? (
+                <>שולח...</>
+              ) : sendState === "sent" ? (
+                <>
+                  <Check className="h-4 w-4" aria-hidden />
+                  נשלח
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" aria-hidden />
+                  שלח לוואטסאפ
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {sendState === "error" && sendError && (
+        <p className="text-sm text-red-500 dark:text-red-400">{sendError}</p>
       )}
 
       {options && options.length === 0 && (

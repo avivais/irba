@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePromoteTimestamp } from "@/lib/waitlist";
-import { notifyWaitlistPromote } from "@/lib/wa-notify";
+import { notifyWaitlistPromote, sendWaGroupMessage, sendWaPoll } from "@/lib/wa-notify";
+import { CONFIG } from "@/lib/config-keys";
 import { getAllConfigs } from "@/lib/config";
 
 export type SessionAttendanceState = { ok: boolean; message?: string };
@@ -193,4 +194,25 @@ export async function removePlayerAction(
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
   return { ok: true };
+}
+
+export async function sendTeamOptionsAction(
+  _sessionId: string,
+  messages: string[],
+  pollQuestion: string,
+  pollOptions: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  const configs = await getAllConfigs();
+  const groupJid = configs[CONFIG.WA_GROUP_JID];
+  if (!groupJid) return { ok: false, error: "קבוצת וואטסאפ לא מוגדרת" };
+  try {
+    for (const msg of messages) {
+      await sendWaGroupMessage(groupJid, msg);
+    }
+    await sendWaPoll(groupJid, pollQuestion, pollOptions);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "שליחה נכשלה" };
+  }
 }

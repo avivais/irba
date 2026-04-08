@@ -314,7 +314,12 @@ export default async function AdminSessionPage({ params }: Props) {
 
       {/* Balanced teams */}
       <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <TeamBalancePanel attendees={attendeesWithRank} defaultRank={defaultRank} />
+        <TeamBalancePanel
+          attendees={attendeesWithRank}
+          defaultRank={defaultRank}
+          sessionDate={session.date}
+          sessionId={session.id}
+        />
       </section>
 
       {/* Match results */}

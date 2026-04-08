@@ -51,6 +51,31 @@ export async function sendWaGroupMessage(groupJid: string, message: string): Pro
   }
 }
 
+export async function sendWaPoll(
+  groupJid: string,
+  question: string,
+  options: string[],
+): Promise<void> {
+  if (process.env.WA_NOTIFY_ENABLED !== "true") return;
+  if (!groupJid) {
+    console.warn("[wa-notify] group JID not configured — skipping poll");
+    return;
+  }
+  try {
+    const res = await fetch("http://wa:3100/send-poll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: groupJid, question, options }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      console.warn(`[wa-notify] send-poll failed: ${res.status}`);
+    }
+  } catch (err) {
+    console.warn("[wa-notify] send-poll error:", err);
+  }
+}
+
 // ── Template renderer ────────────────────────────────────────────────────────
 
 /**

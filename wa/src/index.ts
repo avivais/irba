@@ -190,6 +190,45 @@ app.post("/logout", async (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+interface SendPollBody {
+  groupId?: unknown;
+  question?: unknown;
+  options?: unknown;
+}
+
+app.post("/send-poll", async (req: Request<object, object, SendPollBody>, res: Response) => {
+  const { groupId, question, options } = req.body;
+
+  if (
+    typeof groupId !== "string" ||
+    typeof question !== "string" ||
+    !Array.isArray(options) ||
+    options.some((o) => typeof o !== "string")
+  ) {
+    res.status(400).json({ error: "groupId, question, and options (string[]) are required" });
+    return;
+  }
+
+  if (!isReady || sock === null) {
+    logger.warn({ groupId }, "Send-poll attempted while not ready");
+    res.status(503).json({ error: "WhatsApp not connected" });
+    return;
+  }
+
+  logger.info({ groupId, question }, "Sending WhatsApp poll");
+
+  try {
+    await sock.sendMessage(groupId, {
+      poll: { name: question, values: options as string[], selectableCount: 1 },
+    });
+    logger.info({ groupId }, "Poll sent successfully");
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    logger.error({ err, groupId }, "Failed to send poll");
+    res.status(503).json({ error: "Send failed" });
+  }
+});
+
 app.get("/groups", async (_req: Request, res: Response) => {
   if (!isReady || sock === null) {
     res.status(503).json({ error: "WhatsApp not connected" });
