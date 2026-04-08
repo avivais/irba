@@ -33,7 +33,19 @@ function buildCopyText(opt: TeamOption): string {
 function buildWAMessage(opt: TeamOption, idx: number): string {
   const lines = [`אפשרות ${idx + 1}`];
   opt.teams.forEach((team, i) => {
-    lines.push(`${TEAM_LABELS[i]}: ${team.players.map((p) => p.displayName).join(", ")}`);
+    // Order by position (PG → SG → SF → PF → C), then any unassigned players
+    const byPos: Record<string, string> = {};
+    for (const p of team.players) {
+      const pos = team.positionAssignment[p.id];
+      if (pos) byPos[pos] = p.displayName;
+    }
+    const names = [
+      ...ALL_POSITIONS.map((pos) => byPos[pos]).filter(Boolean),
+      ...team.players
+        .filter((p) => !team.positionAssignment[p.id])
+        .map((p) => p.displayName),
+    ];
+    lines.push(`* ${TEAM_LABELS[i]}: ${names.join(", ")}`);
   });
   return lines.join("\n");
 }
