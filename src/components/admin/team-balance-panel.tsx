@@ -92,7 +92,13 @@ export function TeamBalancePanel({ attendees, defaultRank }: Props) {
         </button>
       )}
 
-      {options && (
+      {options && options.length === 0 && (
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">
+          לא ניתן ליצור קבוצות עם כיסוי עמדות מלא עבור השחקנים הנוכחיים. נסה לערבב מחדש או עדכן את עמדות השחקנים.
+        </p>
+      )}
+
+      {options && options.length > 0 && (
         <div className="flex flex-col gap-4">
           {options.map((opt, optIdx) => {
             // Build position → player lookup per team

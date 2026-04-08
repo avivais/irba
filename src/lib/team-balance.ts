@@ -199,5 +199,16 @@ export function generateTeamOptions(players: PlayerInput[], seed = 0): TeamOptio
   const [a3, b3, c3] = positionAwareSnakeDraft(shuffled3);
   const opt3: TeamOption = { teams: [makeTeam(a3), makeTeam(b3), makeTeam(c3)] };
 
-  return [opt1, opt2, opt3];
+  // Filter to options where every full-size team (≥5 players) covers all 5 positions.
+  // Skip filtering when no players have position data (graceful degradation).
+  const hasPositionData = players.some((p) => p.positions.length > 0);
+  if (!hasPositionData) return [opt1, opt2, opt3];
+
+  return [opt1, opt2, opt3].filter((opt) =>
+    opt.teams.every((team) => {
+      if (team.players.length < ALL_POSITIONS.length) return true; // small team, can't fill all slots
+      const assigned = new Set(Object.values(team.positionAssignment).filter(Boolean));
+      return ALL_POSITIONS.every((pos) => assigned.has(pos));
+    })
+  );
 }
