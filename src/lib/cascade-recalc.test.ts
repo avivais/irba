@@ -21,19 +21,29 @@ function makeCharge(overrides: Partial<ExistingCharge> & { sessionChargeId: stri
   };
 }
 
+// Build a pool of minPlayers charges so proposeSessionCharges doesn't return null.
+// The first entry is the "focus" charge; the rest are default REGISTERED fillers.
+function makePool(
+  focus: Partial<ExistingCharge> & { sessionChargeId: string; playerId: string },
+  total: number = BASE_PARAMS.minPlayers,
+): ExistingCharge[] {
+  const charges: ExistingCharge[] = [makeCharge(focus)];
+  for (let i = 2; i <= total; i++) {
+    charges.push(makeCharge({ sessionChargeId: `cfiller${i}`, playerId: `pfiller${i}` }));
+  }
+  return charges;
+}
+
 describe("cascadeRecalc", () => {
   it("returns a result for each input charge", () => {
-    const charges = [
-      makeCharge({ sessionChargeId: "c1", playerId: "p1" }),
-      makeCharge({ sessionChargeId: "c2", playerId: "p2" }),
-    ];
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1" });
     const results = cascadeRecalc(charges, BASE_PARAMS);
-    expect(results).toHaveLength(2);
+    expect(results).toHaveLength(BASE_PARAMS.minPlayers);
   });
 
   it("recalculates to new amount when params change (rate increases)", () => {
-    const charges = [makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 })];
-    // Increase hourly rate: 400/hr * 2hr = 800; 800/10 = 80
+    // 10 REGISTERED, no debt; 400/hr * 2hr = 800; 800/10 = 80 each
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 });
     const results = cascadeRecalc(charges, { ...BASE_PARAMS, hourlyRate: 400 });
     expect(results[0].newCalculatedAmount).toBe(80);
     expect(results[0].newAmount).toBe(80);
@@ -41,9 +51,9 @@ describe("cascadeRecalc", () => {
   });
 
   it("preserves admin delta when recalculating", () => {
-    // Player was charged 40 (calculated 60, admin reduced by 20 → delta = -20)
-    const charges = [makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 40, calculatedAmount: 60 })];
-    // Same params → newCalculated = 60, delta = -20, newAmount = 40
+    // p1: amount=40 (calculated 60, admin reduced by 20 → delta=-20)
+    // Same params → newCalculated=60, delta=-20, newAmount=40
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 40, calculatedAmount: 60 });
     const results = cascadeRecalc(charges, BASE_PARAMS);
     expect(results[0].adminDelta).toBe(-20);
     expect(results[0].newCalculatedAmount).toBe(60);
@@ -51,8 +61,8 @@ describe("cascadeRecalc", () => {
   });
 
   it("applies admin delta on top of new calculated amount", () => {
-    // delta = -20, newCalculated = 80 → newAmount = 60
-    const charges = [makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 40, calculatedAmount: 60 })];
+    // p1: delta=-20; with rate increase newCalculated=80 → newAmount=60
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 40, calculatedAmount: 60 });
     const results = cascadeRecalc(charges, { ...BASE_PARAMS, hourlyRate: 400 });
     expect(results[0].adminDelta).toBe(-20);
     expect(results[0].newCalculatedAmount).toBe(80);
@@ -60,32 +70,31 @@ describe("cascadeRecalc", () => {
   });
 
   it("preserves positive admin delta (admin increased the charge)", () => {
-    // amount = 80, calculatedAmount = 60 → delta = +20
-    const charges = [makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 80, calculatedAmount: 60 })];
+    // p1: amount=80, calculatedAmount=60 → delta=+20; newAmount=80
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 80, calculatedAmount: 60 });
     const results = cascadeRecalc(charges, BASE_PARAMS);
     expect(results[0].adminDelta).toBe(20);
     expect(results[0].newAmount).toBe(80); // 60 + 20
   });
 
   it("detects charge type change when player crosses debt threshold", () => {
-    // Player has balance -10 (exactly at threshold) → DROP_IN
-    const charges = [
-      makeCharge({
-        sessionChargeId: "c1",
-        playerId: "p1",
-        playerKind: "REGISTERED",
-        balance: -10,
-        amount: 60,
-        calculatedAmount: 60,
-        chargeType: "REGISTERED",
-      }),
-    ];
+    // p1: REGISTERED balance=-10 (at threshold) → upgraded to DROP_IN
+    // 9 normal registered fillers; dropInAmount=60, remainder=540/9=60 for normal
+    const charges = makePool({
+      sessionChargeId: "c1",
+      playerId: "p1",
+      playerKind: "REGISTERED",
+      balance: -10,
+      amount: 60,
+      calculatedAmount: 60,
+      chargeType: "REGISTERED",
+    });
     const results = cascadeRecalc(charges, BASE_PARAMS);
     expect(results[0].newChargeType).toBe("DROP_IN");
   });
 
   it("handles zero adminDelta (no override)", () => {
-    const charges = [makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 })];
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 });
     const results = cascadeRecalc(charges, BASE_PARAMS);
     expect(results[0].adminDelta).toBe(0);
     expect(results[0].newAmount).toBe(results[0].newCalculatedAmount);
@@ -98,21 +107,20 @@ describe("cascadeRecalc", () => {
 
 describe("summarizeRecalc", () => {
   it("correctly counts changed and total amounts", () => {
-    const charges = [
-      makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 }),
-      makeCharge({ sessionChargeId: "c2", playerId: "p2", amount: 60, calculatedAmount: 60 }),
-    ];
+    // 10 REGISTERED charges all at 60; rate increase → all 80
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 });
+    // Override filler amounts to 60 (makePool default) — consistent with makeCharge default
     const results = cascadeRecalc(charges, { ...BASE_PARAMS, hourlyRate: 400 }); // 80 each
     const summary = summarizeRecalc(charges, results);
-    expect(summary.totalCharges).toBe(2);
-    expect(summary.changedCount).toBe(2);
-    expect(summary.totalOldAmount).toBe(120);
-    expect(summary.totalNewAmount).toBe(160);
-    expect(summary.netDifference).toBe(40);
+    expect(summary.totalCharges).toBe(BASE_PARAMS.minPlayers);
+    expect(summary.changedCount).toBe(BASE_PARAMS.minPlayers);
+    expect(summary.totalOldAmount).toBe(600); // 10 × 60
+    expect(summary.totalNewAmount).toBe(800); // 10 × 80
+    expect(summary.netDifference).toBe(200);
   });
 
   it("shows 0 changed when amounts are unchanged", () => {
-    const charges = [makeCharge({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 })];
+    const charges = makePool({ sessionChargeId: "c1", playerId: "p1", amount: 60, calculatedAmount: 60 });
     const results = cascadeRecalc(charges, BASE_PARAMS);
     const summary = summarizeRecalc(charges, results);
     expect(summary.changedCount).toBe(0);
