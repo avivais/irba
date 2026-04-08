@@ -34,7 +34,7 @@ ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
   set -euo pipefail
   cd /opt/irba
   COMMIT_HASH=$(git rev-parse --short HEAD)
-  COMMIT_DATE=$(git log -1 --format='%ci' | cut -c1-16)
+  COMMIT_DATE=$(git log -1 --format='%cI')
   echo "Building commit $COMMIT_HASH ($COMMIT_DATE)"
   COMMIT_HASH=$COMMIT_HASH COMMIT_DATE=$COMMIT_DATE \
     docker compose build --progress=plain 2>&1

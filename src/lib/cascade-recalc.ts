@@ -55,6 +55,12 @@ export function cascadeRecalc(
   charges: ExistingCharge[],
   params: RecalcParams,
 ): RecalcResult[] {
+  const allPlayers = charges.map((c) => ({
+    playerId: c.playerId,
+    playerKind: c.playerKind,
+    balance: c.balance,
+  }));
+
   return charges.map((charge) => {
     const adminDelta = charge.amount - charge.calculatedAmount;
 
@@ -66,6 +72,7 @@ export function cascadeRecalc(
         debtThreshold: params.debtThreshold,
         playerKind: charge.playerKind,
         balance: charge.balance,
+        allPlayers,
       });
 
     const newAmount = newCalculatedAmount + adminDelta;

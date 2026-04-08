@@ -2,10 +2,10 @@
  * Charging engine — pure, no Prisma imports at module level.
  *
  * Concepts:
- * - REGISTERED rate: (hourlyRate * durationHours) / minPlayers — same for every confirmed registered player.
- * - DROP_IN rate: ceil(totalCost / minPlayers) — same for every confirmed drop-in player.
- *   A registered player with balance ≤ -debtThreshold is billed at the drop-in rate.
- * - totalCost = hourlyRate * durationHours (fractional shekels OK before ceiling).
+ * - totalCost = hourlyRate * durationHours
+ * - dropInAmount = ceil(totalCost / minPlayers)
+ * - Drop-ins and registered players in debt (balance ≤ -debtThreshold) each pay dropInAmount.
+ * - The remainder after subtracting those payments is split equally among remaining registered players.
  * - Charge amounts are always whole shekels (Math.ceil).
  */
 
@@ -64,13 +64,26 @@ export function proposeSessionCharges(
   const durationHours = durationMinutes / 60;
   const totalCost = hourlyRate * durationHours;
 
-  // Registered rate: proportional share (fractional before ceil)
-  const registeredAmount = Math.ceil(totalCost / minPlayers);
-  // Drop-in rate: same formula — ceil(totalCost / minPlayers)
+  // Step 2: fixed drop-in rate
   const dropInAmount = Math.ceil(totalCost / minPlayers);
 
+  // Categorise players
+  const dropIns = players.filter((p) => p.playerKind === "DROP_IN");
+  const registered = players.filter((p) => p.playerKind === "REGISTERED");
+  const registeredInDebt = registered.filter((p) => p.balance <= -debtThreshold);
+  const registeredNormal = registered.filter((p) => p.balance > -debtThreshold);
+
+  // Step 3–4.3: subtract drop-in and debt contributions from total
+  const dropInsTotal = dropIns.length * dropInAmount;
+  const debtTotal = registeredInDebt.length * dropInAmount;
+  const remainder = totalCost - dropInsTotal - debtTotal;
+
+  // Step 4.4: split remainder equally among normal registered players
+  const registeredAmount =
+    registeredNormal.length > 0 ? Math.ceil(remainder / registeredNormal.length) : 0;
+
   const charges: ProposedCharge[] = players.map((p) => {
-    const isDebt = p.balance <= -debtThreshold;
+    const isDebt = p.playerKind === "REGISTERED" && p.balance <= -debtThreshold;
     const effectiveDropIn = p.playerKind === "DROP_IN" || isDebt;
 
     const chargeType: ChargeType = effectiveDropIn ? "DROP_IN" : "REGISTERED";
@@ -84,7 +97,7 @@ export function proposeSessionCharges(
 
 /**
  * Compute the amount for a single player given session cost params.
- * Useful for cascade recalculation of individual charges.
+ * Requires the full confirmed player list to correctly split the registered remainder.
  */
 export function computeSingleCharge(opts: {
   hourlyRate: number;
@@ -93,15 +106,20 @@ export function computeSingleCharge(opts: {
   debtThreshold: number;
   playerKind: PlayerKind;
   balance: number;
+  allPlayers: PlayerChargeInput[];
 }): { chargeType: ChargeType; calculatedAmount: number } {
-  const { hourlyRate, durationMinutes, minPlayers, debtThreshold, playerKind, balance } = opts;
-  const durationHours = durationMinutes / 60;
-  const totalCost = hourlyRate * durationHours;
-  const amount = Math.ceil(totalCost / minPlayers);
-  const isDebt = balance <= -debtThreshold;
-  const effectiveDropIn = playerKind === "DROP_IN" || isDebt;
+  const proposal = proposeSessionCharges({
+    hourlyRate: opts.hourlyRate,
+    durationMinutes: opts.durationMinutes,
+    minPlayers: opts.minPlayers,
+    debtThreshold: opts.debtThreshold,
+    players: opts.allPlayers,
+  });
+  if (!proposal) return { chargeType: "REGISTERED", calculatedAmount: 0 };
+  const isDebt = opts.playerKind === "REGISTERED" && opts.balance <= -opts.debtThreshold;
+  const effectiveDropIn = opts.playerKind === "DROP_IN" || isDebt;
   return {
     chargeType: effectiveDropIn ? "DROP_IN" : "REGISTERED",
-    calculatedAmount: amount,
+    calculatedAmount: effectiveDropIn ? proposal.dropInAmount : proposal.registeredAmount,
   };
 }

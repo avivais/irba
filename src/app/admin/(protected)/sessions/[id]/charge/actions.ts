@@ -320,6 +320,12 @@ async function computeCascadeChanges(fromSessionId: string): Promise<CascadeChan
     const paidMap = new Map(paymentsAgg.map((r) => [r.playerId, r._sum.amount ?? 0]));
     const chargedMap = new Map(chargesAgg.map((r) => [r.playerId, r._sum.amount ?? 0]));
 
+    const allPlayers = session.sessionCharges.map((c) => ({
+      playerId: c.playerId,
+      playerKind: c.player.playerKind as "REGISTERED" | "DROP_IN",
+      balance: (paidMap.get(c.playerId) ?? 0) - (chargedMap.get(c.playerId) ?? 0),
+    }));
+
     for (const charge of session.sessionCharges) {
       const balance = (paidMap.get(charge.playerId) ?? 0) - (chargedMap.get(charge.playerId) ?? 0);
       const { chargeType: newChargeType, calculatedAmount: newCalculatedAmount } = computeSingleCharge({
@@ -329,6 +335,7 @@ async function computeCascadeChanges(fromSessionId: string): Promise<CascadeChan
         debtThreshold,
         playerKind: charge.player.playerKind as "REGISTERED" | "DROP_IN",
         balance,
+        allPlayers,
       });
 
       const adminDelta = charge.amount - charge.calculatedAmount;
