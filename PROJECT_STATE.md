@@ -601,7 +601,7 @@ Players see their match stats at the bottom of `/profile`.
 **UI sections:**
 - Summary: wins / losses / ties counts + win% (ties excluded from ratio denominator)
 - Breakdown toggle ("לפי סבב" / "לפי מפגש") — `useState` client-side only (no URL param, no scroll-to-top); CSS-only colored bar per row
-  - Per-round view: "סבב N · [start date] — [end date]"; round size driven by `round_size` config key (default 5 sessions)
+  - Per-round view: expandable accordion rows — each round shows "סבב N" + date range (RTL label, LTR dates) + wins/losses bar; expanding reveals individual match results (score + win/loss/tie badge); round size driven by `round_size` config key (default 5 sessions)
   - Per-session view: each session date with that night's wins/losses
 - Teammate affinity: top 5 by shared wins; shows "X ניצחונות מתוך Y משחקים יחד"
 

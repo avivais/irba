@@ -15,10 +15,20 @@ import {
 
 export type TeammateWithName = TeammateAffinity & { displayName: string };
 
+export type MatchResult = {
+  id: string;
+  scoreA: number;
+  scoreB: number;
+  /** "win" | "loss" | "tie" from the perspective of this player */
+  outcome: "win" | "loss" | "tie";
+};
+
 export type PlayerAnalytics = {
   stats: MatchStats;
   sessionBreakdown: SessionRecord[];
   roundBreakdown: RoundRecord[];
+  /** Individual match results grouped by round number */
+  matchesByRound: Record<number, MatchResult[]>;
   /** Session dates keyed by sessionId, for display in session breakdown */
   sessionDates: Record<string, Date>;
   roundSize: number;
@@ -77,6 +87,23 @@ export async function fetchPlayerMatchAnalytics(
   const roundBreakdown = computeRoundBreakdown(playerId, matches, sessionOrder, sessionDateMap, roundSize);
   const affinityRaw = computeTeammateAffinity(playerId, matches, 5);
 
+  // Group individual matches by round for expandable display
+  const matchesByRound: Record<number, MatchResult[]> = {};
+  for (const m of matches) {
+    const idx = sessionOrder.get(m.sessionId);
+    if (idx === undefined) continue;
+    const round = Math.floor(idx / roundSize) + 1;
+    const inA = m.teamAPlayerIds.includes(playerId);
+    const inB = m.teamBPlayerIds.includes(playerId);
+    if (!inA && !inB) continue;
+    let outcome: "win" | "loss" | "tie";
+    if (m.scoreA === m.scoreB) outcome = "tie";
+    else if (inA) outcome = m.scoreA > m.scoreB ? "win" : "loss";
+    else outcome = m.scoreB > m.scoreA ? "win" : "loss";
+    if (!matchesByRound[round]) matchesByRound[round] = [];
+    matchesByRound[round].push({ id: m.id, scoreA: m.scoreA, scoreB: m.scoreB, outcome });
+  }
+
   // Session dates for the per-session breakdown display
   const sessionDates: Record<string, Date> = Object.fromEntries(
     allSessions.map((s) => [s.id, s.date]),
@@ -106,5 +133,5 @@ export async function fetchPlayerMatchAnalytics(
     displayName: nameById.get(a.teammateId) ?? "שחקן",
   }));
 
-  return { stats, sessionBreakdown, roundBreakdown, sessionDates, roundSize, topTeammates };
+  return { stats, sessionBreakdown, roundBreakdown, matchesByRound, sessionDates, roundSize, topTeammates };
 }
