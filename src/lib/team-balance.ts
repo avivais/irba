@@ -80,7 +80,7 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
  *
  * Returns an empty array when there are fewer than 3 players.
  */
-export function generateTeamOptions(players: PlayerInput[]): TeamOption[] {
+export function generateTeamOptions(players: PlayerInput[], seed = 0): TeamOption[] {
   if (players.length < 3) return [];
 
   const sorted = [...players].sort((a, b) => b.rank - a.rank);
@@ -92,9 +92,9 @@ export function generateTeamOptions(players: PlayerInput[]): TeamOption[] {
   // Option 2: shuffle within tiers, then snake draft
   const [t1, t2, t3] = splitIntoTiers(sorted);
   const shuffled2 = [
-    ...seededShuffle(t1, 42),
-    ...seededShuffle(t2, 137),
-    ...seededShuffle(t3, 999),
+    ...seededShuffle(t1, seed ^ 0x2a),
+    ...seededShuffle(t2, seed ^ 0x89),
+    ...seededShuffle(t3, seed ^ 0x3e7),
   ];
   const [a2, b2, c2] = snakeDraft(shuffled2);
   const opt2: TeamOption = { teams: [makeTeam(a2), makeTeam(b2), makeTeam(c2)] };
@@ -103,9 +103,9 @@ export function generateTeamOptions(players: PlayerInput[]): TeamOption[] {
   const rotated = rotate(sorted, 1);
   const [r1, r2, r3] = splitIntoTiers(rotated);
   const shuffled3 = [
-    ...seededShuffle(r1, 7),
-    ...seededShuffle(r2, 314),
-    ...seededShuffle(r3, 5050),
+    ...seededShuffle(r1, seed ^ 0x07),
+    ...seededShuffle(r2, seed ^ 0x13a),
+    ...seededShuffle(r3, seed ^ 0x13ba),
   ];
   const [a3, b3, c3] = snakeDraft(shuffled3);
   const opt3: TeamOption = { teams: [makeTeam(a3), makeTeam(b3), makeTeam(c3)] };

@@ -133,7 +133,7 @@ export function MatchStatsSection({ analytics }: Props) {
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-red-500 dark:text-red-400">{stats.losses}</p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">הפסדות</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">הפסדים</p>
             </div>
             {stats.ties > 0 && (
               <div className="text-center">

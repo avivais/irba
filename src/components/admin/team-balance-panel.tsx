@@ -70,7 +70,7 @@ export function TeamBalancePanel({ attendees, defaultRank }: Props) {
       rank: a.rank ?? defaultRank,
       positions: a.positions,
     }));
-    setOptions(generateTeamOptions(players));
+    setOptions(generateTeamOptions(players, Math.floor(Math.random() * 0xffffffff)));
   }
 
   return (
@@ -121,9 +121,20 @@ export function TeamBalancePanel({ attendees, defaultRank }: Props) {
                       {team.players.map((p) => (
                         <li
                           key={p.id}
-                          className="truncate text-sm text-zinc-800 dark:text-zinc-200"
+                          className="flex items-center gap-1.5 text-sm text-zinc-800 dark:text-zinc-200"
                         >
-                          {p.displayName}
+                          <span className="truncate">{p.displayName}</span>
+                          {p.positions.map((pos) => (
+                            <span
+                              key={pos}
+                              className="shrink-0 rounded bg-zinc-200 px-1 py-0.5 font-mono text-xs text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                            >
+                              {pos}
+                            </span>
+                          ))}
+                          <span className="ml-auto shrink-0 tabular-nums text-xs text-zinc-400 dark:text-zinc-500">
+                            {p.rank}
+                          </span>
                         </li>
                       ))}
                     </ul>

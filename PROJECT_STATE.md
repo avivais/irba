@@ -548,15 +548,16 @@ Players must read and accept the IRBA regulations before using the app.
 **Algorithm (`src/lib/team-balance.ts`):**
 - Input: `PlayerInput[]` with `rank` (null → `default_player_rank` config), `positions`, `displayName`
 - Snake-draft assigns players sorted by rank desc: A B C C B A A B C… (minimises rank-sum variance)
-- Generates 3 distinct options via deterministic tier-shuffling (different seeds per option)
+- `generateTeamOptions(players, seed)` — seed param (default 0) derives per-tier shuffle seeds; each call from the UI passes a fresh `Math.random()` seed so re-shuffle produces different results
 - Handles non-divisible N gracefully (e.g., 14 → teams of 5,5,4)
 - Pure function — no DB, runs client-side. 9 unit tests in `src/lib/team-balance.test.ts`
 
 **Admin UI** (`TeamBalancePanel` on `/admin/sessions/[id]`, between attendance and match panels):
 - “צור קבוצות” button (disabled + note when < 3 confirmed players)
 - Shows 3 option cards stacked vertically; each card: Teams א׳/ב׳/ג׳ with player names + rank sum
-- “העתק” button per option — copies plain-text Hebrew format to clipboard (shows “הועתק ✓” for 2s)
-- “ערבב מחדש” label after first generation; re-clicking reruns the same deterministic algorithm
+- Each player row shows: name, position badges (PG/SG/SF/PF/C, monospace pill), rank (right-aligned, admin-only)
+- “העתק” button per option — copies names-only plain-text Hebrew format (no rank/positions in copy)
+- “ערבב מחדש” now generates genuinely different teams on every press (random seed each call)
 
 ---
 
