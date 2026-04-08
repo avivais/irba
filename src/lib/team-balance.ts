@@ -8,6 +8,7 @@ export type PlayerInput = {
 export type Team = {
   players: PlayerInput[];
   rankSum: number;
+  positionAssignment: Record<string, string | null>;
 };
 
 export type TeamOption = {
@@ -15,10 +16,55 @@ export type TeamOption = {
 };
 
 /**
- * Build a Team from a player array.
+ * Backtracking position assignment: given a team, assign one position per
+ * player (from their eligible positions) maximising total assigned slots.
+ * With ≤8 players and 5 positions the search space is tiny.
+ */
+function assignPositions(players: PlayerInput[]): Record<string, string | null> {
+  const n = players.length;
+  const best: (string | null)[] = Array(n).fill(null);
+  let bestCount = 0;
+  const current: (string | null)[] = Array(n).fill(null);
+
+  function bt(i: number, used: Set<string>, count: number): void {
+    if (i === n) {
+      if (count > bestCount) {
+        bestCount = count;
+        for (let j = 0; j < n; j++) best[j] = current[j];
+      }
+      return;
+    }
+    for (const pos of players[i].positions) {
+      if (!used.has(pos)) {
+        current[i] = pos;
+        used.add(pos);
+        bt(i + 1, used, count + 1);
+        used.delete(pos);
+      }
+    }
+    // Also try assigning no position (null)
+    current[i] = null;
+    bt(i + 1, used, count);
+  }
+
+  bt(0, new Set(), 0);
+
+  const result: Record<string, string | null> = {};
+  for (let i = 0; i < n; i++) {
+    result[players[i].id] = best[i];
+  }
+  return result;
+}
+
+/**
+ * Build a Team from a player array, computing rank sum and position assignment.
  */
 function makeTeam(players: PlayerInput[]): Team {
-  return { players, rankSum: players.reduce((s, p) => s + p.rank, 0) };
+  return {
+    players,
+    rankSum: players.reduce((s, p) => s + p.rank, 0),
+    positionAssignment: assignPositions(players),
+  };
 }
 
 /**
@@ -74,10 +120,11 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 /**
  * Generate 3 distinct balanced team splits from a list of players.
  *
- * Option 1: pure rank-descending snake draft
+ * Option 1: seed-based rotation of the sorted list, then snake draft
  * Option 2: shuffle within rank tiers (top/mid/bottom thirds), then snake draft
  * Option 3: rotate the sorted list by 1 before tier-shuffle + snake draft
  *
+ * All 3 options vary with the seed so every re-shuffle produces different teams.
  * Returns an empty array when there are fewer than 3 players.
  */
 export function generateTeamOptions(players: PlayerInput[], seed = 0): TeamOption[] {
@@ -85,8 +132,9 @@ export function generateTeamOptions(players: PlayerInput[], seed = 0): TeamOptio
 
   const sorted = [...players].sort((a, b) => b.rank - a.rank);
 
-  // Option 1: pure snake draft
-  const [a1, b1, c1] = snakeDraft(sorted);
+  // Option 1: rotate by seed-derived offset, then snake draft
+  const rot1 = rotate(sorted, seed % Math.max(1, sorted.length));
+  const [a1, b1, c1] = snakeDraft(rot1);
   const opt1: TeamOption = { teams: [makeTeam(a1), makeTeam(b1), makeTeam(c1)] };
 
   // Option 2: shuffle within tiers, then snake draft

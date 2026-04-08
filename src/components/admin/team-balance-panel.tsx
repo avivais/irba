@@ -118,25 +118,25 @@ export function TeamBalancePanel({ attendees, defaultRank }: Props) {
                       </span>
                     </div>
                     <ul className="flex flex-col gap-0.5">
-                      {team.players.map((p) => (
-                        <li
-                          key={p.id}
-                          className="flex items-center gap-1.5 text-sm text-zinc-800 dark:text-zinc-200"
-                        >
-                          <span className="truncate">{p.displayName}</span>
-                          {p.positions.map((pos) => (
-                            <span
-                              key={pos}
-                              className="shrink-0 rounded bg-zinc-200 px-1 py-0.5 font-mono text-xs text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-                            >
-                              {pos}
+                      {team.players.map((p) => {
+                        const assignedPos = team.positionAssignment[p.id];
+                        return (
+                          <li
+                            key={p.id}
+                            className="flex items-center gap-1.5 text-sm text-zinc-800 dark:text-zinc-200"
+                          >
+                            <span className="truncate">{p.displayName}</span>
+                            {assignedPos && (
+                              <span className="shrink-0 rounded bg-zinc-200 px-1 py-0.5 font-mono text-xs text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
+                                {assignedPos}
+                              </span>
+                            )}
+                            <span className="ml-auto shrink-0 tabular-nums text-xs text-zinc-400 dark:text-zinc-500">
+                              {p.rank}
                             </span>
-                          ))}
-                          <span className="ml-auto shrink-0 tabular-nums text-xs text-zinc-400 dark:text-zinc-500">
-                            {p.rank}
-                          </span>
-                        </li>
-                      ))}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}
