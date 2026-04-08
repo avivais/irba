@@ -104,4 +104,23 @@ describe("generateTeamOptions", () => {
     // Not all three identical
     expect(new Set([ids1, ids2, ids3]).size).toBeGreaterThan(1);
   });
+
+  it("position-aware draft covers all positions when each position has 3 players", () => {
+    // 15 players, exactly 3 per position — every team should fill all 5 slots
+    const players = ["PG", "SG", "SF", "PF", "C"].flatMap((pos, pi) =>
+      Array.from({ length: 3 }, (_, i) => ({
+        id: `${pos}-${i}`,
+        displayName: `${pos} ${i}`,
+        rank: 100 - pi * 5 - i,
+        positions: [pos],
+      }))
+    );
+    const opts = generateTeamOptions(players);
+    opts.forEach((opt) => {
+      opt.teams.forEach((team) => {
+        const assigned = Object.values(team.positionAssignment).filter(Boolean);
+        expect(assigned.length).toBe(5);
+      });
+    });
+  });
 });

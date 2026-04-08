@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Shuffle, Copy, Check } from "lucide-react";
-import { generateTeamOptions, type TeamOption } from "@/lib/team-balance";
+import { generateTeamOptions, ALL_POSITIONS, type TeamOption } from "@/lib/team-balance";
 
 type AttendeeWithRank = {
   id: string;
@@ -17,7 +17,6 @@ type Props = {
 };
 
 const TEAM_LABELS = ["קבוצה א׳", "קבוצה ב׳", "קבוצה ג׳"] as const;
-const ALL_POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 
 function buildCopyText(opt: TeamOption): string {
   return opt.teams

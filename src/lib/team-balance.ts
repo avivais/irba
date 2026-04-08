@@ -15,6 +15,12 @@ export type TeamOption = {
   teams: [Team, Team, Team];
 };
 
+export const ALL_POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
+
+// How many of the top remaining players to scan for a position-filling match.
+// Skipping at most LOOKAHEAD-1 higher-ranked players bounds the rank-balance impact.
+const LOOKAHEAD = 5;
+
 /**
  * Backtracking position assignment: given a team, assign one position per
  * player (from their eligible positions) maximising total assigned slots.
@@ -68,21 +74,56 @@ function makeTeam(players: PlayerInput[]): Team {
 }
 
 /**
- * Snake-draft assignment: distributes players in rank order across 3 teams.
- * Pattern: A B C C B A A B C …
- * Each "round" of 6 assigns 2 to each team, minimising rank-sum variance.
+ * Position-aware snake draft.
+ *
+ * Uses the standard A B C C B A snake order but at each pick prefers the
+ * highest-ranked player (within the top LOOKAHEAD remaining) who fills an
+ * unfilled position for the current team. Falls back to the highest-ranked
+ * remaining player when no position match is found or all positions are filled.
+ *
+ * The bounded lookahead limits rank-balance impact: we skip at most
+ * LOOKAHEAD-1 higher-ranked players to satisfy a position constraint.
  */
-function snakeDraft(sorted: PlayerInput[]): [PlayerInput[], PlayerInput[], PlayerInput[]] {
-  const a: PlayerInput[] = [];
-  const b: PlayerInput[] = [];
-  const c: PlayerInput[] = [];
-  // Snake order for each position within a 6-player cycle: A B C C B A
+function positionAwareSnakeDraft(
+  players: PlayerInput[]
+): [PlayerInput[], PlayerInput[], PlayerInput[]] {
+  const teams: [PlayerInput[], PlayerInput[], PlayerInput[]] = [[], [], []];
+  const needs: [Set<string>, Set<string>, Set<string>] = [
+    new Set<string>(ALL_POSITIONS),
+    new Set<string>(ALL_POSITIONS),
+    new Set<string>(ALL_POSITIONS),
+  ];
   const order = [0, 1, 2, 2, 1, 0] as const;
-  const buckets = [a, b, c];
-  sorted.forEach((p, i) => {
-    buckets[order[i % 6]].push(p);
-  });
-  return [a, b, c];
+  const remaining = [...players]; // caller guarantees rank-descending order
+
+  for (let i = 0; i < players.length; i++) {
+    const t = order[i % 6];
+    const teamNeeds = needs[t];
+
+    let chosenIdx = 0; // default: highest-ranked remaining
+    if (teamNeeds.size > 0) {
+      const top = Math.min(LOOKAHEAD, remaining.length);
+      for (let j = 0; j < top; j++) {
+        if (remaining[j].positions.some((p) => teamNeeds.has(p))) {
+          chosenIdx = j;
+          break;
+        }
+      }
+    }
+
+    const [player] = remaining.splice(chosenIdx, 1);
+    teams[t].push(player);
+
+    // Mark the first matching need as filled
+    for (const pos of player.positions) {
+      if (teamNeeds.has(pos)) {
+        teamNeeds.delete(pos);
+        break;
+      }
+    }
+  }
+
+  return teams;
 }
 
 /**
@@ -120,9 +161,9 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 /**
  * Generate 3 distinct balanced team splits from a list of players.
  *
- * Option 1: seed-based rotation of the sorted list, then snake draft
- * Option 2: shuffle within rank tiers (top/mid/bottom thirds), then snake draft
- * Option 3: rotate the sorted list by 1 before tier-shuffle + snake draft
+ * Option 1: seed-based rotation of the sorted list, then position-aware snake draft
+ * Option 2: shuffle within rank tiers (top/mid/bottom thirds), then position-aware snake draft
+ * Option 3: rotate the sorted list by 1 before tier-shuffle + position-aware snake draft
  *
  * All 3 options vary with the seed so every re-shuffle produces different teams.
  * Returns an empty array when there are fewer than 3 players.
@@ -132,22 +173,22 @@ export function generateTeamOptions(players: PlayerInput[], seed = 0): TeamOptio
 
   const sorted = [...players].sort((a, b) => b.rank - a.rank);
 
-  // Option 1: rotate by seed-derived offset, then snake draft
+  // Option 1: rotate by seed-derived offset, then position-aware snake draft
   const rot1 = rotate(sorted, seed % Math.max(1, sorted.length));
-  const [a1, b1, c1] = snakeDraft(rot1);
+  const [a1, b1, c1] = positionAwareSnakeDraft(rot1);
   const opt1: TeamOption = { teams: [makeTeam(a1), makeTeam(b1), makeTeam(c1)] };
 
-  // Option 2: shuffle within tiers, then snake draft
+  // Option 2: shuffle within tiers, then position-aware snake draft
   const [t1, t2, t3] = splitIntoTiers(sorted);
   const shuffled2 = [
     ...seededShuffle(t1, seed ^ 0x2a),
     ...seededShuffle(t2, seed ^ 0x89),
     ...seededShuffle(t3, seed ^ 0x3e7),
   ];
-  const [a2, b2, c2] = snakeDraft(shuffled2);
+  const [a2, b2, c2] = positionAwareSnakeDraft(shuffled2);
   const opt2: TeamOption = { teams: [makeTeam(a2), makeTeam(b2), makeTeam(c2)] };
 
-  // Option 3: rotate sorted list by 1, shuffle tiers with different seeds, then snake
+  // Option 3: rotate sorted list by 1, shuffle tiers with different seeds, then position-aware snake
   const rotated = rotate(sorted, 1);
   const [r1, r2, r3] = splitIntoTiers(rotated);
   const shuffled3 = [
@@ -155,7 +196,7 @@ export function generateTeamOptions(players: PlayerInput[], seed = 0): TeamOptio
     ...seededShuffle(r2, seed ^ 0x13a),
     ...seededShuffle(r3, seed ^ 0x13ba),
   ];
-  const [a3, b3, c3] = snakeDraft(shuffled3);
+  const [a3, b3, c3] = positionAwareSnakeDraft(shuffled3);
   const opt3: TeamOption = { teams: [makeTeam(a3), makeTeam(b3), makeTeam(c3)] };
 
   return [opt1, opt2, opt3];
