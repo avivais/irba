@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 function timeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -35,12 +35,13 @@ export function CommitInfo({
   hash: string;
   utcDate: string;
 }) {
-  const [display, setDisplay] = useState<{ local: string; ago: string } | null>(null);
-
-  useEffect(() => {
+  // Lazy initializer runs once on the client — avoids setState-in-effect lint error.
+  // utcDate is a build-time constant so it never changes after mount.
+  const [display] = useState<{ local: string; ago: string } | null>(() => {
+    if (typeof window === "undefined") return null;
     const d = new Date(utcDate);
-    setDisplay({ local: formatLocal(d), ago: timeAgo(d) });
-  }, [utcDate]);
+    return { local: formatLocal(d), ago: timeAgo(d) };
+  });
 
   return (
     <span>
