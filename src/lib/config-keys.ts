@@ -34,6 +34,11 @@ export const CONFIG = {
   REGULATIONS_VERSION:          "regulations_version",          // bump to force all players to re-accept
   REGULATIONS_TEXT:             "regulations_text",             // admin-editable template with {vars}, ##/###, **, - bullets
   FOULS_UNTIL_PENALTY:          "fouls_until_penalty",          // team fouls before opponents shoot free throws
+  // Dynamic ranking weights
+  RANK_WEIGHT_ADMIN:            "rank_weight_admin",            // weight for admin manual rank component
+  RANK_WEIGHT_PEER:             "rank_weight_peer",             // weight for peer ranking component (REGISTERED only)
+  RANK_WEIGHT_WINLOSS:          "rank_weight_winloss",          // weight for win/loss ratio component
+  RANK_WINLOSS_MIN_GAMES_PCT:   "rank_winloss_min_games_pct",   // % of max games played required for win/loss to apply
   // Precedence fines
   FINE_NO_SHOW:                 "fine_no_show",                 // precedence points deducted for no-show after RSVP
   FINE_KICK_BALL:               "fine_kick_ball",               // precedence points deducted for kicking the ball
@@ -118,6 +123,10 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
 ## הסכמה לקבלת הודעות וואטסאפ
 בהצטרפות לקבוצה ובאישור תקנון זה, אתה מסכים לקבל הודעות וואטסאפ מ-IRBA בנושאי מפגשים, שינויים ועדכוני ארגון. לא ישלחו הודעות שיווקיות.`,
   fouls_until_penalty:          "5",
+  rank_weight_admin:            "1",
+  rank_weight_peer:             "1",
+  rank_weight_winloss:          "1",
+  rank_winloss_min_games_pct:   "50",
   fine_no_show:                 "3",
   fine_kick_ball:               "2",
   fine_early_leave:             "1",

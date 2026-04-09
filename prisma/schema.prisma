@@ -61,6 +61,8 @@ model Player {
   regulationsAcceptedAt      DateTime?
   regulationsAcceptedVersion Int?
 
+  computedRank Float?
+
   attendances    Attendance[]
   yearAggregates PlayerYearAggregate[]
   adjustments    PlayerAdjustment[]
@@ -214,6 +216,31 @@ model HourlyRate {
   createdAt     DateTime @default(now())
 
   @@index([effectiveFrom])
+}
+
+model PeerRatingSession {
+  id        String     @id @default(cuid())
+  year      Int        @unique
+  openedAt  DateTime   @default(now())
+  closedAt  DateTime?
+  openedBy  String
+
+  ratings PeerRating[]
+}
+
+model PeerRating {
+  id              String   @id @default(cuid())
+  ratingSessionId String
+  raterId         String
+  ratedPlayerId   String
+  position        Int
+  submittedAt     DateTime @default(now())
+
+  session PeerRatingSession @relation(fields: [ratingSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([ratingSessionId, raterId, ratedPlayerId])
+  @@index([ratingSessionId])
+  @@index([raterId])
 }
 
 model AuditLog {

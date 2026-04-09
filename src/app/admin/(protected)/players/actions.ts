@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { parsePlayerForm } from "@/lib/player-validation";
 import { writeAuditLog } from "@/lib/audit";
+import { recalculateAllComputedRanks } from "@/lib/computed-rank";
 
 export type PlayerActionState = { ok: boolean; message?: string; savedInPlace?: boolean };
 
@@ -137,6 +138,11 @@ export async function updatePlayerAction(
     after: { playerKind, positions, rank, isAdmin,
       nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
   });
+
+  // Recalculate if the admin rank changed
+  if (existing?.rank !== rank) {
+    await recalculateAllComputedRanks("admin");
+  }
 
   revalidatePath("/admin/players");
   const returnToList = formData.get("returnToList") !== "false";

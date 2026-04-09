@@ -11,6 +11,8 @@ import { AccountStatement } from "@/components/account-statement";
 import { RegulationsViewer } from "@/components/regulations-viewer";
 import { MatchStatsSection } from "@/components/match-stats-section";
 import { fetchPlayerMatchAnalytics } from "@/app/profile/analytics";
+import { PeerRatingBanner } from "@/components/peer-rating-banner";
+import { checkPendingPeerRatingAction } from "@/app/admin/(protected)/ranking/actions";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
@@ -72,7 +74,7 @@ export default async function ProfilePage({ searchParams }: Props) {
     : 20;
   const page = Math.max(1, parseInt(rawParams.page ?? "1", 10));
 
-  const [player, balance, allPayments, allCharges, allConfigs, analytics] = await Promise.all([
+  const [player, balance, allPayments, allCharges, allConfigs, analytics, pendingRating] = await Promise.all([
     prisma.player.findUnique({
       where: { id: session.playerId },
       select: {
@@ -122,6 +124,7 @@ export default async function ProfilePage({ searchParams }: Props) {
     }),
     getAllConfigs(),
     fetchPlayerMatchAnalytics(session.playerId),
+    checkPendingPeerRatingAction(),
   ]);
 
   if (!player) redirect("/");
@@ -188,6 +191,11 @@ export default async function ProfilePage({ searchParams }: Props) {
         </header>
 
         <main className="mx-auto mt-8 flex w-full max-w-lg flex-col gap-6 md:max-w-2xl">
+          {/* Peer rating banner */}
+          {pendingRating.hasPending && (
+            <PeerRatingBanner year={pendingRating.year} />
+          )}
+
           {/* Balance */}
           <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">יתרה</p>

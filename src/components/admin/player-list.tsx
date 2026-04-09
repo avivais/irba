@@ -13,6 +13,7 @@ type Player = {
   playerKind: string;
   positions: string[];
   rank: number | null;
+  computedRank: number | null;
   isAdmin: boolean;
   nickname: string | null;
   firstNameHe: string | null;
@@ -141,6 +142,22 @@ export function PlayerList({
                                 {formatScore(prec.totalScore)}
                               </span>
                             </span>
+                            {player.computedRank !== null && (
+                              <>
+                                <span>·</span>
+                                <span>
+                                  דירוג:{" "}
+                                  <span dir="ltr" className="font-semibold text-blue-600 dark:text-blue-400">
+                                    {player.computedRank.toFixed(1)}
+                                  </span>
+                                  {player.rank !== null && (
+                                    <span className="text-zinc-400 dark:text-zinc-500">
+                                      {" "}(ידני: {player.rank})
+                                    </span>
+                                  )}
+                                </span>
+                              </>
+                            )}
                           </>
                         )}
                       </>

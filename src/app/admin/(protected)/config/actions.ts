@@ -7,6 +7,7 @@ import { parseConfigForm } from "@/lib/config-validation";
 import type { ConfigKey } from "@/lib/config";
 import { autoCreateNextSession } from "@/lib/auto-create-session";
 import { writeAuditLog } from "@/lib/audit";
+import { recalculateAllComputedRanks } from "@/lib/computed-rank";
 
 export type ConfigActionState = {
   ok: boolean;
@@ -50,6 +51,21 @@ export async function updateConfigAction(
     before: before as Record<string, unknown>,
     after: parsed.data as Record<string, unknown>,
   });
+
+  // Recalculate ranks if any weight key changed
+  const rankKeys = [
+    CONFIG.RANK_WEIGHT_ADMIN,
+    CONFIG.RANK_WEIGHT_PEER,
+    CONFIG.RANK_WEIGHT_WINLOSS,
+    CONFIG.RANK_WINLOSS_MIN_GAMES_PCT,
+    CONFIG.DEFAULT_PLAYER_RANK,
+  ] as const;
+  const rankWeightsChanged = rankKeys.some(
+    (k) => before[k] !== (parsed.data as Record<string, string>)[k],
+  );
+  if (rankWeightsChanged) {
+    await recalculateAllComputedRanks("admin");
+  }
 
   revalidatePath("/admin/config");
   return { ok: true, message: "ההגדרות נשמרו בהצלחה" };

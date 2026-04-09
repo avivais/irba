@@ -82,7 +82,7 @@ export default async function AdminSessionPage({ params }: Props) {
   const attendeesWithRank = confirmed.map((a) => ({
     id: a.playerId,
     displayName: a.player.nickname ?? a.player.firstNameHe ?? a.player.firstNameEn ?? getPlayerDisplayName(a.player),
-    rank: a.player.rank,
+    rank: a.player.computedRank ?? a.player.rank,
     positions: a.player.positions as string[],
   }));
   const waitlistRaw = session.attendances.slice(session.maxPlayers);

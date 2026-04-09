@@ -49,6 +49,16 @@ const rankDefault = z
     return n >= 1 && n <= 100;
   }, "דירוג חייב להיות בין 1 ל-100");
 
+const nonNegativeFloat = (label: string) =>
+  z.string().refine(
+    (v) => !isNaN(parseFloat(v)) && isFinite(Number(v)) && parseFloat(v) >= 0,
+    `${label} חייב להיות מספר לא שלילי`
+  );
+
+const pctField = (label: string) =>
+  z.string().regex(/^\d+$/, `${label} חייב להיות מספר שלם`)
+   .refine((v) => { const n = parseInt(v, 10); return n >= 0 && n <= 100; }, `${label} חייב להיות בין 0 ל-100`);
+
 const enabledFlag = z.enum(["true", "false"]);
 
 const waTemplate = z
@@ -89,6 +99,11 @@ export const configSchema = z.object({
   regulations_version:          positiveInt("גרסת תקנון"),
   regulations_text:             z.string().min(1, "טקסט התקנון לא יכול להיות ריק").max(10000, "טקסט התקנון ארוך מדי (מקסימום 10,000 תווים)"),
   fouls_until_penalty:          positiveInt("עבירות קבוצה עד עונשין"),
+  round_size:                   positiveInt("גודל סבב"),
+  rank_weight_admin:            nonNegativeFloat("משקל דירוג מנהל"),
+  rank_weight_peer:             nonNegativeFloat("משקל דירוג עמיתים"),
+  rank_weight_winloss:          nonNegativeFloat("משקל יחס ניצחונות"),
+  rank_winloss_min_games_pct:   pctField("סף משחקים מינימלי"),
   fine_no_show:                 nonNegativeInt("קנס אי-הגעה"),
   fine_kick_ball:               nonNegativeInt("קנס בעיטה בכדור"),
   fine_early_leave:             nonNegativeInt("קנס עזיבה מוקדמת"),

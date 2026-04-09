@@ -11,6 +11,7 @@ import { AdjustmentDeleteButton } from "@/components/admin/adjustment-delete-but
 import { computePrecedenceScores } from "@/lib/precedence";
 import { computePlayerBalance } from "@/lib/balance";
 import { PlayerPayments } from "@/components/admin/player-payments";
+import { getPlayerRankBreakdown } from "@/lib/computed-rank";
 
 export const metadata: Metadata = { title: "עריכת שחקן" };
 
@@ -42,7 +43,7 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear + 1, 0, 1);
 
-  const [player, yearWeights, allLiveAttendances, allPlayers, playerPayments, balance, playerCharges] =
+  const [player, yearWeights, allLiveAttendances, allPlayers, playerPayments, balance, playerCharges, rankBreakdown] =
     await Promise.all([
       prisma.player.findUnique({
         where: { id },
@@ -86,6 +87,7 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
           session: { select: { id: true, date: true } },
         },
       }),
+      getPlayerRankBreakdown(id).catch(() => null),
     ]);
 
   if (!player) notFound();
@@ -157,6 +159,46 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
             }}
           />
         </section>
+
+        {/* Computed rank breakdown */}
+        {rankBreakdown && (
+          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">דירוג מחושב</h2>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <div>
+                <span className="text-zinc-500 dark:text-zinc-400">דירוג סופי: </span>
+                <span className="text-xl font-bold text-blue-600 dark:text-blue-400" dir="ltr">
+                  {rankBreakdown.computedRank !== null
+                    ? rankBreakdown.computedRank.toFixed(1)
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <span>
+                  מנהל:{" "}
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300" dir="ltr">
+                    {rankBreakdown.adminRank.toFixed(1)}
+                  </span>
+                  {" "}(×{rankBreakdown.weights.adminWeight})
+                </span>
+                <span>
+                  עמיתים:{" "}
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300" dir="ltr">
+                    {rankBreakdown.peerScore !== null ? rankBreakdown.peerScore.toFixed(1) : "—"}
+                  </span>
+                  {" "}(×{rankBreakdown.weights.peerWeight})
+                </span>
+                <span>
+                  ניצחונות:{" "}
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300" dir="ltr">
+                    {rankBreakdown.winScore !== null ? rankBreakdown.winScore.toFixed(1) : "—"}
+                  </span>
+                  {" "}(×{rankBreakdown.weights.winWeight})
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Payments */}
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

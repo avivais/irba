@@ -503,6 +503,66 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </div>
       </section>
 
+      {/* ── Dynamic ranking weights ─────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>דירוג שחקנים</SectionTitle>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          משקל כל רכיב בחישוב הדירוג הסופי. הדירוג הסופי מנורמל ל-0–100.
+          רכיב עמיתים חל על שחקנים קבועים בלבד. רכיב ניצחונות חל רק על שחקנים שמשחק מספיק משחקים.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="משקל דירוג מנהל" hint="מספר לא שלילי" htmlFor={CONFIG.RANK_WEIGHT_ADMIN} error={errors[CONFIG.RANK_WEIGHT_ADMIN]}>
+            <input
+              id={CONFIG.RANK_WEIGHT_ADMIN}
+              type="number"
+              name={CONFIG.RANK_WEIGHT_ADMIN}
+              defaultValue={values[CONFIG.RANK_WEIGHT_ADMIN]}
+              min={0}
+              step={0.1}
+              className={`${inputBase} ${errors[CONFIG.RANK_WEIGHT_ADMIN] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field label="משקל דירוג עמיתים" hint="מספר לא שלילי" htmlFor={CONFIG.RANK_WEIGHT_PEER} error={errors[CONFIG.RANK_WEIGHT_PEER]}>
+            <input
+              id={CONFIG.RANK_WEIGHT_PEER}
+              type="number"
+              name={CONFIG.RANK_WEIGHT_PEER}
+              defaultValue={values[CONFIG.RANK_WEIGHT_PEER]}
+              min={0}
+              step={0.1}
+              className={`${inputBase} ${errors[CONFIG.RANK_WEIGHT_PEER] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field label="משקל יחס ניצחונות" hint="מספר לא שלילי" htmlFor={CONFIG.RANK_WEIGHT_WINLOSS} error={errors[CONFIG.RANK_WEIGHT_WINLOSS]}>
+            <input
+              id={CONFIG.RANK_WEIGHT_WINLOSS}
+              type="number"
+              name={CONFIG.RANK_WEIGHT_WINLOSS}
+              defaultValue={values[CONFIG.RANK_WEIGHT_WINLOSS]}
+              min={0}
+              step={0.1}
+              className={`${inputBase} ${errors[CONFIG.RANK_WEIGHT_WINLOSS] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="סף משחקים מינימלי לניצחונות" hint="% ממקסימום המשחקים שמישהו שיחק" htmlFor={CONFIG.RANK_WINLOSS_MIN_GAMES_PCT} error={errors[CONFIG.RANK_WINLOSS_MIN_GAMES_PCT]}>
+            <input
+              id={CONFIG.RANK_WINLOSS_MIN_GAMES_PCT}
+              type="number"
+              name={CONFIG.RANK_WINLOSS_MIN_GAMES_PCT}
+              defaultValue={values[CONFIG.RANK_WINLOSS_MIN_GAMES_PCT]}
+              min={0}
+              max={100}
+              className={`${inputBase} ${errors[CONFIG.RANK_WINLOSS_MIN_GAMES_PCT] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+      </section>
+
       {/* ── Regulations ─────────────────────────────────── */}
       <section className="flex flex-col gap-4">
         <SectionTitle>תקנון</SectionTitle>
