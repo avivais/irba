@@ -219,77 +219,120 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
         </section>
 
         {/* 4 — Computed rank + win/loss stats */}
-        {rankBreakdown && (
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">דירוג מחושב</h2>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <div>
-                <span className="text-zinc-500 dark:text-zinc-400">דירוג סופי: </span>
-                <span className="text-xl font-bold text-blue-600 dark:text-blue-400" dir="ltr">
-                  {rankBreakdown.computedRank !== null
-                    ? rankBreakdown.computedRank.toFixed(1)
-                    : "—"}
+        {rankBreakdown && (() => {
+          // Pre-compute per-component contributions for a clear formula display
+          const adminW = rankBreakdown.weights.adminWeight;
+          const peerW = rankBreakdown.peerScore !== null ? rankBreakdown.weights.peerWeight : 0;
+          const winW = rankBreakdown.winScore !== null ? rankBreakdown.weights.winWeight : 0;
+          const denominator = adminW + peerW + winW;
+          const isDropIn = player.playerKind === "DROP_IN";
+          return (
+            <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">דירוג מחושב</h2>
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400" dir="ltr">
+                  {rankBreakdown.computedRank !== null ? rankBreakdown.computedRank.toFixed(1) : "—"}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-                <span>
-                  מנהל:{" "}
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300" dir="ltr">
-                    {rankBreakdown.adminRank.toFixed(1)}
-                  </span>
-                  {" "}(×{rankBreakdown.weights.adminWeight})
-                </span>
-                <span>
-                  עמיתים:{" "}
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300" dir="ltr">
-                    {rankBreakdown.peerScore !== null ? rankBreakdown.peerScore.toFixed(1) : "—"}
-                  </span>
-                  {" "}(×{rankBreakdown.weights.peerWeight})
-                </span>
-                <span>
-                  ניצחונות:{" "}
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300" dir="ltr">
-                    {rankBreakdown.winScore !== null ? rankBreakdown.winScore.toFixed(1) : "—"}
-                  </span>
-                  {" "}(×{rankBreakdown.weights.winWeight})
-                </span>
-              </div>
-            </div>
 
-            {rankBreakdown.matchStats && (
-              <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                  <span className="text-zinc-600 dark:text-zinc-300" dir="ltr">
-                    {rankBreakdown.matchStats.total} משחקים ·{" "}
-                    <span className="text-green-700 dark:text-green-400">{rankBreakdown.matchStats.wins}נ׳</span>
-                    {" · "}
-                    <span className="text-red-600 dark:text-red-400">{rankBreakdown.matchStats.losses}ה׳</span>
-                    {rankBreakdown.matchStats.ties > 0 && (
-                      <> · <span className="text-zinc-500">{rankBreakdown.matchStats.ties}ת׳</span></>
-                    )}
-                    {" · "}
-                    {(rankBreakdown.matchStats.winRatio * 100).toFixed(0)}%
-                  </span>
-                  <div className="h-2 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700" dir="ltr">
-                    <div
-                      className="h-full rounded-full bg-green-500"
-                      style={{ width: `${(rankBreakdown.matchStats.winRatio * 100).toFixed(0)}%` }}
-                    />
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      rankBreakdown.meetsThreshold
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
-                    }`}
-                  >
-                    {rankBreakdown.meetsThreshold ? "מעל הסף" : "מתחת לסף"}
+              {/* Component table */}
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {/* Admin row — always active */}
+                <div className="flex items-center justify-between gap-2 py-2 text-sm">
+                  <span className="w-16 shrink-0 font-medium text-zinc-700 dark:text-zinc-300">מנהל</span>
+                  <span className="flex-1 tabular-nums text-zinc-500 dark:text-zinc-400" dir="ltr">{rankBreakdown.adminRank.toFixed(1)}</span>
+                  <span className="text-xs text-zinc-400">× {adminW}</span>
+                  <span className="w-14 text-left tabular-nums font-medium text-zinc-800 dark:text-zinc-200" dir="ltr">
+                    = {(rankBreakdown.adminRank * adminW).toFixed(1)}
                   </span>
                 </div>
+
+                {/* Peer row */}
+                {!isDropIn && (
+                  <div className={`flex items-center justify-between gap-2 py-2 text-sm ${rankBreakdown.peerScore === null ? "opacity-40" : ""}`}>
+                    <span className="w-16 shrink-0 font-medium text-zinc-700 dark:text-zinc-300">עמיתים</span>
+                    <span className="flex-1 tabular-nums text-zinc-500 dark:text-zinc-400" dir="ltr">
+                      {rankBreakdown.peerScore !== null ? rankBreakdown.peerScore.toFixed(1) : "—"}
+                    </span>
+                    {rankBreakdown.peerScore !== null ? (
+                      <>
+                        <span className="text-xs text-zinc-400">× {rankBreakdown.weights.peerWeight}</span>
+                        <span className="w-14 text-left tabular-nums font-medium text-zinc-800 dark:text-zinc-200" dir="ltr">
+                          = {(rankBreakdown.peerScore * rankBreakdown.weights.peerWeight).toFixed(1)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="w-32 text-left text-xs text-zinc-400">אין נתוני עמיתים</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Win row */}
+                {!isDropIn && (
+                  <div className={`flex items-center justify-between gap-2 py-2 text-sm ${rankBreakdown.winScore === null ? "opacity-40" : ""}`}>
+                    <span className="w-16 shrink-0 font-medium text-zinc-700 dark:text-zinc-300">ניצחונות</span>
+                    <span className="flex-1 tabular-nums text-zinc-500 dark:text-zinc-400" dir="ltr">
+                      {rankBreakdown.winScore !== null ? rankBreakdown.winScore.toFixed(1) : "—"}
+                    </span>
+                    {rankBreakdown.winScore !== null ? (
+                      <>
+                        <span className="text-xs text-zinc-400">× {rankBreakdown.weights.winWeight}</span>
+                        <span className="w-14 text-left tabular-nums font-medium text-zinc-800 dark:text-zinc-200" dir="ltr">
+                          = {(rankBreakdown.winScore * rankBreakdown.weights.winWeight).toFixed(1)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="w-32 text-left text-xs text-zinc-400">
+                        {rankBreakdown.meetsThreshold === false ? "מתחת לסף" : "אין נתוני משחק"}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </section>
-        )}
+
+              {/* Formula summary */}
+              {rankBreakdown.computedRank !== null && (
+                <div className="mt-2 text-xs text-zinc-400 dark:text-zinc-500" dir="ltr">
+                  סכום ÷ {denominator} = {rankBreakdown.computedRank.toFixed(1)}
+                </div>
+              )}
+
+              {/* Win/loss stats */}
+              {rankBreakdown.matchStats && (
+                <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-zinc-500 dark:text-zinc-400">{rankBreakdown.matchStats.total} משחקים</span>
+                      <span className="text-green-700 dark:text-green-400">{rankBreakdown.matchStats.wins} נצ׳</span>
+                      <span className="text-red-600 dark:text-red-400">{rankBreakdown.matchStats.losses} הפ׳</span>
+                      {rankBreakdown.matchStats.ties > 0 && (
+                        <span className="text-zinc-400">{rankBreakdown.matchStats.ties} ת׳</span>
+                      )}
+                      <span className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300" dir="ltr">
+                        {(rankBreakdown.matchStats.winRatio * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-20 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700" dir="ltr">
+                      <div
+                        className="h-full rounded-full bg-green-500"
+                        style={{ width: `${(rankBreakdown.matchStats.winRatio * 100).toFixed(0)}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        rankBreakdown.meetsThreshold
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                      }`}
+                    >
+                      {rankBreakdown.meetsThreshold ? "מעל הסף" : "מתחת לסף"}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         {/* 5 — Attendance: current year + historical merged */}
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

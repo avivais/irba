@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
+  type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -25,7 +27,63 @@ import { submitPeerRatingAction } from "@/app/ranking/submit/actions";
 type Player = { id: string; displayName: string };
 
 // ---------------------------------------------------------------------------
-// Sortable row
+// Shared row content (used in both sortable rows and the drag overlay)
+// ---------------------------------------------------------------------------
+
+function RowContent({
+  player,
+  rank,
+  total,
+  onMoveUp,
+  onMoveDown,
+  disabled,
+  isOverlay,
+}: {
+  player: Player;
+  rank: number;
+  total: number;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  disabled?: boolean;
+  isOverlay?: boolean;
+}) {
+  return (
+    <>
+      <GripVertical className="h-5 w-5 shrink-0 text-zinc-300 dark:text-zinc-600" aria-hidden />
+      <span className="w-7 shrink-0 text-center text-sm font-semibold tabular-nums text-zinc-400 dark:text-zinc-500">
+        {rank}
+      </span>
+      <span className="flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+        {player.displayName}
+      </span>
+      {!isOverlay && (
+        <div className="flex shrink-0 gap-1">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onMoveUp}
+            disabled={disabled || rank === 1}
+            aria-label={`הזז ${player.displayName} למעלה`}
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          >
+            <ChevronUp className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onMoveDown}
+            disabled={disabled || rank === total}
+            aria-label={`הזז ${player.displayName} למטה`}
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          >
+            <ChevronDown className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sortable row — shows as a faded placeholder while its overlay is dragging
 // ---------------------------------------------------------------------------
 
 function SortablePlayerRow({
@@ -46,58 +104,26 @@ function SortablePlayerRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: player.id, disabled });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-  };
-
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...listeners}
-      className={`flex touch-none cursor-grab items-center gap-3 rounded-xl border bg-white px-3 py-2.5 shadow-sm transition active:cursor-grabbing dark:bg-zinc-900
+      className={`flex touch-none cursor-grab items-center gap-3 rounded-xl border bg-white px-3 py-2.5 shadow-sm active:cursor-grabbing dark:bg-zinc-900
         ${isDragging
-          ? "border-blue-400 shadow-lg dark:border-blue-500"
+          ? "border-zinc-200 opacity-0 dark:border-zinc-700"
           : "border-zinc-200 dark:border-zinc-700"
         }`}
     >
-      {/* Drag handle — visual only */}
-      <GripVertical className="h-5 w-5 shrink-0 text-zinc-300 dark:text-zinc-600" aria-hidden />
-
-      {/* Rank number */}
-      <span className="w-7 shrink-0 text-center text-sm font-semibold tabular-nums text-zinc-400 dark:text-zinc-500">
-        {rank}
-      </span>
-
-      {/* Player name */}
-      <span className="flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-        {player.displayName}
-      </span>
-
-      {/* Up / Down buttons — full touch targets */}
-      <div className="flex shrink-0 gap-1">
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onMoveUp}
-          disabled={disabled || rank === 1}
-          aria-label={`הזז ${player.displayName} למעלה`}
-          className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-        >
-          <ChevronUp className="h-5 w-5" aria-hidden />
-        </button>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onMoveDown}
-          disabled={disabled || rank === total}
-          aria-label={`הזז ${player.displayName} למטה`}
-          className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-        >
-          <ChevronDown className="h-5 w-5" aria-hidden />
-        </button>
-      </div>
+      <RowContent
+        player={player}
+        rank={rank}
+        total={total}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -122,6 +148,7 @@ export function PeerRatingForm({
     : players.map((p) => p.id);
 
   const [order, setOrder] = useState<string[]>(initialOrder);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -139,7 +166,12 @@ export function PeerRatingForm({
     }),
   );
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = event;
     if (over && active.id !== over.id) {
       setOrder((prev) => {
@@ -167,6 +199,8 @@ export function PeerRatingForm({
   }
 
   const isResubmit = existingOrder !== null;
+  const activePlayer = activeId ? playerById.get(activeId) : null;
+  const activeRank = activeId ? order.indexOf(activeId) + 1 : 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -188,7 +222,9 @@ export function PeerRatingForm({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
       >
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
@@ -209,6 +245,20 @@ export function PeerRatingForm({
             })}
           </div>
         </SortableContext>
+
+        {/* Floating overlay — renders above everything while dragging */}
+        <DragOverlay>
+          {activePlayer ? (
+            <div className="flex cursor-grabbing items-center gap-3 rounded-xl border border-blue-400 bg-white px-3 py-2.5 shadow-2xl dark:bg-zinc-900">
+              <RowContent
+                player={activePlayer}
+                rank={activeRank}
+                total={order.length}
+                isOverlay
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {error && (
