@@ -26,45 +26,39 @@ function formatDate(date: Date) {
 // Open new session form
 // ---------------------------------------------------------------------------
 
-function OpenSessionForm() {
+function OpenSessionForm({ sessions }: { sessions: PeerRatingSessionSummary[] }) {
   const [state, formAction, pending] = useActionState<
     RankingSessionActionState,
     FormData
   >(openPeerRatingSessionAction, { ok: true });
 
   const currentYear = new Date().getFullYear();
+  const isCurrentYearTaken = sessions.some((s) => s.year === currentYear);
 
   return (
-    <form action={formAction} className="flex items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="peer-rating-year"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+    <div className="flex flex-col gap-2">
+      <form action={formAction} className="flex items-center gap-3">
+        <input type="hidden" name="year" value={currentYear} />
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          שנה: {currentYear}
+        </span>
+        <button
+          type="submit"
+          disabled={pending || isCurrentYearTaken}
+          className={`${btnBase} bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500`}
         >
-          שנה
-        </label>
-        <input
-          id="peer-rating-year"
-          name="year"
-          type="number"
-          defaultValue={currentYear}
-          min={2000}
-          max={2100}
-          required
-          className="w-28 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={pending}
-        className={`${btnBase} bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500`}
-      >
-        {pending ? "פותח…" : "פתח שאלון חדש"}
-      </button>
-      {!state.ok && state.message && (
+          {pending ? "פותח…" : "פתח שאלון חדש"}
+        </button>
+      </form>
+      {isCurrentYearTaken && (
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">
+          כבר קיים שאלון לשנת {currentYear}
+        </p>
+      )}
+      {!isCurrentYearTaken && !state.ok && state.message && (
         <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
       )}
-    </form>
+    </div>
   );
 }
 
@@ -242,7 +236,7 @@ export function RankingSessionPanel({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <OpenSessionForm />
+      <OpenSessionForm sessions={sessions} />
 
       <RecalculateButton />
 

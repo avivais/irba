@@ -251,5 +251,9 @@ export async function getPlayerRankBreakdown(
     peerScore,
     winScore,
     weights,
+    matchStats: stats.total > 0
+      ? { total: stats.total, wins: stats.wins, losses: stats.losses, ties: stats.ties, winRatio: stats.winRatio }
+      : null,
+    meetsThreshold,
   };
 }

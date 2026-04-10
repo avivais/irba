@@ -56,22 +56,16 @@ function SortablePlayerRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 shadow-sm transition dark:bg-zinc-900
+      {...attributes}
+      {...listeners}
+      className={`flex touch-none cursor-grab items-center gap-3 rounded-xl border bg-white px-3 py-2.5 shadow-sm transition active:cursor-grabbing dark:bg-zinc-900
         ${isDragging
           ? "border-blue-400 shadow-lg dark:border-blue-500"
           : "border-zinc-200 dark:border-zinc-700"
         }`}
     >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        disabled={disabled}
-        aria-label="גרור לסידור מחדש"
-        className="cursor-grab touch-none text-zinc-300 hover:text-zinc-500 disabled:cursor-default dark:text-zinc-600 dark:hover:text-zinc-400"
-      >
-        <GripVertical className="h-5 w-5" aria-hidden />
-      </button>
+      {/* Drag handle — visual only */}
+      <GripVertical className="h-5 w-5 shrink-0 text-zinc-300 dark:text-zinc-600" aria-hidden />
 
       {/* Rank number */}
       <span className="w-7 shrink-0 text-center text-sm font-semibold tabular-nums text-zinc-400 dark:text-zinc-500">
@@ -83,23 +77,25 @@ function SortablePlayerRow({
         {player.displayName}
       </span>
 
-      {/* Up / Down buttons */}
-      <div className="flex flex-col">
+      {/* Up / Down buttons — full touch targets */}
+      <div className="flex shrink-0 gap-1">
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={onMoveUp}
           disabled={disabled || rank === 1}
           aria-label={`הזז ${player.displayName} למעלה`}
-          className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
         >
-          <ChevronUp className="h-4 w-4" aria-hidden />
+          <ChevronUp className="h-5 w-5" aria-hidden />
         </button>
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={onMoveDown}
           disabled={disabled || rank === total}
           aria-label={`הזז ${player.displayName} למטה`}
-          className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
         >
-          <ChevronDown className="h-4 w-4" aria-hidden />
+          <ChevronDown className="h-5 w-5" aria-hidden />
         </button>
       </div>
     </div>
@@ -121,7 +117,6 @@ export function PeerRatingForm({
   players: Player[];
   existingOrder: string[] | null;
 }) {
-  // Build initial order from existing submission or from default order
   const initialOrder: string[] = existingOrder
     ? existingOrder.filter((id) => players.some((p) => p.id === id))
     : players.map((p) => p.id);
@@ -133,9 +128,11 @@ export function PeerRatingForm({
   const playerById = new Map(players.map((p) => [p.id, p]));
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 10 },
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -163,7 +160,6 @@ export function PeerRatingForm({
     setError(null);
     startTransition(async () => {
       const result = await submitPeerRatingAction(sessionId, order);
-      // If result is returned (not redirected), it's an error
       if (result && !result.ok) {
         setError(result.message ?? "שגיאה בשמירה");
       }

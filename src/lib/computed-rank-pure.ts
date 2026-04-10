@@ -1,6 +1,9 @@
 // Pure rank computation functions — no DB, no Node.js imports.
 // Safe to import from tests and client components.
 
+import type { MatchStats } from "@/lib/match-analytics";
+export type { MatchStats };
+
 export type RankComponentInput = {
   playerId: string;
   playerKind: "REGISTERED" | "DROP_IN";
@@ -24,6 +27,8 @@ export type RankBreakdown = {
   peerScore: number | null;
   winScore: number | null;
   weights: RankWeights;
+  matchStats: MatchStats | null;
+  meetsThreshold: boolean;
 };
 
 /**
