@@ -457,6 +457,18 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} ${errors[CONFIG.FOULS_UNTIL_PENALTY] ? inputError : inputNormal}`}
             />
           </Field>
+
+          <Field label="גודל סבב" hint="מספר מפגשים לסבב" htmlFor={CONFIG.ROUND_SIZE} error={errors[CONFIG.ROUND_SIZE]}>
+            <input
+              id={CONFIG.ROUND_SIZE}
+              type="number"
+              name={CONFIG.ROUND_SIZE}
+              defaultValue={values[CONFIG.ROUND_SIZE]}
+              min={1}
+              max={20}
+              className={`${inputBase} ${errors[CONFIG.ROUND_SIZE] ? inputError : inputNormal}`}
+            />
+          </Field>
         </div>
       </section>
 

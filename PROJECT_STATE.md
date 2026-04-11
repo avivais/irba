@@ -188,6 +188,7 @@ Navigation cards to שחקנים, מפגשים, ייבוא נתונים, הגד�
 | `rank_weight_peer` | `1` | Weight for peer-rating component (REGISTERED only) |
 | `rank_weight_winloss` | `1` | Weight for win/loss ratio component (REGISTERED, threshold met) |
 | `rank_winloss_min_games_pct` | `50` | % of max-games-played a player must reach to include win score |
+| `round_size` | `5` | Number of sessions per round (used by match analytics + challenge windows) |
 
 > `session_default_day` and `session_default_time` were removed — `session_schedule_day/time` are now the single source of truth for both UI pre-fill and auto-create.
 
