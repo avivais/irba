@@ -180,7 +180,7 @@ export default async function HomePage({
           </section>
         )}
 
-        {!authenticatedPlayer && (
+        {!authenticatedPlayer && !userIsAttending && (
           <section className="mx-auto mt-8 w-full max-w-lg md:max-w-2xl">
             <h2 className="sr-only">כניסה לחשבון</h2>
             <PlayerLoginForm redirectTo="/" />
