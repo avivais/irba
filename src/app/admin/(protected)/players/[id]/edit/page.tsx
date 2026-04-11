@@ -156,6 +156,8 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
               firstNameEn: player.firstNameEn,
               lastNameEn: player.lastNameEn,
               birthdate: player.birthdate,
+              email: player.email,
+              nationalId: player.nationalId,
             }}
           />
         </section>
@@ -250,7 +252,7 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
                 {/* Peer row */}
                 {!isDropIn && (
                   <div className={`flex items-center justify-between gap-2 py-2 text-sm ${rankBreakdown.peerScore === null ? "opacity-40" : ""}`}>
-                    <span className="w-16 shrink-0 font-medium text-zinc-700 dark:text-zinc-300">עמיתים</span>
+                    <span className="w-16 shrink-0 font-medium text-zinc-700 dark:text-zinc-300">שחקנים</span>
                     <span className="flex-1 tabular-nums text-zinc-500 dark:text-zinc-400" dir="ltr">
                       {rankBreakdown.peerScore !== null ? rankBreakdown.peerScore.toFixed(1) : "—"}
                     </span>
@@ -262,7 +264,7 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
                         </span>
                       </>
                     ) : (
-                      <span className="w-32 text-left text-xs text-zinc-400">אין נתוני עמיתים</span>
+                      <span className="w-32 text-left text-xs text-zinc-400">אין נתוני שחקנים</span>
                     )}
                   </div>
                 )}

@@ -23,6 +23,8 @@ type PlayerData = {
   firstNameEn: string | null;
   lastNameEn: string | null;
   birthdate: Date | null;
+  email: string | null;
+  nationalId: string | null;
 };
 
 type Props =
@@ -75,6 +77,9 @@ export function PlayerForm(props: Props) {
   const [firstNameEn, setFirstNameEn] = useState(player?.firstNameEn ?? "");
   const [lastNameEn, setLastNameEn] = useState(player?.lastNameEn ?? "");
 
+  const [email, setEmail] = useState(player?.email ?? "");
+  const [nationalId, setNationalId] = useState(player?.nationalId ?? "");
+
   const [birthdate, setBirthdate] = useState(
     player?.birthdate ? new Date(player.birthdate).toISOString().slice(0, 10) : "",
   );
@@ -103,6 +108,8 @@ export function PlayerForm(props: Props) {
     firstNameEn: player?.firstNameEn ?? "",
     lastNameEn: player?.lastNameEn ?? "",
     birthdate: player?.birthdate ? new Date(player.birthdate).toISOString().slice(0, 10) : "",
+    email: player?.email ?? "",
+    nationalId: player?.nationalId ?? "",
   });
   const [, setDirtyVersion] = useState(0);
 
@@ -119,7 +126,9 @@ export function PlayerForm(props: Props) {
       lastNameHe !== s.lastNameHe ||
       firstNameEn !== s.firstNameEn ||
       lastNameEn !== s.lastNameEn ||
-      birthdate !== s.birthdate
+      birthdate !== s.birthdate ||
+      email !== s.email ||
+      nationalId !== s.nationalId
     )
     : (
       phone !== "" ||
@@ -132,7 +141,9 @@ export function PlayerForm(props: Props) {
       lastNameHe !== "" ||
       firstNameEn !== "" ||
       lastNameEn !== "" ||
-      birthdate !== ""
+      birthdate !== "" ||
+      email !== "" ||
+      nationalId !== ""
     );
 
   // Keep a ref so popstate handler always reads current value
@@ -174,7 +185,7 @@ export function PlayerForm(props: Props) {
       lastSavedRef.current = {
         playerKind, positions: [...positions], rank, isAdmin,
         nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn,
-        birthdate,
+        birthdate, email, nationalId,
       };
       setDirtyVersion((v) => v + 1);
       setShowSaved(true);
@@ -196,6 +207,8 @@ export function PlayerForm(props: Props) {
     firstNameEn: firstNameEn || undefined,
     lastNameEn: lastNameEn || undefined,
     birthdate: birthdate || undefined,
+    email: email || undefined,
+    nationalId: nationalId || undefined,
   });
 
   const fieldErrors = validation.ok ? {} : validation.errors;
@@ -538,6 +551,45 @@ export function PlayerForm(props: Props) {
               aria-hidden="true"
             />
           </div>
+        </div>
+
+        {/* National ID */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="player-national-id" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            תעודת זהות
+            <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
+          </label>
+          <input
+            id="player-national-id"
+            name="nationalId"
+            type="text"
+            inputMode="numeric"
+            maxLength={11}
+            dir="ltr"
+            value={nationalId}
+            onChange={(e) => onFieldChange(setNationalId, e.target.value)}
+            className={`${inputBase} ${inputNormal}`}
+            placeholder="9 ספרות"
+          />
+        </div>
+
+        {/* Email */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="player-email" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            מייל
+            <span className="mr-1.5 text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
+          </label>
+          <input
+            id="player-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            dir="ltr"
+            value={email}
+            onChange={(e) => onFieldChange(setEmail, e.target.value)}
+            className={`${inputBase} ${inputNormal}`}
+            placeholder="כתובת מייל"
+          />
         </div>
 
         {serverError && (

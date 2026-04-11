@@ -507,7 +507,7 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 - `emailVerified Boolean default false`
 
 **Flows:**
-- **Phone + OTP:** enter phone → WhatsApp OTP sent → verify → set password + email + nationalId on first login
+- **Phone + OTP:** enter phone → WhatsApp OTP sent → verify → set password on first login (email/nationalId now self-edited from `/profile`, not collected here)
 - **Phone + password:** enter phone + password; falls back to OTP if no password set
 - **Remember me:** 10-year persistent cookie vs. session cookie (12h JWT)
 - **Password reset:** phone → WhatsApp OTP → set new password
@@ -518,6 +518,14 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 - **Navigation:** unified sticky top nav (`PlayerNav` server component, `src/components/player-nav.tsx`) rendered on all pages (homepage, profile, all admin pages via protected layout) — shows IRBA brand (sole home link), Profile icon, Admin icon (if `isAdmin`), Logout; active page highlighted via `NavLinks` client component (`src/components/nav-links.tsx`, uses `usePathname()`); no ThemeToggle in nav
 - **Logout:** `playerLogoutAction` clears the player session cookie and redirects to `/`
 - **Admin layout guard:** `requireAdmin()` from `src/lib/admin-guard.ts` — checks player session + DB `isAdmin`; redirects to `/` if unauthorized
+
+**Self-service profile editing (`/profile` → "פרטים אישיים" card):**
+All logged-in players (REGISTERED and DROP_IN) can edit their own details from the profile page:
+- Fields: `firstNameHe/He`, `firstNameEn/En`, `nickname`, `birthdate`, `nationalId`, `email`
+- Inline card with display mode (shows values with "—" for empty) and edit mode (form fields with save/cancel)
+- `updatePlayerProfileAction` server action (`src/app/actions/player-profile.ts`) — audited as `PLAYER_PROFILE_UPDATED`
+- `EditProfileForm` client component (`src/components/edit-profile-form.tsx`) — Israeli date picker, field-level validation, green flash on save
+- Admin player form (`src/components/admin/player-form.tsx`) also gained `email` and `nationalId` fields
 
 **Israeli ID validation (`src/lib/israeli-id.ts`):**
 Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum % 10 === 0.

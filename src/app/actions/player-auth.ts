@@ -18,7 +18,6 @@ import {
 import { writeAuditLog } from "@/lib/audit";
 import { normalizePhone } from "@/lib/phone";
 import { sendWaMessage } from "@/lib/wa-notify";
-import { isValidIsraeliId, normalizeIsraeliId } from "@/lib/israeli-id";
 
 const isDev = () => process.env.NODE_ENV === "development";
 
@@ -41,11 +40,6 @@ const passwordSchema = z
   .string()
   .min(8, "סיסמה חייבת להכיל לפחות 8 תווים")
   .max(512, "סיסמה ארוכה מדי");
-const emailSchema = z
-  .string()
-  .email("כתובת מייל לא תקינה")
-  .or(z.literal(""))
-  .optional();
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -332,7 +326,8 @@ export async function playerPasswordLoginAction(
 // ── Profile completion (first login) ─────────────────────────────────────────
 
 /**
- * After first OTP verification: player sets password, optionally email + nationalId.
+ * After first OTP verification: player sets a password for future logins.
+ * Personal details (name, email, national ID, etc.) are editable from /profile.
  * Requires an active player session.
  */
 export async function completeProfileAction(
@@ -354,29 +349,10 @@ export async function completeProfileAction(
     return { ok: false, message: "הסיסמאות אינן תואמות" };
   }
 
-  const emailRaw = (formData.get("email") as string | null) ?? "";
-  const parsedEmail = emailSchema.safeParse(emailRaw);
-  if (!parsedEmail.success) {
-    return { ok: false, message: parsedEmail.error.issues[0]?.message };
-  }
-
-  const nationalIdRaw = (formData.get("nationalId") as string | null) ?? "";
-  let nationalId: string | undefined;
-  if (nationalIdRaw.replace(/\D/g, "").length > 0) {
-    if (!isValidIsraeliId(nationalIdRaw)) {
-      return { ok: false, message: "תעודת זהות לא תקינה" };
-    }
-    nationalId = normalizeIsraeliId(nationalIdRaw);
-  }
-
   const passwordHash = await hash(parsedPassword.data, 10);
   await prisma.player.update({
     where: { id: playerId },
-    data: {
-      passwordHash,
-      email: parsedEmail.data || undefined,
-      nationalId,
-    },
+    data: { passwordHash },
   });
 
   writeAuditLog({

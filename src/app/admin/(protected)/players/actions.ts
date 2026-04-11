@@ -31,6 +31,8 @@ export async function createPlayerAction(
     firstNameEn: formData.get("firstNameEn")?.toString(),
     lastNameEn: formData.get("lastNameEn")?.toString(),
     birthdate: formData.get("birthdate")?.toString(),
+    email: formData.get("email")?.toString(),
+    nationalId: formData.get("nationalId")?.toString(),
   };
 
   const validation = parsePlayerForm(raw);
@@ -40,14 +42,14 @@ export async function createPlayerAction(
   }
 
   const { phoneNormalized, playerKind, positions, rank, isAdmin,
-    nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } =
+    nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId } =
     validation.data;
 
   let created: { id: string };
   try {
     created = await prisma.player.create({
       data: { phone: phoneNormalized, playerKind, positions, rank, isAdmin,
-        nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
+        nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId },
       select: { id: true },
     });
   } catch (e) {
@@ -67,7 +69,7 @@ export async function createPlayerAction(
     entityType: "Player",
     entityId: created.id,
     after: { phone: phoneNormalized, playerKind, positions, rank, isAdmin,
-      nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
+      nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, email, nationalId },
   });
 
   revalidatePath("/admin/players");
@@ -94,6 +96,8 @@ export async function updatePlayerAction(
     firstNameEn: formData.get("firstNameEn")?.toString(),
     lastNameEn: formData.get("lastNameEn")?.toString(),
     birthdate: formData.get("birthdate")?.toString(),
+    email: formData.get("email")?.toString(),
+    nationalId: formData.get("nationalId")?.toString(),
   };
 
   const validation = parsePlayerForm(raw);
@@ -103,12 +107,13 @@ export async function updatePlayerAction(
   }
 
   const { playerKind, positions, rank, isAdmin,
-    nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate } = validation.data;
+    nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId } = validation.data;
 
   const existing = await prisma.player.findUnique({
     where: { id },
     select: { playerKind: true, positions: true, rank: true, isAdmin: true,
-      nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true },
+      nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true,
+      email: true, nationalId: true },
   });
 
   try {
@@ -116,7 +121,7 @@ export async function updatePlayerAction(
       where: { id },
       // Intentionally omit phone — phone is the player's identity and cannot be changed here
       data: { playerKind, positions, rank, isAdmin,
-        nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate },
+        nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId },
     });
   } catch (e) {
     if (
@@ -136,7 +141,7 @@ export async function updatePlayerAction(
     entityId: id,
     before: existing ? (existing as Record<string, unknown>) : null,
     after: { playerKind, positions, rank, isAdmin,
-      nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn },
+      nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, email, nationalId },
   });
 
   // Recalculate if the admin rank changed

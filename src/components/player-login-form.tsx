@@ -390,29 +390,6 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
             className={`${inputBase} ${errorMsg ? inputInvalid : inputNormal}`}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <FieldLabel htmlFor="email">מייל (אופציונלי)</FieldLabel>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            dir="ltr"
-            className={`${inputBase} ${inputNormal}`}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <FieldLabel htmlFor="nationalId">תעודת זהות (אופציונלי)</FieldLabel>
-          <input
-            id="nationalId"
-            name="nationalId"
-            type="text"
-            inputMode="numeric"
-            maxLength={11}
-            dir="ltr"
-            className={`${inputBase} ${inputNormal}`}
-          />
-        </div>
         {errorMsg && <ErrorBanner message={errorMsg} />}
         <button
           type="submit"

@@ -13,6 +13,7 @@ import { MatchStatsSection } from "@/components/match-stats-section";
 import { fetchPlayerMatchAnalytics } from "@/app/profile/analytics";
 import { PeerRatingBanner } from "@/components/peer-rating-banner";
 import { checkPendingPeerRatingAction } from "@/app/admin/(protected)/ranking/actions";
+import { EditProfileForm } from "@/components/edit-profile-form";
 
 export const metadata: Metadata = { title: "אזור אישי" };
 
@@ -86,6 +87,9 @@ export default async function ProfilePage({ searchParams }: Props) {
         firstNameEn: true,
         lastNameEn: true,
         nickname: true,
+        birthdate: true,
+        nationalId: true,
+        email: true,
         isAdmin: true,
         attendances: {
           orderBy: { createdAt: "desc" },
@@ -218,6 +222,9 @@ export default async function ProfilePage({ searchParams }: Props) {
 
           {/* Match stats */}
           <MatchStatsSection analytics={analytics} />
+
+          {/* Personal details */}
+          <EditProfileForm player={player} />
 
           {/* Account statement */}
           <AccountStatement

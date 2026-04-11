@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePhone, PhoneValidationError } from "./phone";
+import { isValidIsraeliId, normalizeIsraeliId } from "./israeli-id";
 
 export const PHONE_INVALID_MESSAGE =
   "מספר הטלפון חייב להיות ישראלי בפורמט 05xxxxxxxx";
@@ -21,10 +22,23 @@ export const playerFormSchema = z.object({
   firstNameEn: z.string().trim().max(80).optional(),
   lastNameEn: z.string().trim().max(80).optional(),
   birthdate: z.string().optional(),
+  email: z.string().trim().email("כתובת מייל לא תקינה").or(z.literal("")).optional(),
+  nationalId: z.string().optional(),
+});
+
+export const profileFormSchema = z.object({
+  nickname: z.string().trim().max(50, "הכינוי ארוך מדי (עד 50 תווים)").optional(),
+  firstNameHe: z.string().trim().max(80).optional(),
+  lastNameHe: z.string().trim().max(80).optional(),
+  firstNameEn: z.string().trim().max(80).optional(),
+  lastNameEn: z.string().trim().max(80).optional(),
+  birthdate: z.string().optional(),
+  email: z.string().trim().email("כתובת מייל לא תקינה").or(z.literal("")).optional(),
+  nationalId: z.string().optional(),
 });
 
 export type PlayerFieldErrors = Partial<
-  Record<"phone" | "playerKind" | "positions" | "rank" | "nickname" | "birthdate", string>
+  Record<"phone" | "playerKind" | "positions" | "rank" | "nickname" | "birthdate" | "email" | "nationalId", string>
 >;
 
 export type ParsedPlayer = {
@@ -39,7 +53,28 @@ export type ParsedPlayer = {
   firstNameEn: string | null;
   lastNameEn: string | null;
   birthdate: Date | null;
+  email: string | null;
+  nationalId: string | null;
 };
+
+export type ProfileFieldErrors = Partial<
+  Record<"nickname" | "firstNameHe" | "lastNameHe" | "firstNameEn" | "lastNameEn" | "birthdate" | "email" | "nationalId", string>
+>;
+
+export type ParsedProfile = {
+  nickname: string | null;
+  firstNameHe: string | null;
+  lastNameHe: string | null;
+  firstNameEn: string | null;
+  lastNameEn: string | null;
+  birthdate: Date | null;
+  email: string | null;
+  nationalId: string | null;
+};
+
+export type ProfileFormValidation =
+  | { ok: true; data: ParsedProfile }
+  | { ok: false; errors: ProfileFieldErrors };
 
 export type PlayerFormValidation =
   | { ok: true; data: ParsedPlayer }
@@ -132,6 +167,16 @@ export function parsePlayerForm(
     birthdate = d;
   }
 
+  const email = parsed.data.email?.trim() || null;
+
+  let nationalId: string | null = null;
+  if (parsed.data.nationalId && parsed.data.nationalId.replace(/\D/g, "").length > 0) {
+    if (!isValidIsraeliId(parsed.data.nationalId)) {
+      return { ok: false, errors: { nationalId: "תעודת זהות לא תקינה" } };
+    }
+    nationalId = normalizeIsraeliId(parsed.data.nationalId);
+  }
+
   return {
     ok: true,
     data: {
@@ -146,6 +191,53 @@ export function parsePlayerForm(
       firstNameEn,
       lastNameEn,
       birthdate,
+      email,
+      nationalId,
     },
+  };
+}
+
+export function parseProfileForm(
+  raw: Record<string, string | undefined>,
+): ProfileFormValidation {
+  const parsed = profileFormSchema.safeParse(raw);
+  if (!parsed.success) {
+    const errors: ProfileFieldErrors = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof ProfileFieldErrors;
+      if (key && errors[key] === undefined) {
+        errors[key] = issue.message;
+      }
+    }
+    return { ok: false, errors };
+  }
+
+  const nickname = parsed.data.nickname?.trim() || null;
+  const firstNameHe = parsed.data.firstNameHe?.trim() || null;
+  const lastNameHe = parsed.data.lastNameHe?.trim() || null;
+  const firstNameEn = parsed.data.firstNameEn?.trim() || null;
+  const lastNameEn = parsed.data.lastNameEn?.trim() || null;
+  const email = parsed.data.email?.trim() || null;
+
+  let nationalId: string | null = null;
+  if (parsed.data.nationalId && parsed.data.nationalId.replace(/\D/g, "").length > 0) {
+    if (!isValidIsraeliId(parsed.data.nationalId)) {
+      return { ok: false, errors: { nationalId: "תעודת זהות לא תקינה" } };
+    }
+    nationalId = normalizeIsraeliId(parsed.data.nationalId);
+  }
+
+  let birthdate: Date | null = null;
+  if (parsed.data.birthdate && parsed.data.birthdate.trim() !== "") {
+    const d = new Date(parsed.data.birthdate.trim());
+    if (isNaN(d.getTime())) {
+      return { ok: false, errors: { birthdate: "תאריך לא תקין" } };
+    }
+    birthdate = d;
+  }
+
+  return {
+    ok: true,
+    data: { nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId },
   };
 }
