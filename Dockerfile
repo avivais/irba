@@ -3,7 +3,10 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
+# Install deps and generate Prisma client here so this stage can be fully
+# cached when only app code changes (package.json + schema unchanged).
 RUN npm ci
+RUN npx prisma generate
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -17,7 +20,6 @@ ARG COMMIT_HASH=dev
 ARG COMMIT_DATE=
 ENV NEXT_PUBLIC_COMMIT_HASH=$COMMIT_HASH
 ENV NEXT_PUBLIC_COMMIT_DATE=$COMMIT_DATE
-RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine AS runner
@@ -31,8 +33,10 @@ COPY --chown=nextjs:nodejs --from=builder /app/.next/standalone ./
 # Static assets alongside server.js (standalone server resolves these from cwd)
 COPY --chown=nextjs:nodejs --from=builder /app/.next/static ./.next/static
 COPY --chown=nextjs:nodejs --from=builder /app/public ./public
-# Full node_modules needed for `npx prisma migrate deploy` at startup
-COPY --chown=nextjs:nodejs --from=builder /app/node_modules ./node_modules
+# Full node_modules needed for `npx prisma migrate deploy` at startup.
+# Copied from the cached `deps` stage (not builder) so this layer is reused
+# across deployments when package.json and schema.prisma haven't changed.
+COPY --chown=nextjs:nodejs --from=deps /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs --from=builder /app/prisma ./prisma
 COPY --chown=nextjs:nodejs --from=builder /app/prisma.config.ts ./
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
