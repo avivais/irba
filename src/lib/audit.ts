@@ -62,7 +62,11 @@ export type AuditAction =
   | "CLOSE_PEER_RATING_SESSION"
   | "DELETE_PEER_RATING_SESSION"
   | "SUBMIT_PEER_RATING"
-  | "RECALCULATE_RANKS";
+  | "RECALCULATE_RANKS"
+  | "CREATE_CHALLENGE"
+  | "UPDATE_CHALLENGE"
+  | "DELETE_CHALLENGE"
+  | "TOGGLE_CHALLENGE";
 
 export type AuditParams = {
   actor: string;

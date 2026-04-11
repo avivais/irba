@@ -243,6 +243,18 @@ model PeerRating {
   @@index([raterId])
 }
 
+model Challenge {
+  id                 String   @id @default(cuid())
+  title              String
+  metric             String   // "win_ratio" | "total_wins" | "attendance"
+  eligibilityMinPct  Float    // min % of sessions in window a player must attend to qualify
+  roundCount         Int      // number of rounds the window spans; 0 = all-time
+  prize              String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  createdBy          String   // playerId of admin who created it
+}
+
 model AuditLog {
   id         Int      @id @default(autoincrement())
   timestamp  DateTime @default(now())

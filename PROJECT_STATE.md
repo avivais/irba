@@ -12,6 +12,7 @@ Use this file to onboard or resume work in a new chat. For setup commands, see [
   - [RSVP flow (public)](#rsvp-flow-public)
   - [Admin](#admin-authenticated--full-crud)
   - [Dynamic ranking](#dynamic-ranking-adminranking)
+  - [Competitions / Challenges](#competitions--challenges)
   - [WhatsApp sidecar](#whatsapp-sidecar-wa)
   - [Auto-create cron](#auto-create-cron-get-apicronauto-create)
   - [Auto-close cron](#auto-close-cron-get-apicronauto-close)
@@ -65,6 +66,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - **`AuditLog`**: `id Int PK autoincrement`, `timestamp DateTime`, `actor String` ("admin" | player phone | "cron"), `actorIp String?`, `action String` (enum-like constant e.g. `CREATE_PLAYER`), `entityType String?`, `entityId String?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`. Written fire-and-forget via `src/lib/audit.ts`.
 - **`Match`**: `id`, `sessionId`, `teamAPlayerIds String[]`, `teamBPlayerIds String[]`, `scoreA Int`, `scoreB Int`, `createdAt`, `updatedAt`. Indexed on `(sessionId, createdAt)`. Cascades on session delete.
 - **`Player` regulations fields**: `regulationsAcceptedAt DateTime?`, `regulationsAcceptedVersion Int?`. Null = not yet accepted. Version compared against `regulations_version` config to gate access.
+- **`Challenge`**: `id`, `title`, `metric String` (`"win_ratio" | "total_wins" | "attendance"`), `eligibilityMinPct Float` (0–100; 0 = all qualify), `roundCount Int` (number of rounds window spans; 0 = all-time), `prize String?`, `isActive Boolean @default(true)`, `createdAt`, `createdBy String` (playerId of admin). No leaderboard model — always computed passively from existing Match + Attendance data.
 
 ### RSVP flow (public)
 
@@ -99,7 +101,7 @@ All back links in admin pages display "→ חזרה" with no destination suffix 
 
 #### Admin home (`/admin`)
 
-Navigation cards to שחקנים, מפגשים, ייבוא נתונים, הגדרות, **לוג פעולות**, and **דירוג שחקנים** (`/admin/ranking`, `BarChart2` icon) sections (קדימות card removed — merged into שחקנים); logout button. All nav cards and the logout button have `active:` press states.
+Navigation cards to שחקנים, מפגשים, ייבוא נתונים, הגדרות, **לוג פעולות**, **דירוג שחקנים** (`/admin/ranking`, `BarChart2` icon), and **תחרויות** (`/admin/challenges`, `Trophy` icon) sections (קדימות card removed — merged into שחקנים); logout button. All nav cards and the logout button have `active:` press states.
 
 #### Players CRUD (`/admin/players`) — unified with Precedence
 
@@ -252,6 +254,34 @@ DROP_IN players: only admin rank component applies.
 
 ---
 
+### Competitions / Challenges
+
+Admin creates named challenges; system computes live leaderboards passively from existing Match + Attendance data. No player interaction required.
+
+**Metrics supported:** `win_ratio` (wins / decided matches), `total_wins`, `attendance` (sessions attended in window).
+
+**Time window:** `roundCount = 0` → all sessions ever; `roundCount = N` → last `N × round_size` sessions.
+
+**Eligibility:** Player must have attended ≥ `ceil(eligibilityMinPct / 100 × sessionsInWindow)` sessions to qualify. `eligibilityMinPct = 0` → everyone qualifies.
+
+**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard` — no DB imports, safe for tests. Tested in `src/lib/challenge-analytics.test.ts` (13 cases: each metric, eligibility thresholds, window scoping, ties, empty window).
+
+**Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod; `METRIC_LABELS` / `METRIC_DESCRIPTIONS` constants.
+
+**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — fetches challenge, sessions, matches, attendances, player names, calls `computeLeaderboard`.
+
+**Admin CRUD** (`/admin/challenges`):
+- List page: active first (green badge), then inactive ("הסתיים" badge); title, metric, window, eligibility %, prize shown inline. Circular `+` add button. Per-row: edit link, toggle (סיים/הפעל), delete.
+- New/edit pages: `ChallengeForm` component — title, metric select, eligibilityMinPct (0–100), roundCount (0 = כל הזמן), optional prize.
+- Server actions: `createChallengeAction`, `updateChallengeAction`, `deleteChallengeAction`, `toggleChallengeAction` — all call `requireAdmin()`, write audit logs (`CREATE_CHALLENGE`, `UPDATE_CHALLENGE`, `DELETE_CHALLENGE`, `TOGGLE_CHALLENGE`), revalidate both `/admin/challenges` and `/challenges`.
+
+**Player-facing** (`/challenges`):
+- Login-gated; all challenges stacked (active first, inactive below with "הסתיים" badge).
+- `ChallengeCard` component: challenge title + metric + window label + prize; top-3 podium (🥇🥈🥉); "הצג הכל" expands full ranked list; current player highlighted in blue with "(אתה)"; if player is not in top 3 and list is collapsed, their row is shown as a preview.
+- `Trophy` icon in nav (`NavLinks`) for all logged-in players.
+
+---
+
 ### Security / abuse (MVP)
 
 - **Cookies**: HTTP-only, `sameSite=lax`, `Secure` in production or when `RSVP_COOKIE_SECURE` is set; JWT verifies `iss` / `aud` (defaults `irba` / `irba-rsvp`).
@@ -345,6 +375,7 @@ Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); aler
 - **Schedule tests** (`src/lib/schedule.test.ts`): 10 cases — today/tomorrow/multi-day skip, same-weekday-just-passed, DST winter/summer, midnight/23:59 edge cases. Uses `Intl.DateTimeFormat` with `% 24` normalization for older ICU versions.
 - **Waitlist promote tests** (`src/lib/waitlist-promote.test.ts`): 8 cases — promote moves to last confirmed slot, error on confirmed player, error on missing attendance.
 - **Computed rank tests** (`src/lib/computed-rank.test.ts`): 18 cases covering `normalizePeerScore` (position 1/N/middle/N=1/fractional avg), `normalizeWinScore` (0/0.5/1), and `computeBlendedRank` (admin-only, defaultRank, all-three, DROP_IN ignores peer+win, below-threshold excludes win, zero weights → null, custom ratios, admin weight 0, edge 0/100). Imports from `computed-rank-pure.ts` to avoid DB init.
+- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): 13 cases covering all three metrics (`win_ratio`, `total_wins`, `attendance`), eligibility thresholds (0%, 50%, 100%), window scoping (out-of-window matches ignored, empty window → empty result), ties share rank, `sessionsAttended` / `matchesPlayed` fields.
 - Default `npm test` does **not** require a running Postgres.
 
 #### Audit log (`/admin/audit`)
@@ -695,18 +726,12 @@ See "Dynamic ranking" section under "What exists today" for full implementation 
 
 ---
 
-#### 13. Competitions / challenges
+#### 13. Competitions / challenges ✅ DONE
 
 Admin creates a `Challenge` with a metric (e.g. win ratio), an eligibility rule (e.g. played ≥X% of max sessions anyone played in the period), and a prize description. The system tracks it passively and shows a live leaderboard.
 
-**Round concept:** A round = a fixed number of consecutive sessions (configurable via `round_size`, default 5). Challenges are scoped to a round or a configurable number of last N sessions. This avoids calendar-date ranges which break when weeks are skipped.
-
-**Rough schema additions:**
-- `Challenge(id, title, metric, eligibilityThreshold Float, roundCount Int, prize String?, createdAt)`
-- Leaderboard is a computed view — no separate model needed
-
-**Depends on:** #11 (win ratio metric, round concept, `round_size` config) + existing attendance data
+See "Competitions / Challenges" section under "What exists today" for full implementation details.
 
 ---
 
-*Last updated: Apr 2026 — All Phase 1 items (#1–#11) shipped. Phase 2: #12 dynamic ranking ✅ DONE. Remaining: #13 competitions.*
+*Last updated: Apr 2026 — All Phase 1 items (#1–#11) shipped. All Phase 2 items (#12–#13) ✅ DONE.*
