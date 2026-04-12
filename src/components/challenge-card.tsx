@@ -50,8 +50,8 @@ export function ChallengeCard({
 
   const startDateFormatted = new Date(startDate).toLocaleDateString("he-IL", {
     day: "numeric",
-    month: "long",
-    year: "numeric",
+    month: "numeric",
+    year: "2-digit",
   });
 
   return (
@@ -65,7 +65,7 @@ export function ChallengeCard({
               סיבוב {number}
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              אחוז ניצחונות · {sessionCount} מפגשים החל מ-{startDateFormatted} · סף זכאות {minMatchesPct}%
+              {sessionCount} מפגשים מ-{startDateFormatted} · סף זכאות {minMatchesPct}%
             </p>
             {isClosed && winnerName && (
               <p className="mt-0.5 text-sm font-medium text-amber-600 dark:text-amber-400">
