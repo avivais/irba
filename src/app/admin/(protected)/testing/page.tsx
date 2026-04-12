@@ -12,7 +12,7 @@ export default async function TestingPage() {
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">בדיקות מקצה לקצה</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          מערכת בדיקות אינטראקטיבית — בצע כל צעד ולחץ "בדוק" כדי לאמת את מצב ה-DB.
+          מערכת בדיקות אינטראקטיבית — בצע כל צעד ולחץ &ldquo;בדוק&rdquo; כדי לאמת את מצב ה-DB.
         </p>
       </div>
 

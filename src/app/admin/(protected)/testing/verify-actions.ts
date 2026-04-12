@@ -2,7 +2,6 @@
 
 import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
-import { getAllConfigs } from "@/lib/config";
 import { computeLeaderboard } from "@/lib/challenge-analytics";
 import { computeMatchStats } from "@/lib/match-analytics";
 
