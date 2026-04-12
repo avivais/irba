@@ -47,7 +47,13 @@ export function SnapshotManager({ initialSnapshots }: Props) {
   function handleCreate() {
     if (!label.trim()) return;
     startTransition(async () => {
-      const res = await createSnapshot(label.trim());
+      let res: Awaited<ReturnType<typeof createSnapshot>>;
+      try {
+        res = await createSnapshot(label.trim());
+      } catch (e) {
+        showMsg(`שגיאה: ${String(e)}`, false);
+        return;
+      }
       if (res.ok && res.filename) {
         // Optimistically add to list
         const stat = { filename: res.filename, label: label.trim(), createdAt: new Date().toISOString(), sizeBytes: 0 };

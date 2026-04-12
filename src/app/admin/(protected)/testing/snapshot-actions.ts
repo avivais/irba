@@ -46,7 +46,7 @@ export async function listSnapshots(): Promise<SnapshotFile[]> {
       return {
         filename,
         label: parts[0] ?? filename,
-        createdAt: parts[1] ? parts[1].replace(/-/g, ":").replace("T", "T") : stat.mtime.toISOString(),
+        createdAt: parts[1] ? parts[1].replace(/T(\d{2})-(\d{2})-(\d{2})/, "T$1:$2:$3") : stat.mtime.toISOString(),
         sizeBytes: stat.size,
       };
     })
@@ -55,8 +55,8 @@ export async function listSnapshots(): Promise<SnapshotFile[]> {
 
 export async function createSnapshot(label: string): Promise<{ ok: boolean; filename?: string; error?: string }> {
   await requireAdmin();
-  ensureDir();
   try {
+    ensureDir();
     const data = await serializeAll();
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const safeLabel = label.replace(/[^a-zA-Z0-9_\u0590-\u05FF-]/g, "_").slice(0, 40);
