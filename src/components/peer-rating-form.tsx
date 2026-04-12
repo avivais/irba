@@ -270,7 +270,7 @@ export function PeerRatingForm({
         disabled={pending}
         className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60"
       >
-        {pending ? "שומר…" : isResubmit ? "עדכן הגשה" : "שלח הגשה"}
+        {pending ? "שומר…" : isResubmit ? "עדכן" : "שלח"}
       </button>
     </div>
   );

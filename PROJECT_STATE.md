@@ -267,13 +267,13 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 
 **Time window:** Sessions with `date >= challenge.startDate`, ordered by date ASC, take first `sessionCount`. Competition completes when the Nth session in that ordered list is charged.
 
-**Eligibility:** Player must have played ≥ `minMatchesPct` matches in the window. `minMatchesPct = 0` → everyone qualifies.
+**Eligibility:** Only `REGISTERED` players compete — drop-ins are excluded entirely. Registered players must have played ≥ `effectiveThreshold` matches in the window, where `effectiveThreshold = Math.round(minMatchesPct / 100 × maxMatchesPlayed)`. `minMatchesPct = 0` → everyone qualifies.
 
-**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames })` — no DB imports, safe for tests. Sorts by `winRatio` desc, then `matchesPlayed` desc, then name alphabetically. Ties share rank. Tested in `src/lib/challenge-analytics.test.ts`.
+**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames, registeredPlayerIds })` — no DB imports, safe for tests. Returns `{ leaderboard: LeaderboardEntry[], ineligible: IneligibleEntry[], effectiveThreshold: number }`. Eligible: sorted by `winRatio` desc, `matchesPlayed` desc, name. Ineligible: sorted by `matchesPlayed` desc (closest to qualifying first). `IneligibleEntry` has `gamesNeeded` field. Tested in `src/lib/challenge-analytics.test.ts`.
 
 **Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod — `startDate`, `sessionCount`, `minMatchesPct` only.
 
-**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — uses new window logic, returns `completedSessions` count.
+**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — filters players to `REGISTERED` only, returns `{ leaderboard, ineligible, effectiveThreshold, completedSessions }`.
 
 **Config keys:** `COMPETITION_SESSION_COUNT` (default "6"), `COMPETITION_MIN_MATCHES_PCT` (default "10"), `WA_NOTIFY_COMPETITION_WINNER_ENABLED`, `WA_NOTIFY_COMPETITION_WINNER_TEMPLATE` (vars: `{player_name}`, `{round_number}`).
 
@@ -288,7 +288,7 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 
 **Player-facing** (`/challenges`):
 - Login-gated; active competition at top with live leaderboard (rank, player, win%, matches played); history section below (collapsed `ChallengeCard` per past competition with winner badge).
-- `ChallengeCard` component: number, dates, session progress, eligibility threshold (`minMatchesPct%`), winner badge (if closed); full ranked list with current player highlighted. Tied players: only first occurrence per rank shows medal/number, rest show "–".
+- `ChallengeCard` component: number, dates, session progress, eligibility threshold (shown as nominal "X משחקים"), winner badge (if closed); ranked eligible players (ties: first per rank gets medal, rest "–"); greyed "לא עומדים בסף עדיין" section for ineligible registered players showing their win% + "חסרים X משחקים".
 - `Trophy` icon in nav (`NavLinks`) for all logged-in players.
 
 ---

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
-import type { LeaderboardEntry } from "@/lib/challenge-analytics";
+import type { LeaderboardEntry, IneligibleEntry } from "@/lib/challenge-analytics";
 
 const RANK_MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -12,10 +12,11 @@ type Props = {
   isClosed: boolean;
   startDate: Date | string;
   sessionCount: number;
-  minMatchesPct: number;
+  effectiveThreshold: number;
   completedSessions: number;
   winnerName?: string | null;
   leaderboard: LeaderboardEntry[];
+  ineligible: IneligibleEntry[];
   currentPlayerId: string | null;
 };
 
@@ -25,10 +26,11 @@ export function ChallengeCard({
   isClosed,
   startDate,
   sessionCount,
-  minMatchesPct,
+  effectiveThreshold,
   completedSessions,
   winnerName,
   leaderboard,
+  ineligible,
   currentPlayerId,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -65,7 +67,7 @@ export function ChallengeCard({
               סיבוב {number}
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {sessionCount} מפגשים מ-{startDateFormatted} · סף זכאות {minMatchesPct}%
+              {sessionCount} מפגשים מ-{startDateFormatted} · סף זכאות {effectiveThreshold} משחקים
             </p>
             {isClosed && winnerName && (
               <p className="mt-0.5 text-sm font-medium text-amber-600 dark:text-amber-400">
@@ -91,7 +93,7 @@ export function ChallengeCard({
       </div>
 
       {/* Empty state */}
-      {leaderboard.length === 0 && (
+      {leaderboard.length === 0 && ineligible.length === 0 && (
         <p className="px-5 pb-5 text-sm text-zinc-400 dark:text-zinc-500">
           אין נתונים להצגה עדיין.
         </p>
@@ -180,7 +182,7 @@ export function ChallengeCard({
         </div>
       )}
 
-      {/* Expand / collapse remaining */}
+      {/* Expand / collapse remaining eligible */}
       {rest.length > 0 && (
         <>
           <div className="border-t border-zinc-100 dark:border-zinc-800">
@@ -259,6 +261,57 @@ export function ChallengeCard({
             </div>
           )}
         </>
+      )}
+
+      {/* Ineligible players — not yet reached threshold */}
+      {ineligible.length > 0 && (
+        <div className="border-t border-zinc-100 dark:border-zinc-800">
+          <p className="px-5 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            לא עומדים בסף עדיין
+          </p>
+          <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
+            {ineligible.map((entry) => {
+              const isMe = currentPlayerId === entry.playerId;
+              return (
+                <div
+                  key={entry.playerId}
+                  className={`flex items-center gap-3 px-5 py-3 ${
+                    isMe ? "bg-blue-50 dark:bg-blue-950/20" : ""
+                  }`}
+                >
+                  <span className="w-6 shrink-0 text-center text-sm text-zinc-300 dark:text-zinc-600">
+                    –
+                  </span>
+                  <span
+                    className={`flex-1 text-sm ${
+                      isMe
+                        ? "font-medium text-blue-700 dark:text-blue-300"
+                        : "text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    {entry.displayName}
+                    {isMe && (
+                      <span className="mr-1.5 text-xs font-normal text-blue-500 dark:text-blue-400">
+                        (אתה)
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-0.5">
+                    <span
+                      dir="ltr"
+                      className="text-sm tabular-nums text-zinc-400 dark:text-zinc-500"
+                    >
+                      {Math.round(entry.winRatio * 100)}%
+                    </span>
+                    <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                      {entry.matchesPlayed} משחקים · חסרים {entry.gamesNeeded}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <div className="h-2" />

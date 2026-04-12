@@ -12,32 +12,52 @@ export type LeaderboardEntry = {
   rank: number;
 };
 
+export type IneligibleEntry = {
+  playerId: string;
+  displayName: string;
+  /** Win ratio (0–1). Shown for comparison/incentive. */
+  winRatio: number;
+  matchesPlayed: number;
+  /** How many more matches needed to reach effectiveThreshold. */
+  gamesNeeded: number;
+};
+
+export type LeaderboardResult = {
+  leaderboard: LeaderboardEntry[];
+  ineligible: IneligibleEntry[];
+  /** Nominal match count required for eligibility (derived from minMatchesPct × maxMatchesPlayed). */
+  effectiveThreshold: number;
+};
+
 /**
  * Compute the win-% leaderboard for a competition window.
  *
  * @param minMatchesPct - 0–100; minimum matches as % of the most-active player's matches.
- *   e.g. 50 means a player must have played ≥ ceil(0.5 × maxMatchesPlayed) to appear.
- *   0 = everyone qualifies (even with 0 matches).
+ *   e.g. 50 means a player must have played ≥ round(0.5 × maxMatchesPlayed) to appear.
+ *   0 = everyone qualifies.
  * @param windowSessionIds - ordered session IDs in the window
  * @param matches - all matches (will be filtered to window sessions)
- * @param playerNames - playerId → displayName
+ * @param playerNames - playerId → displayName (only registered players — drop-ins excluded by caller)
+ * @param registeredPlayerIds - only these player IDs are considered; drop-ins are skipped entirely
  */
 export function computeLeaderboard(params: {
   minMatchesPct: number;
   windowSessionIds: string[];
   matches: MatchRecord[];
   playerNames: Map<string, string>;
-}): LeaderboardEntry[] {
-  const { minMatchesPct, windowSessionIds, matches, playerNames } = params;
+  registeredPlayerIds: Set<string>;
+}): LeaderboardResult {
+  const { minMatchesPct, windowSessionIds, matches, playerNames, registeredPlayerIds } = params;
 
-  if (windowSessionIds.length === 0) return [];
+  if (windowSessionIds.length === 0) return { leaderboard: [], ineligible: [], effectiveThreshold: 0 };
 
   const windowSet = new Set(windowSessionIds);
   const windowMatches = matches.filter((m) => windowSet.has(m.sessionId));
 
-  // Compute stats for every player first so we can find the max
-  const allEntries: LeaderboardEntry[] = [];
+  // Compute stats for every registered player first so we can find the max
+  const allEntries: Array<LeaderboardEntry & { isEligible?: boolean }> = [];
   for (const [playerId, displayName] of playerNames) {
+    if (!registeredPlayerIds.has(playerId)) continue; // drop-ins excluded
     const stats = computeMatchStats(playerId, windowMatches);
     allEntries.push({
       playerId,
@@ -53,27 +73,47 @@ export function computeLeaderboard(params: {
     (max, e) => Math.max(max, e.matchesPlayed),
     0,
   );
-  const effectiveThreshold = Math.ceil((minMatchesPct / 100) * maxMatchesPlayed);
+  const effectiveThreshold = Math.round((minMatchesPct / 100) * maxMatchesPlayed);
 
-  const entries = allEntries.filter(
-    (e) => e.matchesPlayed >= effectiveThreshold,
-  );
+  // Split into eligible and ineligible
+  const eligibleEntries: LeaderboardEntry[] = [];
+  const ineligibleEntries: IneligibleEntry[] = [];
 
-  // Sort: win ratio desc, then more matches played (tie-break), then name (stable)
-  entries.sort((a, b) => {
+  for (const entry of allEntries) {
+    if (entry.matchesPlayed >= effectiveThreshold) {
+      eligibleEntries.push(entry);
+    } else {
+      ineligibleEntries.push({
+        playerId: entry.playerId,
+        displayName: entry.displayName,
+        winRatio: entry.winRatio,
+        matchesPlayed: entry.matchesPlayed,
+        gamesNeeded: effectiveThreshold - entry.matchesPlayed,
+      });
+    }
+  }
+
+  // Sort eligible: win ratio desc, then more matches played (tie-break), then name (stable)
+  eligibleEntries.sort((a, b) => {
     if (b.winRatio !== a.winRatio) return b.winRatio - a.winRatio;
     if (b.matchesPlayed !== a.matchesPlayed) return b.matchesPlayed - a.matchesPlayed;
     return a.displayName.localeCompare(b.displayName);
   });
 
   // Assign ranks — ties share rank (based on win ratio only)
-  for (let i = 0; i < entries.length; i++) {
-    if (i === 0 || entries[i].winRatio < entries[i - 1].winRatio) {
-      entries[i].rank = i + 1;
+  for (let i = 0; i < eligibleEntries.length; i++) {
+    if (i === 0 || eligibleEntries[i].winRatio < eligibleEntries[i - 1].winRatio) {
+      eligibleEntries[i].rank = i + 1;
     } else {
-      entries[i].rank = entries[i - 1].rank;
+      eligibleEntries[i].rank = eligibleEntries[i - 1].rank;
     }
   }
 
-  return entries;
+  // Sort ineligible: most matches played first (closest to qualifying)
+  ineligibleEntries.sort((a, b) => {
+    if (b.matchesPlayed !== a.matchesPlayed) return b.matchesPlayed - a.matchesPlayed;
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  return { leaderboard: eligibleEntries, ineligible: ineligibleEntries, effectiveThreshold };
 }

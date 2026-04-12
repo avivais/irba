@@ -37,10 +37,11 @@ export default async function ChallengesPage() {
                 isClosed={active.challenge.isClosed}
                 startDate={active.challenge.startDate}
                 sessionCount={active.challenge.sessionCount}
-                minMatchesPct={active.challenge.minMatchesPct}
+                effectiveThreshold={active.effectiveThreshold}
                 completedSessions={active.completedSessions}
                 winnerName={active.challenge.winner ? (active.challenge.winner.nickname ?? active.challenge.winner.firstNameHe ?? active.challenge.winner.phone) : null}
                 leaderboard={active.leaderboard}
+                ineligible={active.ineligible}
                 currentPlayerId={session.playerId}
               />
             ) : (
@@ -64,10 +65,11 @@ export default async function ChallengesPage() {
                       isClosed={r.challenge.isClosed}
                       startDate={r.challenge.startDate}
                       sessionCount={r.challenge.sessionCount}
-                      minMatchesPct={r.challenge.minMatchesPct}
+                      effectiveThreshold={r.effectiveThreshold}
                       completedSessions={r.completedSessions}
                       winnerName={r.challenge.winner ? (r.challenge.winner.nickname ?? r.challenge.winner.firstNameHe ?? r.challenge.winner.phone) : null}
                       leaderboard={r.leaderboard}
+                      ineligible={r.ineligible}
                       currentPlayerId={session.playerId}
                     />
                   ))}

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getPlayerDisplayName } from "@/lib/player-display";
-import { computeLeaderboard, type LeaderboardEntry } from "@/lib/challenge-analytics";
+import { computeLeaderboard, type LeaderboardEntry, type IneligibleEntry } from "@/lib/challenge-analytics";
 import type { Challenge, Player } from "@prisma/client";
 
 export type ChallengeWithWinner = Challenge & {
@@ -10,6 +10,9 @@ export type ChallengeWithWinner = Challenge & {
 export type ChallengeLeaderboardResult = {
   challenge: ChallengeWithWinner;
   leaderboard: LeaderboardEntry[];
+  ineligible: IneligibleEntry[];
+  /** Nominal match count required for eligibility */
+  effectiveThreshold: number;
   /** Number of sessions charged so far in the window */
   completedSessions: number;
 };
@@ -39,7 +42,7 @@ export async function fetchChallengeLeaderboard(
   const completedSessions = windowSessions.filter((s) => s.isCharged).length;
 
   if (windowSessionIds.length === 0) {
-    return { challenge, leaderboard: [], completedSessions: 0 };
+    return { challenge, leaderboard: [], ineligible: [], effectiveThreshold: 0, completedSessions: 0 };
   }
 
   // Fetch matches in window
@@ -56,9 +59,9 @@ export async function fetchChallengeLeaderboard(
     },
   });
 
-  // Fetch all non-admin players for name resolution
+  // Fetch registered (non-drop-in) non-admin players for name resolution
   const players = await prisma.player.findMany({
-    where: { isAdmin: false },
+    where: { isAdmin: false, playerKind: "REGISTERED" },
     select: {
       id: true,
       firstNameHe: true,
@@ -73,15 +76,17 @@ export async function fetchChallengeLeaderboard(
   const playerNames = new Map<string, string>(
     players.map((p) => [p.id, getPlayerDisplayName(p)]),
   );
+  const registeredPlayerIds = new Set(players.map((p) => p.id));
 
-  const leaderboard = computeLeaderboard({
+  const { leaderboard, ineligible, effectiveThreshold } = computeLeaderboard({
     minMatchesPct: challenge.minMatchesPct,
     windowSessionIds,
     matches,
     playerNames,
+    registeredPlayerIds,
   });
 
-  return { challenge, leaderboard, completedSessions };
+  return { challenge, leaderboard, ineligible, effectiveThreshold, completedSessions };
 }
 
 export async function fetchAllChallengeLeaderboards(): Promise<ChallengeLeaderboardResult[]> {
