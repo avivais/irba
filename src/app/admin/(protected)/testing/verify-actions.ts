@@ -9,7 +9,7 @@ export type VerifyResult = { pass: boolean; detail: string; manual?: boolean };
 
 // ── Test player phones ────────────────────────────────────────────────────────
 
-export const TEST_PHONES = {
+const TEST_PHONES = {
   A: "0500000001",
   B: "0500000002",
   C: "0500000003",
