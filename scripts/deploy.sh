@@ -52,19 +52,12 @@ ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
   docker compose ps
 REMOTE
 
-# ── 5. Migrate ─────────────────────────────────────────────────────────────────
-step "MIGRATE"
-log "Applying pending database migrations..."
-ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
-  set -euo pipefail
-  cd /opt/irba
-  docker exec irba-app-1 npx prisma migrate deploy
-REMOTE
-
-# ── 6. Health check ────────────────────────────────────────────────────────────
+# ── 5. Health check ────────────────────────────────────────────────────────────
+# Migrations run automatically in docker-entrypoint.sh on container start.
+# No separate migrate step needed — avoid redundant docker exec that risks OOM.
 step "HEALTH CHECK"
-log "Waiting 5s for app to start..."
-sleep 5
+log "Waiting 10s for app to start and run migrations..."
+sleep 10
 ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
   response=$(curl -sf https://irba.sportgroup.cl/api/health 2>&1) \
     && echo "Health: $response" \

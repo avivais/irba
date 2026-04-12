@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import type { LeaderboardEntry } from "@/lib/challenge-analytics";
 
-const PODIUM_MEDALS = ["🥇", "🥈", "🥉"];
+const RANK_MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
 type Props = {
   number: number;
@@ -30,6 +30,17 @@ export function ChallengeCard({
   currentPlayerId,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+
+  // Pre-compute which player is the FIRST to appear with each rank
+  // (ties: only the first occurrence gets the rank/medal, rest get "–")
+  const firstWithRank = new Set<string>();
+  const seenRanks = new Set<number>();
+  for (const entry of leaderboard) {
+    if (!seenRanks.has(entry.rank)) {
+      firstWithRank.add(entry.playerId);
+      seenRanks.add(entry.rank);
+    }
+  }
 
   const top3 = leaderboard.filter((e) => e.rank <= 3).slice(0, 3);
   const rest = leaderboard.slice(top3.length);
@@ -87,9 +98,13 @@ export function ChallengeCard({
       {/* Podium — top 3 */}
       {top3.length > 0 && (
         <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 border-t border-zinc-100 dark:border-zinc-800">
-          {top3.map((entry, i) => {
+          {top3.map((entry) => {
             const isMe = currentPlayerId === entry.playerId;
             const isWinner = isClosed && entry.rank === 1;
+            const isFirst = firstWithRank.has(entry.playerId);
+            const medal = isFirst
+              ? (RANK_MEDALS[entry.rank] ?? `${entry.rank}.`)
+              : "–";
             return (
               <div
                 key={entry.playerId}
@@ -97,7 +112,9 @@ export function ChallengeCard({
                   isMe ? "bg-blue-50 dark:bg-blue-950/20" : ""
                 }`}
               >
-                <span className="text-xl shrink-0">{PODIUM_MEDALS[i] ?? `${entry.rank}.`}</span>
+                <span className={`shrink-0 ${isFirst ? "text-xl" : "w-6 text-center text-sm text-zinc-400 dark:text-zinc-500"}`}>
+                  {medal}
+                </span>
                 <span
                   className={`flex-1 text-sm font-medium ${
                     isMe
@@ -142,7 +159,7 @@ export function ChallengeCard({
       {myEntry && myEntry.rank > 3 && !expanded && (
         <div className="border-t border-zinc-100 dark:border-zinc-800 bg-blue-50 dark:bg-blue-950/20 flex items-center gap-3 px-5 py-3">
           <span className="w-6 shrink-0 text-center text-sm font-medium text-blue-600 dark:text-blue-400 tabular-nums">
-            {myEntry.rank}
+            {firstWithRank.has(myEntry.playerId) ? myEntry.rank : "–"}
           </span>
           <span className="flex-1 text-sm font-medium text-blue-700 dark:text-blue-300">
             {myEntry.displayName}
@@ -188,6 +205,7 @@ export function ChallengeCard({
             <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 border-t border-zinc-100 dark:border-zinc-800">
               {rest.map((entry) => {
                 const isMe = currentPlayerId === entry.playerId;
+                const isFirst = firstWithRank.has(entry.playerId);
                 return (
                   <div
                     key={entry.playerId}
@@ -202,7 +220,7 @@ export function ChallengeCard({
                           : "font-medium text-zinc-400 dark:text-zinc-500"
                       }`}
                     >
-                      {entry.rank}
+                      {isFirst ? entry.rank : "–"}
                     </span>
                     <span
                       className={`flex-1 text-sm font-medium ${
