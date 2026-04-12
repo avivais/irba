@@ -97,7 +97,7 @@ export function SnapshotManager({ initialSnapshots }: Props) {
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none"
           disabled={isPending}
         />
         <button
