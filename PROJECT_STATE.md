@@ -288,7 +288,7 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 
 **Player-facing** (`/challenges`):
 - Login-gated; active competition at top with live leaderboard (rank, player, win%, matches played); history section below (collapsed `ChallengeCard` per past competition with winner badge).
-- `ChallengeCard` component: number, dates, session progress, winner badge (if closed); full ranked list with current player highlighted.
+- `ChallengeCard` component: number, dates, session progress, eligibility threshold (`minMatchesPct%`), winner badge (if closed); full ranked list with current player highlighted. Tied players: only first occurrence per rank shows medal/number, rest show "–".
 - `Trophy` icon in nav (`NavLinks`) for all logged-in players.
 
 ---

@@ -12,6 +12,7 @@ type Props = {
   isClosed: boolean;
   startDate: Date | string;
   sessionCount: number;
+  minMatchesPct: number;
   completedSessions: number;
   winnerName?: string | null;
   leaderboard: LeaderboardEntry[];
@@ -24,6 +25,7 @@ export function ChallengeCard({
   isClosed,
   startDate,
   sessionCount,
+  minMatchesPct,
   completedSessions,
   winnerName,
   leaderboard,
@@ -63,7 +65,7 @@ export function ChallengeCard({
               סיבוב {number}
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              אחוז ניצחונות · {sessionCount} מפגשים החל מ-{startDateFormatted}
+              אחוז ניצחונות · {sessionCount} מפגשים החל מ-{startDateFormatted} · סף זכאות {minMatchesPct}%
             </p>
             {isClosed && winnerName && (
               <p className="mt-0.5 text-sm font-medium text-amber-600 dark:text-amber-400">
