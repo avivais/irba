@@ -18,11 +18,9 @@ export async function createChallengeAction(
   const adminId = await requireAdmin();
 
   const raw = {
-    title: formData.get("title")?.toString(),
-    metric: formData.get("metric")?.toString(),
-    eligibilityMinPct: formData.get("eligibilityMinPct")?.toString(),
-    roundCount: formData.get("roundCount")?.toString(),
-    prize: formData.get("prize")?.toString(),
+    startDate: formData.get("startDate")?.toString(),
+    sessionCount: formData.get("sessionCount")?.toString(),
+    minMatchesThreshold: formData.get("minMatchesThreshold")?.toString(),
   };
 
   const validation = parseChallengeForm(raw);
@@ -31,12 +29,31 @@ export async function createChallengeAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { title, metric, eligibilityMinPct, roundCount, prize } = validation.data;
+  const { startDate, sessionCount, minMatchesThreshold } = validation.data;
+
+  // Enforce only one active (non-closed) competition at a time
+  const existing = await prisma.challenge.findFirst({
+    where: { isClosed: false },
+    select: { id: true, number: true },
+  });
+  if (existing) {
+    return { ok: false, message: `יש כבר תחרות פעילה (סיבוב ${existing.number}). יש לסגור אותה לפני פתיחת תחרות חדשה.` };
+  }
+
+  // Auto-number: count all challenges + 1
+  const count = await prisma.challenge.count();
+  const number = count + 1;
 
   let created: { id: string };
   try {
     created = await prisma.challenge.create({
-      data: { title, metric, eligibilityMinPct, roundCount, prize, createdBy: adminId },
+      data: {
+        number,
+        startDate: new Date(startDate),
+        sessionCount,
+        minMatchesThreshold,
+        createdBy: adminId,
+      },
       select: { id: true },
     });
   } catch (e) {
@@ -49,7 +66,7 @@ export async function createChallengeAction(
     action: "CREATE_CHALLENGE",
     entityType: "Challenge",
     entityId: created.id,
-    after: { title, metric, eligibilityMinPct, roundCount, prize },
+    after: { number, startDate, sessionCount, minMatchesThreshold },
   });
 
   revalidatePath("/admin/challenges");
@@ -64,12 +81,14 @@ export async function updateChallengeAction(
 ): Promise<ChallengeActionState> {
   const adminId = await requireAdmin();
 
+  const challenge = await prisma.challenge.findUnique({ where: { id } });
+  if (!challenge) return { ok: false, message: "תחרות לא נמצאה" };
+  if (challenge.isClosed) return { ok: false, message: "לא ניתן לערוך תחרות סגורה" };
+
   const raw = {
-    title: formData.get("title")?.toString(),
-    metric: formData.get("metric")?.toString(),
-    eligibilityMinPct: formData.get("eligibilityMinPct")?.toString(),
-    roundCount: formData.get("roundCount")?.toString(),
-    prize: formData.get("prize")?.toString(),
+    startDate: formData.get("startDate")?.toString(),
+    sessionCount: formData.get("sessionCount")?.toString(),
+    minMatchesThreshold: formData.get("minMatchesThreshold")?.toString(),
   };
 
   const validation = parseChallengeForm(raw);
@@ -78,15 +97,12 @@ export async function updateChallengeAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { title, metric, eligibilityMinPct, roundCount, prize } = validation.data;
-
-  const before = await prisma.challenge.findUnique({ where: { id } });
-  if (!before) return { ok: false, message: "תחרות לא נמצאה" };
+  const { startDate, sessionCount, minMatchesThreshold } = validation.data;
 
   try {
     await prisma.challenge.update({
       where: { id },
-      data: { title, metric, eligibilityMinPct, roundCount, prize },
+      data: { startDate: new Date(startDate), sessionCount, minMatchesThreshold },
     });
   } catch (e) {
     console.error("updateChallengeAction failed", e);
@@ -98,8 +114,8 @@ export async function updateChallengeAction(
     action: "UPDATE_CHALLENGE",
     entityType: "Challenge",
     entityId: id,
-    before,
-    after: { title, metric, eligibilityMinPct, roundCount, prize },
+    before: challenge,
+    after: { startDate, sessionCount, minMatchesThreshold },
   });
 
   revalidatePath("/admin/challenges");
@@ -112,6 +128,7 @@ export async function deleteChallengeAction(id: string): Promise<ChallengeAction
 
   const before = await prisma.challenge.findUnique({ where: { id } });
   if (!before) return { ok: false, message: "תחרות לא נמצאה" };
+  if (before.isClosed) return { ok: false, message: "לא ניתן למחוק תחרות שהסתיימה" };
 
   try {
     await prisma.challenge.delete({ where: { id } });
@@ -126,32 +143,6 @@ export async function deleteChallengeAction(id: string): Promise<ChallengeAction
     entityType: "Challenge",
     entityId: id,
     before,
-  });
-
-  revalidatePath("/admin/challenges");
-  revalidatePath("/challenges");
-  return { ok: true };
-}
-
-export async function toggleChallengeAction(
-  id: string,
-  isActive: boolean,
-): Promise<ChallengeActionState> {
-  const adminId = await requireAdmin();
-
-  try {
-    await prisma.challenge.update({ where: { id }, data: { isActive } });
-  } catch (e) {
-    console.error("toggleChallengeAction failed", e);
-    return { ok: false, message: GENERIC_ERROR };
-  }
-
-  writeAuditLog({
-    actor: adminId,
-    action: "TOGGLE_CHALLENGE",
-    entityType: "Challenge",
-    entityId: id,
-    after: { isActive },
   });
 
   revalidatePath("/admin/challenges");

@@ -33,6 +33,7 @@ enum ChargeType {
   REGISTERED
   DROP_IN
   ADMIN_OVERRIDE
+  FREE_ENTRY
 }
 
 model Player {
@@ -68,6 +69,8 @@ model Player {
   adjustments    PlayerAdjustment[]
   payments       Payment[]
   sessionCharges SessionCharge[]
+  freeEntries    FreeEntry[]
+  wonChallenges  Challenge[]     @relation("ChallengeWinner")
 
   @@index([phone])
   @@index([nickname])
@@ -93,6 +96,7 @@ model GameSession {
   attendances    Attendance[]
   sessionCharges SessionCharge[]
   matches        Match[]
+  freeEntries    FreeEntry[]
 
   @@index([date])
 }
@@ -244,15 +248,35 @@ model PeerRating {
 }
 
 model Challenge {
-  id                 String   @id @default(cuid())
-  title              String
-  metric             String   // "win_ratio" | "total_wins" | "attendance"
-  eligibilityMinPct  Float    // min % of sessions in window a player must attend to qualify
-  roundCount         Int      // number of rounds the window spans; 0 = all-time
-  prize              String?
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  createdBy          String   // playerId of admin who created it
+  id                  String    @id @default(cuid())
+  number              Int       @unique  // auto-sequenced: 1, 2, 3…
+  startDate           DateTime  @db.Date // first session on or after this date counts
+  sessionCount        Int       // how many sessions the competition spans
+  minMatchesThreshold Int       // min matches played in window to appear on leaderboard
+  isActive            Boolean   @default(true)
+  isClosed            Boolean   @default(false)
+  winnerId            String?
+  createdAt           DateTime  @default(now())
+  createdBy           String
+
+  winner     Player?     @relation("ChallengeWinner", fields: [winnerId], references: [id])
+  freeEntries FreeEntry[]
+}
+
+model FreeEntry {
+  id              String    @id @default(cuid())
+  playerId        String
+  challengeId     String
+  usedInSessionId String?
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  player    Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  challenge Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  session   GameSession? @relation(fields: [usedInSessionId], references: [id])
+
+  @@index([playerId])
+  @@index([challengeId])
 }
 
 model AuditLog {

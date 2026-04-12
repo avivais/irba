@@ -159,6 +159,23 @@ export async function notifyPlayerCancelled(
 }
 
 /**
+ * Notify the configured WA group that a competition round has ended and announce the winner.
+ * Vars: {player_name}, {round_number}
+ */
+export async function notifyCompetitionWinner(
+  playerName: string,
+  roundNumber: number,
+  configs: Record<ConfigKey, string>,
+): Promise<void> {
+  if (configs[CONFIG.WA_NOTIFY_COMPETITION_WINNER_ENABLED] !== "true") return;
+  const message = renderTemplate(configs[CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE], {
+    player_name: playerName,
+    round_number: String(roundNumber),
+  });
+  await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);
+}
+
+/**
  * Send an individual DM to a player promoted from the waitlist.
  * Vars: {date}, {player_name}
  */

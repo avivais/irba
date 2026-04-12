@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Zap, Undo2, Pencil, Check, X, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   chargeSessionAction,
   unchargeSessionAction,
@@ -9,7 +10,7 @@ import {
   previewCascadeAction,
   applyCascadeAction,
 } from "@/app/admin/(protected)/sessions/[id]/charge/actions";
-import type { CascadeChange } from "@/app/admin/(protected)/sessions/[id]/charge/actions";
+import type { CascadeChange, CompetitionResult } from "@/app/admin/(protected)/sessions/[id]/charge/actions";
 
 type AuditEntry = {
   changedAt: Date;
@@ -43,6 +44,7 @@ const TYPE_LABEL: Record<string, string> = {
   REGISTERED: "קבוע",
   DROP_IN: "מזדמן",
   ADMIN_OVERRIDE: "עקיפה",
+  FREE_ENTRY: "כניסה חינם",
 };
 
 function formatDate(d: Date): string {
@@ -80,6 +82,8 @@ export function SessionChargePanel({
   const [cascadePending, setCascadePending] = useState(false);
   const [cascadeApplying, setCascadeApplying] = useState(false);
   const [cascadeMessage, setCascadeMessage] = useState<string | null>(null);
+  const [competitionResult, setCompetitionResult] = useState<CompetitionResult | null>(null);
+  const router = useRouter();
 
   function toggleAudit(chargeId: string) {
     setExpandedAudit((prev) => {
@@ -98,7 +102,12 @@ export function SessionChargePanel({
         setError(result.message ?? "שגיאה");
       } else {
         setIsCharged(true);
-        window.location.reload();
+        if (result.competitionResult) {
+          setCompetitionResult(result.competitionResult);
+          window.location.reload();
+        } else {
+          window.location.reload();
+        }
       }
     });
   }
@@ -222,6 +231,24 @@ export function SessionChargePanel({
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-400">
           {error}
         </p>
+      )}
+
+      {/* Competition winner banner */}
+      {competitionResult && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700/50 dark:bg-amber-950/20">
+          <p className="text-base font-semibold text-amber-800 dark:text-amber-300">
+            🏆 סיבוב {competitionResult.roundNumber} הסתיים! הזוכה: {competitionResult.winnerName}
+          </p>
+          <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+            נשמרה כניסה חינם עבור הזוכה.
+          </p>
+          <a
+            href="/admin/challenges/new"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+          >
+            פתח סיבוב חדש
+          </a>
+        </div>
       )}
 
       {/* Cascade banner */}

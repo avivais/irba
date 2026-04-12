@@ -67,7 +67,7 @@ export type AuditAction =
   | "CREATE_CHALLENGE"
   | "UPDATE_CHALLENGE"
   | "DELETE_CHALLENGE"
-  | "TOGGLE_CHALLENGE";
+  | "CLOSE_CHALLENGE";
 
 export type AuditParams = {
   actor: string;

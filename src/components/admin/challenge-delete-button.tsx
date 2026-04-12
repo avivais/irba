@@ -7,16 +7,16 @@ import {
   type ChallengeActionState,
 } from "@/app/admin/(protected)/challenges/actions";
 
-type Props = { id: string; title: string };
+type Props = { id: string; number: number };
 
 const initialState: ChallengeActionState = { ok: false };
 
-export function ChallengeDeleteButton({ id, title }: Props) {
+export function ChallengeDeleteButton({ id, number }: Props) {
   const boundAction = deleteChallengeAction.bind(null, id);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
   function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
-    const confirmed = window.confirm(`למחוק את התחרות "${title}"? פעולה זו אינה ניתנת לביטול.`);
+    const confirmed = window.confirm(`למחוק את סיבוב ${number}? פעולה זו אינה ניתנת לביטול.`);
     if (!confirmed) e.preventDefault();
   }
 

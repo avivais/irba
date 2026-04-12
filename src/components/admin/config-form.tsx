@@ -1085,6 +1085,76 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </div>
       </section>
 
+      {/* ── Competition ─────────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <SectionTitle>תחרויות</SectionTitle>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="מספר מפגשים ברירת מחדל"
+            hint="לכל תחרות חדשה"
+            htmlFor={CONFIG.COMPETITION_SESSION_COUNT}
+            error={errors[CONFIG.COMPETITION_SESSION_COUNT]}
+          >
+            <input
+              id={CONFIG.COMPETITION_SESSION_COUNT}
+              type="number"
+              name={CONFIG.COMPETITION_SESSION_COUNT}
+              defaultValue={values[CONFIG.COMPETITION_SESSION_COUNT]}
+              min={1}
+              className={`${inputBase} ${errors[CONFIG.COMPETITION_SESSION_COUNT] ? inputError : inputNormal}`}
+            />
+          </Field>
+
+          <Field
+            label="סף משחקים מינימלי ברירת מחדל"
+            hint="מינימום משחקים להשתתפות בטבלה"
+            htmlFor={CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD}
+            error={errors[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD]}
+          >
+            <input
+              id={CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD}
+              type="number"
+              name={CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD}
+              defaultValue={values[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD]}
+              min={0}
+              className={`${inputBase} ${errors[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD] ? inputError : inputNormal}`}
+            />
+          </Field>
+        </div>
+
+        {/* Winner notification */}
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              name={CONFIG.WA_NOTIFY_COMPETITION_WINNER_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.WA_NOTIFY_COMPETITION_WINNER_ENABLED] === "true"}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            התראה על זוכה תחרות (לקבוצה)
+          </label>
+          <Field
+            label="תבנית הודעה"
+            htmlFor={CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE}
+            error={errors[CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE]}
+          >
+            <textarea
+              id={CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE}
+              name={CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE}
+              defaultValue={values[CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE]}
+              rows={2}
+              maxLength={500}
+              className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_COMPETITION_WINNER_TEMPLATE] ? inputError : inputNormal}`}
+            />
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              משתנים זמינים: {"{player_name}"}, {"{round_number}"}
+            </p>
+          </Field>
+        </div>
+      </section>
+
       {/* ── Submit ──────────────────────────────────────── */}
       <button
         type="submit"

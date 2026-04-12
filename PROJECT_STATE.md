@@ -66,7 +66,8 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - **`AuditLog`**: `id Int PK autoincrement`, `timestamp DateTime`, `actor String` ("admin" | player phone | "cron"), `actorIp String?`, `action String` (enum-like constant e.g. `CREATE_PLAYER`), `entityType String?`, `entityId String?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`. Written fire-and-forget via `src/lib/audit.ts`.
 - **`Match`**: `id`, `sessionId`, `teamAPlayerIds String[]`, `teamBPlayerIds String[]`, `scoreA Int`, `scoreB Int`, `createdAt`, `updatedAt`. Indexed on `(sessionId, createdAt)`. Cascades on session delete.
 - **`Player` regulations fields**: `regulationsAcceptedAt DateTime?`, `regulationsAcceptedVersion Int?`. Null = not yet accepted. Version compared against `regulations_version` config to gate access.
-- **`Challenge`**: `id`, `title`, `metric String` (`"win_ratio" | "total_wins" | "attendance"`), `eligibilityMinPct Float` (0–100; 0 = all qualify), `roundCount Int` (number of rounds window spans; 0 = all-time), `prize String?`, `isActive Boolean @default(true)`, `createdAt`, `createdBy String` (playerId of admin). No leaderboard model — always computed passively from existing Match + Attendance data.
+- **`Challenge`**: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesThreshold Int`, `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy String`. Relations: `winner Player?`, `freeEntry FreeEntry[]`. No leaderboard model — computed passively from Match data.
+- **`FreeEntry`**: `id`, `playerId`, `challengeId`, `usedInSessionId String?`, `usedAt DateTime?`, `createdAt`. Prize for competition winner — consumed when winner attends next charged session.
 
 ### RSVP flow (public)
 
@@ -257,28 +258,37 @@ DROP_IN players: only admin rank component applies.
 
 ### Competitions / Challenges
 
-Admin creates named challenges; system computes live leaderboards passively from existing Match + Attendance data. No player interaction required.
+One active competition at a time. Win-% only metric. Prize = free entry for winner. Auto-numbered ("סיבוב 1", "סיבוב 2", …). System computes live leaderboards passively from Match data.
 
-**Metrics supported:** `win_ratio` (wins / decided matches), `total_wins`, `attendance` (sessions attended in window).
+**Data model:**
+- `Challenge`: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesThreshold Int`, `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy`. Relations: `winner Player?`, `freeEntry FreeEntry[]`.
+- `FreeEntry`: `id`, `playerId`, `challengeId`, `usedInSessionId?`, `usedAt?`, `createdAt`. Created when competition closes; consumed when winner attends next charged session.
+- `ChargeType` enum includes `FREE_ENTRY` — winner charged ₪0, cost absorbed by other attendees.
 
-**Time window:** `roundCount = 0` → all sessions ever; `roundCount = N` → last `N × round_size` sessions.
+**Time window:** Sessions with `date >= challenge.startDate`, ordered by date ASC, take first `sessionCount`. Competition completes when the Nth session in that ordered list is charged.
 
-**Eligibility:** Player must have attended ≥ `ceil(eligibilityMinPct / 100 × sessionsInWindow)` sessions to qualify. `eligibilityMinPct = 0` → everyone qualifies.
+**Eligibility:** Player must have played ≥ `minMatchesThreshold` matches in the window. `minMatchesThreshold = 0` → everyone qualifies.
 
-**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard` — no DB imports, safe for tests. Tested in `src/lib/challenge-analytics.test.ts` (13 cases: each metric, eligibility thresholds, window scoping, ties, empty window).
+**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesThreshold, windowSessionIds, matches, playerNames })` — no DB imports, safe for tests. Sorts by `winRatio` desc, then `matchesPlayed` desc, then name alphabetically. Ties share rank. Tested in `src/lib/challenge-analytics.test.ts`.
 
-**Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod; `METRIC_LABELS` / `METRIC_DESCRIPTIONS` constants.
+**Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod — `startDate`, `sessionCount`, `minMatchesThreshold` only.
 
-**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — fetches challenge, sessions, matches, attendances, player names, calls `computeLeaderboard`.
+**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — uses new window logic, returns `completedSessions` count.
+
+**Config keys:** `COMPETITION_SESSION_COUNT` (default "6"), `COMPETITION_MIN_MATCHES_THRESHOLD` (default "10"), `WA_NOTIFY_COMPETITION_WINNER_ENABLED`, `WA_NOTIFY_COMPETITION_WINNER_TEMPLATE` (vars: `{player_name}`, `{round_number}`).
+
+**Winner flow** (triggered in `chargeSessionAction`): When the Nth session is charged → compute final leaderboard → create `FreeEntry` for rank-1 player → set `isClosed=true`, `winnerId` → send WA group message → return `competitionResult` to UI. UI shows banner with winner name + link to open new competition.
+
+**Free entry at charge time:** Before proposing charges, `chargeSessionAction` finds attendees with unused `FreeEntry` records and passes their IDs as `freeEntryPlayerIds` to the charging engine. They are excluded from the billable pool (cost redistributed among others) and receive a `FREE_ENTRY` charge of ₪0. The `FreeEntry` record is marked used in the same transaction.
 
 **Admin CRUD** (`/admin/challenges`):
-- List page: active first (green badge), then inactive ("הסתיים" badge); title, metric, window, eligibility %, prize shown inline. Circular `+` add button. Per-row: edit link, toggle (סיים/הפעל), delete.
-- New/edit pages: `ChallengeForm` component — title, metric select, eligibilityMinPct (0–100), roundCount (0 = כל הזמן), optional prize.
-- Server actions: `createChallengeAction`, `updateChallengeAction`, `deleteChallengeAction`, `toggleChallengeAction` — all call `requireAdmin()`, write audit logs (`CREATE_CHALLENGE`, `UPDATE_CHALLENGE`, `DELETE_CHALLENGE`, `TOGGLE_CHALLENGE`), revalidate both `/admin/challenges` and `/challenges`.
+- List page: active competition at top (if any), history (closed, sorted by number desc) below. "פתח תחרות חדשה" button visible only when no active competition exists. Winner name shown on closed rows.
+- New/edit pages: `ChallengeForm` — `startDate` (date picker, default today), `sessionCount` (pre-filled from config), `minMatchesThreshold` (pre-filled from config). Edit disabled when `isClosed`.
+- Server actions: `createChallengeAction` (enforces one active), `updateChallengeAction`, `deleteChallengeAction` (blocked when closed). Audit logs: `CREATE_CHALLENGE`, `UPDATE_CHALLENGE`, `DELETE_CHALLENGE`, `CLOSE_CHALLENGE`.
 
 **Player-facing** (`/challenges`):
-- Login-gated; all challenges stacked (active first, inactive below with "הסתיים" badge).
-- `ChallengeCard` component: challenge title + metric + window label + prize; top-3 podium (🥇🥈🥉); "הצג הכל" expands full ranked list; current player highlighted in blue with "(אתה)"; if player is not in top 3 and list is collapsed, their row is shown as a preview.
+- Login-gated; active competition at top with live leaderboard (rank, player, win%, matches played); history section below (collapsed `ChallengeCard` per past competition with winner badge).
+- `ChallengeCard` component: number, dates, session progress, winner badge (if closed); full ranked list with current player highlighted.
 - `Trophy` icon in nav (`NavLinks`) for all logged-in players.
 
 ---
@@ -376,7 +386,7 @@ Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); aler
 - **Schedule tests** (`src/lib/schedule.test.ts`): 10 cases — today/tomorrow/multi-day skip, same-weekday-just-passed, DST winter/summer, midnight/23:59 edge cases. Uses `Intl.DateTimeFormat` with `% 24` normalization for older ICU versions.
 - **Waitlist promote tests** (`src/lib/waitlist-promote.test.ts`): 8 cases — promote moves to last confirmed slot, error on confirmed player, error on missing attendance.
 - **Computed rank tests** (`src/lib/computed-rank.test.ts`): 18 cases covering `normalizePeerScore` (position 1/N/middle/N=1/fractional avg), `normalizeWinScore` (0/0.5/1), and `computeBlendedRank` (admin-only, defaultRank, all-three, DROP_IN ignores peer+win, below-threshold excludes win, zero weights → null, custom ratios, admin weight 0, edge 0/100). Imports from `computed-rank-pure.ts` to avoid DB init.
-- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): 13 cases covering all three metrics (`win_ratio`, `total_wins`, `attendance`), eligibility thresholds (0%, 50%, 100%), window scoping (out-of-window matches ignored, empty window → empty result), ties share rank, `sessionsAttended` / `matchesPlayed` fields.
+- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): 11 cases covering win_ratio sorting, 0-match players, ties/tie-breaking, minMatchesThreshold filtering, window scoping (out-of-window matches ignored, empty window → empty result), matchesPlayed field.
 - Default `npm test` does **not** require a running Postgres.
 
 #### Audit log (`/admin/audit`)

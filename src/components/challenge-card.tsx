@@ -3,53 +3,43 @@
 import { useState } from "react";
 import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import type { LeaderboardEntry } from "@/lib/challenge-analytics";
-import { METRIC_LABELS } from "@/lib/challenge-validation";
-import type { ChallengeMetric } from "@/lib/challenge-analytics";
 
 const PODIUM_MEDALS = ["🥇", "🥈", "🥉"];
 
-function formatValue(value: number, metric: ChallengeMetric): string {
-  if (metric === "win_ratio") {
-    return `${Math.round(value * 100)}%`;
-  }
-  return String(value);
-}
-
-function formatValueDetail(entry: LeaderboardEntry, metric: ChallengeMetric): string {
-  if (metric === "win_ratio") {
-    const decided = entry.matchesPlayed - 0; // total includes ties, decided = wins + losses
-    return `${Math.round(entry.value * 100)}%`;
-  }
-  return String(entry.value);
-}
-
 type Props = {
-  title: string;
-  metric: string;
-  prize: string | null;
+  number: number;
   isActive: boolean;
-  windowLabel: string;
+  isClosed: boolean;
+  startDate: Date | string;
   sessionCount: number;
+  completedSessions: number;
+  winnerName?: string | null;
   leaderboard: LeaderboardEntry[];
   currentPlayerId: string | null;
 };
 
 export function ChallengeCard({
-  title,
-  metric,
-  prize,
+  number,
   isActive,
-  windowLabel,
+  isClosed,
+  startDate,
   sessionCount,
+  completedSessions,
+  winnerName,
   leaderboard,
   currentPlayerId,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const cm = metric as ChallengeMetric;
 
   const top3 = leaderboard.filter((e) => e.rank <= 3).slice(0, 3);
   const rest = leaderboard.slice(top3.length);
   const myEntry = currentPlayerId ? leaderboard.find((e) => e.playerId === currentPlayerId) : null;
+
+  const startDateFormatted = new Date(startDate).toLocaleDateString("he-IL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -58,24 +48,31 @@ export function ChallengeCard({
         <div className="flex items-start gap-2">
           <Trophy className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" aria-hidden />
           <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{title}</h2>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              סיבוב {number}
+            </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {METRIC_LABELS[cm]} · {windowLabel}
+              אחוז ניצחונות · {sessionCount} מפגשים החל מ-{startDateFormatted}
             </p>
-            {prize && (
+            {isClosed && winnerName && (
               <p className="mt-0.5 text-sm font-medium text-amber-600 dark:text-amber-400">
-                פרס: {prize}
+                🏆 זוכה: {winnerName} — כניסה חינם
+              </p>
+            )}
+            {isActive && (
+              <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+                {completedSessions} מתוך {sessionCount} מפגשים הסתיימו
               </p>
             )}
           </div>
         </div>
-        {isActive ? (
+        {isActive && !isClosed ? (
           <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
             פעיל
           </span>
         ) : (
           <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-            הסתיים
+            סגור
           </span>
         )}
       </div>
@@ -92,6 +89,7 @@ export function ChallengeCard({
         <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 border-t border-zinc-100 dark:border-zinc-800">
           {top3.map((entry, i) => {
             const isMe = currentPlayerId === entry.playerId;
+            const isWinner = isClosed && entry.rank === 1;
             return (
               <div
                 key={entry.playerId}
@@ -113,24 +111,34 @@ export function ChallengeCard({
                       (אתה)
                     </span>
                   )}
+                  {isWinner && (
+                    <span className="mr-1.5 text-xs font-normal text-amber-500 dark:text-amber-400">
+                      🏆
+                    </span>
+                  )}
                 </span>
-                <span
-                  dir="ltr"
-                  className={`shrink-0 text-sm tabular-nums font-semibold ${
-                    isMe
-                      ? "text-blue-700 dark:text-blue-300"
-                      : "text-zinc-700 dark:text-zinc-300"
-                  }`}
-                >
-                  {formatValue(entry.value, cm)}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                  <span
+                    dir="ltr"
+                    className={`text-sm tabular-nums font-semibold ${
+                      isMe
+                        ? "text-blue-700 dark:text-blue-300"
+                        : "text-zinc-700 dark:text-zinc-300"
+                    }`}
+                  >
+                    {Math.round(entry.winRatio * 100)}%
+                  </span>
+                  <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                    {entry.matchesPlayed} משחקים
+                  </span>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* My position (if not in top 3 and not shown in rest) */}
+      {/* My position (if not in top 3 and list is collapsed) */}
       {myEntry && myEntry.rank > 3 && !expanded && (
         <div className="border-t border-zinc-100 dark:border-zinc-800 bg-blue-50 dark:bg-blue-950/20 flex items-center gap-3 px-5 py-3">
           <span className="w-6 shrink-0 text-center text-sm font-medium text-blue-600 dark:text-blue-400 tabular-nums">
@@ -142,9 +150,14 @@ export function ChallengeCard({
               (אתה)
             </span>
           </span>
-          <span dir="ltr" className="shrink-0 text-sm tabular-nums font-semibold text-blue-700 dark:text-blue-300">
-            {formatValue(myEntry.value, cm)}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
+            <span dir="ltr" className="text-sm tabular-nums font-semibold text-blue-700 dark:text-blue-300">
+              {Math.round(myEntry.winRatio * 100)}%
+            </span>
+            <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+              {myEntry.matchesPlayed} משחקים
+            </span>
+          </div>
         </div>
       )}
 
@@ -205,16 +218,21 @@ export function ChallengeCard({
                         </span>
                       )}
                     </span>
-                    <span
-                      dir="ltr"
-                      className={`shrink-0 text-sm tabular-nums ${
-                        isMe
-                          ? "font-bold text-blue-700 dark:text-blue-300"
-                          : "text-zinc-500 dark:text-zinc-400"
-                      }`}
-                    >
-                      {formatValue(entry.value, cm)}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-0.5">
+                      <span
+                        dir="ltr"
+                        className={`text-sm tabular-nums ${
+                          isMe
+                            ? "font-bold text-blue-700 dark:text-blue-300"
+                            : "text-zinc-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        {Math.round(entry.winRatio * 100)}%
+                      </span>
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                        {entry.matchesPlayed} משחקים
+                      </span>
+                    </div>
                   </div>
                 );
               })}

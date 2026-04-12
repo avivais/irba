@@ -46,6 +46,11 @@ export type ChargeEngineInput = {
   debtThreshold: number;
   /** Confirmed attendees. */
   players: PlayerChargeInput[];
+  /**
+   * Player IDs who have an unused free entry. They are excluded from cost
+   * calculation entirely (cost absorbed by the rest) and charged ₪0.
+   */
+  freeEntryPlayerIds?: string[];
 };
 
 /**
@@ -56,20 +61,26 @@ export type ChargeEngineInput = {
 export function proposeSessionCharges(
   input: ChargeEngineInput,
 ): SessionChargeProposal | null {
-  const { hourlyRate, durationMinutes, minPlayers, debtThreshold, players } =
+  const { hourlyRate, durationMinutes, minPlayers, debtThreshold, players, freeEntryPlayerIds } =
     input;
 
   if (players.length < minPlayers) return null;
 
+  const freeEntrySet = new Set(freeEntryPlayerIds ?? []);
+
+  // Split out free-entry players — they attend but pay ₪0; cost absorbed by rest
+  const billablePlayers = players.filter((p) => !freeEntrySet.has(p.playerId));
+  const freeEntryPlayers = players.filter((p) => freeEntrySet.has(p.playerId));
+
   const durationHours = durationMinutes / 60;
   const totalCost = hourlyRate * durationHours;
 
-  // Step 2: fixed drop-in rate
+  // Step 2: fixed drop-in rate (based on minPlayers, unchanged)
   const dropInAmount = Math.ceil(totalCost / minPlayers);
 
-  // Categorise players
-  const dropIns = players.filter((p) => p.playerKind === "DROP_IN");
-  const registered = players.filter((p) => p.playerKind === "REGISTERED");
+  // Categorise billable players only
+  const dropIns = billablePlayers.filter((p) => p.playerKind === "DROP_IN");
+  const registered = billablePlayers.filter((p) => p.playerKind === "REGISTERED");
   const registeredInDebt = registered.filter((p) => p.balance <= -debtThreshold);
   const registeredNormal = registered.filter((p) => p.balance > -debtThreshold);
 
@@ -82,15 +93,22 @@ export function proposeSessionCharges(
   const registeredAmount =
     registeredNormal.length > 0 ? Math.ceil(remainder / registeredNormal.length) : 0;
 
-  const charges: ProposedCharge[] = players.map((p) => {
-    const isDebt = p.playerKind === "REGISTERED" && p.balance <= -debtThreshold;
-    const effectiveDropIn = p.playerKind === "DROP_IN" || isDebt;
-
-    const chargeType: ChargeType = effectiveDropIn ? "DROP_IN" : "REGISTERED";
-    const calculatedAmount = effectiveDropIn ? dropInAmount : registeredAmount;
-
-    return { playerId: p.playerId, chargeType, calculatedAmount };
-  });
+  const charges: ProposedCharge[] = [
+    // Billable players — normal algorithm
+    ...billablePlayers.map((p) => {
+      const isDebt = p.playerKind === "REGISTERED" && p.balance <= -debtThreshold;
+      const effectiveDropIn = p.playerKind === "DROP_IN" || isDebt;
+      const chargeType: ChargeType = effectiveDropIn ? "DROP_IN" : "REGISTERED";
+      const calculatedAmount = effectiveDropIn ? dropInAmount : registeredAmount;
+      return { playerId: p.playerId, chargeType, calculatedAmount };
+    }),
+    // Free-entry players — ₪0
+    ...freeEntryPlayers.map((p) => ({
+      playerId: p.playerId,
+      chargeType: "FREE_ENTRY" as ChargeType,
+      calculatedAmount: 0,
+    })),
+  ];
 
   return { charges, totalCost, registeredAmount, dropInAmount };
 }

@@ -2,17 +2,13 @@
 
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { METRIC_VALUES, METRIC_LABELS, METRIC_DESCRIPTIONS } from "@/lib/challenge-validation";
 import type { ChallengeActionState } from "@/app/admin/(protected)/challenges/actions";
-import type { ChallengeMetric } from "@/lib/challenge-analytics";
 
 type Props = {
   action: (prev: ChallengeActionState, formData: FormData) => Promise<ChallengeActionState>;
-  defaultTitle?: string;
-  defaultMetric?: ChallengeMetric;
-  defaultEligibilityMinPct?: number;
-  defaultRoundCount?: number;
-  defaultPrize?: string;
+  defaultStartDate?: string;
+  defaultSessionCount?: number;
+  defaultMinMatchesThreshold?: number;
   submitLabel: string;
 };
 
@@ -25,114 +21,74 @@ const inputNormal =
 
 export function ChallengeForm({
   action,
-  defaultTitle = "",
-  defaultMetric = "win_ratio",
-  defaultEligibilityMinPct = 50,
-  defaultRoundCount = 0,
-  defaultPrize = "",
+  defaultStartDate,
+  defaultSessionCount = 6,
+  defaultMinMatchesThreshold = 10,
   submitLabel,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, initialState);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <form action={formAction} className="flex flex-col gap-5">
-      {/* Title */}
+      {/* Start date */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="title" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          כותרת
+        <label htmlFor="startDate" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          תאריך התחלה
         </label>
         <input
-          id="title"
-          type="text"
-          name="title"
-          defaultValue={defaultTitle}
-          maxLength={120}
-          placeholder="למשל: מלך ה-Win Rate"
+          id="startDate"
+          type="date"
+          name="startDate"
+          defaultValue={defaultStartDate ?? today}
           className={`${inputBase} ${inputNormal}`}
           required
         />
-      </div>
-
-      {/* Metric */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="metric" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          מדד
-        </label>
-        <select
-          id="metric"
-          name="metric"
-          defaultValue={defaultMetric}
-          className={`${inputBase} ${inputNormal}`}
-        >
-          {METRIC_VALUES.map((m) => (
-            <option key={m} value={m}>
-              {METRIC_LABELS[m]}
-            </option>
-          ))}
-        </select>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {METRIC_DESCRIPTIONS[defaultMetric]}
+          מפגשים החל מתאריך זה יחשבו לתחרות
         </p>
       </div>
 
-      {/* Eligibility + Round count */}
+      {/* Session count + Min matches */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label htmlFor="eligibilityMinPct" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            סף נוכחות{" "}
-            <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">(%)</span>
+          <label htmlFor="sessionCount" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            מספר מפגשים
           </label>
           <input
-            id="eligibilityMinPct"
+            id="sessionCount"
             type="number"
-            name="eligibilityMinPct"
-            defaultValue={defaultEligibilityMinPct}
-            min={0}
-            max={100}
+            name="sessionCount"
+            defaultValue={defaultSessionCount}
+            min={1}
             step={1}
             className={`${inputBase} ${inputNormal}`}
             required
           />
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            0 = כל השחקנים זכאים ללא תלות בנוכחות
+            התחרות תסתיים לאחר X מפגשים
           </p>
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="roundCount" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            חלון סבבים
+          <label htmlFor="minMatchesThreshold" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            סף משחקים מינימלי
           </label>
           <input
-            id="roundCount"
+            id="minMatchesThreshold"
             type="number"
-            name="roundCount"
-            defaultValue={defaultRoundCount}
+            name="minMatchesThreshold"
+            defaultValue={defaultMinMatchesThreshold}
             min={0}
             step={1}
             className={`${inputBase} ${inputNormal}`}
             required
           />
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            0 = כל הזמן
+            0 = כל השחקנים זכאים ללא תלות במספר משחקים
           </p>
         </div>
-      </div>
-
-      {/* Prize */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="prize" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          פרס{" "}
-          <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">(אופציונלי)</span>
-        </label>
-        <input
-          id="prize"
-          type="text"
-          name="prize"
-          defaultValue={defaultPrize}
-          maxLength={200}
-          placeholder="למשל: גאווה נצחית"
-          className={`${inputBase} ${inputNormal}`}
-        />
       </div>
 
       {!state.ok && state.message && (

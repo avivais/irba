@@ -15,6 +15,8 @@ export default async function ChallengesPage() {
   if (!session) redirect("/");
 
   const results = await fetchAllChallengeLeaderboards();
+  const active = results.find((r) => !r.challenge.isClosed) ?? null;
+  const history = results.filter((r) => r.challenge.isClosed);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -26,27 +28,51 @@ export default async function ChallengesPage() {
             <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">תחרויות</h1>
           </div>
 
-          {results.length === 0 ? (
-            <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-              אין תחרויות פעילות כרגע.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-5">
-              {results.map((r) => (
-                <ChallengeCard
-                  key={r.challenge.id}
-                  title={r.challenge.title}
-                  metric={r.challenge.metric}
-                  prize={r.challenge.prize}
-                  isActive={r.challenge.isActive}
-                  windowLabel={r.windowLabel}
-                  sessionCount={r.sessionCount}
-                  leaderboard={r.leaderboard}
-                  currentPlayerId={session.playerId}
-                />
-              ))}
-            </div>
-          )}
+          <div className="flex flex-col gap-8">
+            {/* Active competition */}
+            {active ? (
+              <ChallengeCard
+                number={active.challenge.number}
+                isActive={active.challenge.isActive}
+                isClosed={active.challenge.isClosed}
+                startDate={active.challenge.startDate}
+                sessionCount={active.challenge.sessionCount}
+                completedSessions={active.completedSessions}
+                winnerName={active.challenge.winner ? (active.challenge.winner.nickname ?? active.challenge.winner.firstNameHe ?? active.challenge.winner.phone) : null}
+                leaderboard={active.leaderboard}
+                currentPlayerId={session.playerId}
+              />
+            ) : (
+              <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+                אין תחרות פעילה כרגע.
+              </p>
+            )}
+
+            {/* History */}
+            {history.length > 0 && (
+              <div>
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  היסטוריה
+                </h2>
+                <div className="flex flex-col gap-4">
+                  {history.map((r) => (
+                    <ChallengeCard
+                      key={r.challenge.id}
+                      number={r.challenge.number}
+                      isActive={r.challenge.isActive}
+                      isClosed={r.challenge.isClosed}
+                      startDate={r.challenge.startDate}
+                      sessionCount={r.challenge.sessionCount}
+                      completedSessions={r.completedSessions}
+                      winnerName={r.challenge.winner ? (r.challenge.winner.nickname ?? r.challenge.winner.firstNameHe ?? r.challenge.winner.phone) : null}
+                      leaderboard={r.leaderboard}
+                      currentPlayerId={session.playerId}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

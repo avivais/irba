@@ -8,8 +8,21 @@ import { getAllConfigs } from "@/lib/config";
 import { CONFIG } from "@/lib/config-keys";
 import { proposeSessionCharges, computeSingleCharge } from "@/lib/charging";
 import { computePlayerBalances } from "@/lib/balance";
+import { computeLeaderboard } from "@/lib/challenge-analytics";
+import { getPlayerDisplayName } from "@/lib/player-display";
+import { notifyCompetitionWinner } from "@/lib/wa-notify";
 
-export type ChargeActionState = { ok: boolean; message?: string };
+export type CompetitionResult = {
+  winnerName: string;
+  roundNumber: number;
+};
+
+export type ChargeActionState = {
+  ok: boolean;
+  message?: string;
+  /** Set when charging this session closed an active competition. */
+  competitionResult?: CompetitionResult;
+};
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
 
@@ -21,6 +34,132 @@ async function getRateForDate(date: Date): Promise<number | null> {
     select: { pricePerHour: true },
   });
   return rate?.pricePerHour ?? null;
+}
+
+/**
+ * After a session is charged, check if it was the last session in an active competition.
+ * If so: compute winner, award free entry, close competition, send WA.
+ */
+async function checkCompetitionCompletion(
+  chargedSessionId: string,
+  configs: Record<string, string>,
+): Promise<CompetitionResult | null> {
+  // Find the one active, non-closed competition
+  const challenge = await prisma.challenge.findFirst({
+    where: { isClosed: false, isActive: true },
+    select: {
+      id: true,
+      number: true,
+      startDate: true,
+      sessionCount: true,
+      minMatchesThreshold: true,
+    },
+  });
+  if (!challenge) return null;
+
+  // Sessions from startDate, ordered by date asc, take first sessionCount
+  const windowSessions = await prisma.gameSession.findMany({
+    where: { date: { gte: challenge.startDate } },
+    orderBy: { date: "asc" },
+    take: challenge.sessionCount,
+    select: { id: true, isCharged: true },
+  });
+
+  // Check if the charged session is the Nth session (last in window)
+  const lastSession = windowSessions[windowSessions.length - 1];
+  if (!lastSession || lastSession.id !== chargedSessionId) return null;
+
+  // All sessions in window must now be charged
+  const allCharged = windowSessions.every((s) => s.isCharged || s.id === chargedSessionId);
+  if (!allCharged) return null;
+
+  const windowSessionIds = windowSessions.map((s) => s.id);
+
+  // Fetch matches in window
+  const matches = await prisma.match.findMany({
+    where: { sessionId: { in: windowSessionIds } },
+    select: {
+      id: true,
+      sessionId: true,
+      teamAPlayerIds: true,
+      teamBPlayerIds: true,
+      scoreA: true,
+      scoreB: true,
+      createdAt: true,
+    },
+  });
+
+  // Fetch all non-admin players for name resolution
+  const players = await prisma.player.findMany({
+    where: { isAdmin: false },
+    select: {
+      id: true,
+      firstNameHe: true,
+      lastNameHe: true,
+      firstNameEn: true,
+      lastNameEn: true,
+      nickname: true,
+      phone: true,
+    },
+  });
+
+  const playerNames = new Map<string, string>(
+    players.map((p) => [p.id, getPlayerDisplayName(p)]),
+  );
+
+  const leaderboard = computeLeaderboard({
+    minMatchesThreshold: challenge.minMatchesThreshold,
+    windowSessionIds,
+    matches,
+    playerNames,
+  });
+
+  const winner = leaderboard.find((e) => e.rank === 1) ?? null;
+
+  // Close the competition
+  await prisma.challenge.update({
+    where: { id: challenge.id },
+    data: {
+      isClosed: true,
+      isActive: false,
+      winnerId: winner?.playerId ?? null,
+    },
+  });
+
+  if (!winner) {
+    writeAuditLog({
+      actor: "system",
+      action: "CLOSE_CHALLENGE",
+      entityType: "Challenge",
+      entityId: challenge.id,
+      after: { number: challenge.number, winnerId: null, reason: "no_eligible_players" },
+    });
+    return null;
+  }
+
+  // Award free entry
+  await prisma.freeEntry.create({
+    data: {
+      playerId: winner.playerId,
+      challengeId: challenge.id,
+    },
+  });
+
+  writeAuditLog({
+    actor: "system",
+    action: "CLOSE_CHALLENGE",
+    entityType: "Challenge",
+    entityId: challenge.id,
+    after: { number: challenge.number, winnerId: winner.playerId, winnerName: winner.displayName },
+  });
+
+  // Send WA notification (best-effort)
+  notifyCompetitionWinner(winner.displayName, challenge.number, configs as Parameters<typeof notifyCompetitionWinner>[2]).catch(() => {});
+
+  revalidatePath("/challenges");
+  revalidatePath("/admin/challenges");
+
+  return { winnerName: winner.displayName, roundNumber: challenge.number };
 }
 
 export async function chargeSessionAction(
@@ -65,6 +204,16 @@ export async function chargeSessionAction(
     };
   }
 
+  // Check for unused free entries among confirmed attendees
+  const unusedFreeEntries = await prisma.freeEntry.findMany({
+    where: {
+      playerId: { in: playerIds },
+      usedAt: null,
+    },
+    select: { id: true, playerId: true },
+  });
+  const freeEntryPlayerIds = unusedFreeEntries.map((fe) => fe.playerId);
+
   const balances = await computePlayerBalances(playerIds);
 
   const proposal = proposeSessionCharges({
@@ -72,6 +221,7 @@ export async function chargeSessionAction(
     durationMinutes: session.durationMinutes,
     minPlayers,
     debtThreshold,
+    freeEntryPlayerIds,
     players: confirmedAttendances.map((a) => ({
       playerId: a.playerId,
       playerKind: a.player.playerKind as "REGISTERED" | "DROP_IN",
@@ -99,6 +249,13 @@ export async function chargeSessionAction(
           },
         }),
       ),
+      // Mark used free entries
+      ...unusedFreeEntries.map((fe) =>
+        prisma.freeEntry.update({
+          where: { id: fe.id },
+          data: { usedAt: new Date(), usedInSessionId: sessionId },
+        }),
+      ),
       prisma.gameSession.update({
         where: { id: sessionId },
         data: { isCharged: true },
@@ -121,11 +278,15 @@ export async function chargeSessionAction(
       chargeCount: proposal.charges.length,
       registeredAmount: proposal.registeredAmount,
       dropInAmount: proposal.dropInAmount,
+      freeEntryCount: freeEntryPlayerIds.length,
     },
   });
 
+  // Check if this session completes an active competition
+  const competitionResult = await checkCompetitionCompletion(sessionId, config);
+
   revalidatePath(`/admin/sessions/${sessionId}`);
-  return { ok: true, message: "המפגש חויב בהצלחה" };
+  return { ok: true, message: "המפגש חויב בהצלחה", competitionResult: competitionResult ?? undefined };
 }
 
 export async function unchargeSessionAction(
@@ -142,6 +303,11 @@ export async function unchargeSessionAction(
 
   try {
     await prisma.$transaction([
+      // Unmark free entries used in this session
+      prisma.freeEntry.updateMany({
+        where: { usedInSessionId: sessionId },
+        data: { usedAt: null, usedInSessionId: null },
+      }),
       prisma.sessionCharge.deleteMany({ where: { sessionId } }),
       prisma.gameSession.update({
         where: { id: sessionId },
@@ -195,7 +361,7 @@ export async function updateSessionChargeAction(
       }),
       prisma.sessionCharge.update({
         where: { id: chargeId },
-        data: { amount: newAmount },
+        data: { amount: newAmount, chargeType: "ADMIN_OVERRIDE" },
       }),
     ]);
   } catch (e) {
@@ -327,6 +493,9 @@ async function computeCascadeChanges(fromSessionId: string): Promise<CascadeChan
     }));
 
     for (const charge of session.sessionCharges) {
+      // Don't recalculate free entries — they stay at ₪0
+      if (charge.chargeType === "FREE_ENTRY") continue;
+
       const balance = (paidMap.get(charge.playerId) ?? 0) - (chargedMap.get(charge.playerId) ?? 0);
       const { chargeType: newChargeType, calculatedAmount: newCalculatedAmount } = computeSingleCharge({
         hourlyRate,
@@ -342,7 +511,6 @@ async function computeCascadeChanges(fromSessionId: string): Promise<CascadeChan
       const newAmount = newCalculatedAmount + adminDelta;
 
       if (newAmount !== charge.amount || newChargeType !== charge.chargeType) {
-        const { getPlayerDisplayName } = await import("@/lib/player-display");
         changes.push({
           sessionId: session.id,
           sessionDate: session.date,
@@ -391,7 +559,7 @@ export async function applyCascadeAction(
           data: {
             amount: ch.newAmount,
             calculatedAmount: ch.newCalculatedAmount,
-            chargeType: ch.newChargeType as "REGISTERED" | "DROP_IN" | "ADMIN_OVERRIDE",
+            chargeType: ch.newChargeType as "REGISTERED" | "DROP_IN" | "ADMIN_OVERRIDE" | "FREE_ENTRY",
           },
         }),
       ),
