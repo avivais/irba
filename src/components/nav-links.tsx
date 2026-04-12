@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, ShieldCheck, LogOut, MessageCircle, ListOrdered, Trophy } from "lucide-react";
+import { User, ShieldCheck, LogOut, MessageCircle, ListOrdered, Trophy, FlaskConical } from "lucide-react";
 import { playerLogoutAction } from "@/app/actions/player-auth";
 import { WaStatusDot } from "@/components/admin/wa-status-dot";
 
@@ -18,7 +18,8 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   const onPrecedence = pathname === "/precedence";
   const onChallenges = pathname.startsWith("/challenges");
   const onWaPage = pathname === "/admin/wa";
-  const onAdminPage = pathname.startsWith("/admin") && !onWaPage;
+  const onTestingPage = pathname.startsWith("/admin/testing");
+  const onAdminPage = pathname.startsWith("/admin") && !onWaPage && !onTestingPage;
 
   return (
     <>
@@ -67,6 +68,14 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
             aria-current={onAdminPage ? "page" : undefined}
           >
             <ShieldCheck className="h-4 w-4" aria-hidden />
+          </Link>
+          <Link
+            href="/admin/testing"
+            className={`${linkCls} ${onTestingPage ? activeCls : ""}`}
+            aria-label="בדיקות"
+            aria-current={onTestingPage ? "page" : undefined}
+          >
+            <FlaskConical className="h-4 w-4" aria-hidden />
           </Link>
         </>
       )}

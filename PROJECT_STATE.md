@@ -288,7 +288,9 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 
 **Player-facing** (`/challenges`):
 - Login-gated; active competition at top with live leaderboard (rank, player, win%, matches played); history section below (collapsed `ChallengeCard` per past competition with winner badge).
-- `ChallengeCard` component: number, dates, session progress, eligibility threshold (shown as nominal "X משחקים"), winner badge (if closed); ranked eligible players (ties: first per rank gets medal, rest "–"); greyed "לא עומדים בסף עדיין" section for ineligible registered players showing their win% + "חסרים X משחקים".
+- `ChallengeCard` subtitle: compact one-row format "{N} מפגשים מ-{date} · סף זכאות {X} משחקים". Eligibility threshold shown as nominal game count (e.g. "5 משחקים"), not percentage.
+- Ranked eligible players (ties share rank; first gets medal, rest "–"). Greyed "לא עומדים בסף עדיין" section below for ineligible REGISTERED players showing their win% + "חסרים X משחקים" incentive text.
+- Drop-in players fully excluded from all leaderboard sections. `registeredPlayerIds: Set<string>` param gates computation.
 - `Trophy` icon in nav (`NavLinks`) for all logged-in players.
 
 ---
@@ -386,8 +388,28 @@ Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); aler
 - **Schedule tests** (`src/lib/schedule.test.ts`): 10 cases — today/tomorrow/multi-day skip, same-weekday-just-passed, DST winter/summer, midnight/23:59 edge cases. Uses `Intl.DateTimeFormat` with `% 24` normalization for older ICU versions.
 - **Waitlist promote tests** (`src/lib/waitlist-promote.test.ts`): 8 cases — promote moves to last confirmed slot, error on confirmed player, error on missing attendance.
 - **Computed rank tests** (`src/lib/computed-rank.test.ts`): 18 cases covering `normalizePeerScore` (position 1/N/middle/N=1/fractional avg), `normalizeWinScore` (0/0.5/1), and `computeBlendedRank` (admin-only, defaultRank, all-three, DROP_IN ignores peer+win, below-threshold excludes win, zero weights → null, custom ratios, admin weight 0, edge 0/100). Imports from `computed-rank-pure.ts` to avoid DB init.
-- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): 12 cases covering win_ratio sorting, 0-match players, ties/tie-breaking, minMatchesPct% filtering (pct=0/50/100), window scoping (out-of-window matches ignored, empty window → empty result), matchesPlayed field.
+- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): tests covering win_ratio sorting, 0-match players, ties/tie-breaking, minMatchesPct% filtering (pct=0/50/100/Math.round), drop-in exclusion via `registeredPlayerIds`, ineligible entries with `gamesNeeded`, window scoping (out-of-window matches ignored, empty window → empty result), matchesPlayed field.
 - Default `npm test` does **not** require a running Postgres.
+
+### QA testing system (`/admin/testing`)
+
+Admin-only page for end-to-end manual testing with automated DB-state verification.
+
+**Snapshot manager** — save, restore, and delete full DB snapshots:
+- Prisma-based serialization: all tables serialized to JSON, gzipped, stored in `/tmp/irba-snapshots/{label}__{ISO_timestamp}.json.gz`
+- Restore: FK-safe delete (children before parents) then insert (parents before children) in a single Prisma `$transaction` (30s timeout); resets `AuditLog` autoincrement sequence afterward
+- Path traversal protection; `requireAdmin()` guard on all server actions
+- UI: `SnapshotManager` client component with label input, file list (label / date / size), restore/delete with confirmation dialogs
+
+**Interactive test plan** — 60 steps across 20 groups:
+- Each step has: `id`, `group`, `title`, `instructions[]`, optional `links[]`, `verifyFnName`
+- Steps unlock sequentially — must pass/mark step N before N+1 becomes clickable
+- "Verify" button calls `runVerification(stepId)` server action → returns `{ pass, detail, manual? }`
+- Steps with no automated verification return `manual=true` (blue dot, unlock without DB check)
+- Full coverage: snapshot, config, player CRUD, session lifecycle, RSVP, match recording, competition setup, leaderboard, free entry, charge override, audit, payments, profile, peer ratings, regulations, config effects, WA notifications, cron endpoints, cleanup
+- Test phone numbers: A=0500000001, B=0500000002, C=0500000003, D=0500000004
+
+**Nav**: `FlaskConical` icon in admin nav links (`NavLinks`) pointing to `/admin/testing`.
 
 #### Audit log (`/admin/audit`)
 
