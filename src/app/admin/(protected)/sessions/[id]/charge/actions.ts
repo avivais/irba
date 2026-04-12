@@ -89,9 +89,9 @@ async function checkCompetitionCompletion(
     },
   });
 
-  // Fetch all non-admin players for name resolution
+  // Fetch registered (non-drop-in) non-admin players for name resolution
   const players = await prisma.player.findMany({
-    where: { isAdmin: false },
+    where: { isAdmin: false, playerKind: "REGISTERED" },
     select: {
       id: true,
       firstNameHe: true,
@@ -106,12 +106,14 @@ async function checkCompetitionCompletion(
   const playerNames = new Map<string, string>(
     players.map((p) => [p.id, getPlayerDisplayName(p)]),
   );
+  const registeredPlayerIds = new Set(players.map((p) => p.id));
 
-  const leaderboard = computeLeaderboard({
+  const { leaderboard } = computeLeaderboard({
     minMatchesPct: challenge.minMatchesPct,
     windowSessionIds,
     matches,
     playerNames,
+    registeredPlayerIds,
   });
 
   const winner = leaderboard.find((e) => e.rank === 1) ?? null;
