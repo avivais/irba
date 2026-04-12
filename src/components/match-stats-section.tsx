@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import type { PlayerAnalytics, MatchResult } from "@/app/profile/analytics";
-import type { RoundRecord, SessionRecord } from "@/lib/match-analytics";
+import type { PlayerAnalytics, CompetitionRecord } from "@/app/profile/analytics";
+import type { SessionRecord } from "@/lib/match-analytics";
 
 type Props = {
   analytics: PlayerAnalytics;
@@ -37,81 +36,46 @@ function WinBar({ wins, losses, ties }: { wins: number; losses: number; ties: nu
   );
 }
 
-function MatchResultBadge({ match }: { match: MatchResult }) {
-  const cls =
-    match.outcome === "win"
-      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-      : match.outcome === "loss"
-        ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
-  const label = match.outcome === "win" ? "ניצחון" : match.outcome === "loss" ? "הפסד" : "תיקו";
+function CompetitionRow({ row }: { row: CompetitionRecord }) {
+  const winPct = Math.round(row.winRatio * 100);
   return (
-    <div className="flex items-center gap-2">
-      <span dir="ltr" className="text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
-        {match.scoreA}–{match.scoreB}
-      </span>
-      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>
-    </div>
-  );
-}
-
-function RoundRow({
-  row,
-  matches,
-  isOpen,
-  onToggle,
-}: {
-  row: RoundRecord;
-  matches: MatchResult[];
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  const sameDay = row.startDate.getTime() === row.endDate.getTime();
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-5 py-3 text-right transition active:bg-zinc-50 hover:bg-zinc-50 dark:active:bg-zinc-800/60 dark:hover:bg-zinc-800/40"
-      >
-        {/* Round label + dates */}
-        <div className="flex flex-1 flex-col gap-0.5">
+    <li className="flex items-center justify-between py-2.5">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
           <span className="text-sm text-zinc-800 dark:text-zinc-200">
-            סבב {row.round}
+            סיבוב {row.number}
           </span>
-          <span className="text-xs text-zinc-400 dark:text-zinc-500" dir="ltr">
-            {formatDateHe(row.startDate)}{!sameDay ? ` — ${formatDateHe(row.endDate)}` : ""}
-          </span>
+          {row.isActive && !row.isClosed && (
+            <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              פעיל
+            </span>
+          )}
+          {row.isClosed && (
+            <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              הסתיים
+            </span>
+          )}
         </div>
+        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+          {formatDateHe(row.startDate)} · {row.total} משחקים
+        </span>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{winPct}%</span>
         <WinBar wins={row.wins} losses={row.losses} ties={row.ties} />
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500 ${isOpen ? "rotate-180" : ""}`}
-          aria-hidden
-        />
-      </button>
-
-      {isOpen && (
-        <ul className="border-t border-zinc-50 bg-zinc-50 px-5 py-2 dark:border-zinc-800 dark:bg-zinc-800/40">
-          {matches.map((m) => (
-            <li key={m.id} className="flex items-center justify-between py-2">
-              <MatchResultBadge match={m} />
-            </li>
-          ))}
-        </ul>
-      )}
+      </div>
     </li>
   );
 }
 
-type View = "round" | "session";
+type View = "competition" | "session";
 
 export function MatchStatsSection({ analytics }: Props) {
-  const { stats, sessionBreakdown, roundBreakdown, matchesByRound, sessionDates, roundSize, topTeammates } = analytics;
-  const [view, setView] = useState<View>("round");
-  const [openRound, setOpenRound] = useState<number | null>(null);
+  const { stats, sessionBreakdown, competitionBreakdown, sessionDates, topTeammates } = analytics;
+  const [view, setView] = useState<View>("competition");
 
   const sessionRows: SessionRecord[] = [...sessionBreakdown].reverse();
-  const roundRows: RoundRecord[] = [...roundBreakdown].reverse();
+  const competitionRows: CompetitionRecord[] = [...competitionBreakdown].reverse();
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -125,7 +89,7 @@ export function MatchStatsSection({ analytics }: Props) {
         </p>
       ) : (
         <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {/* Summary */}
+          {/* All-time summary */}
           <div className="flex items-center gap-4 px-5 py-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.wins}</p>
@@ -145,25 +109,25 @@ export function MatchStatsSection({ analytics }: Props) {
               <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {Math.round(stats.winRatio * 100)}%
               </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">אחוז ניצחון</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">סה"כ</p>
             </div>
           </div>
 
-          {/* Breakdown */}
-          {(roundRows.length > 0 || sessionRows.length > 0) && (
+          {/* Breakdown by competition / session */}
+          {(competitionRows.length > 0 || sessionRows.length > 0) && (
             <div>
               {/* Toggle */}
               <div className="flex items-center gap-1 px-5 pt-4 pb-2">
                 <button
                   type="button"
-                  onClick={() => setView("round")}
+                  onClick={() => setView("competition")}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    view === "round"
+                    view === "competition"
                       ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                       : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                   }`}
                 >
-                  לפי סבב
+                  לפי תחרות
                 </button>
                 <button
                   type="button"
@@ -178,24 +142,19 @@ export function MatchStatsSection({ analytics }: Props) {
                 </button>
               </div>
 
-              {/* Round breakdown — expandable */}
-              {view === "round" && (
-                <>
-                  <ul className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-                    {roundRows.map((row) => (
-                      <RoundRow
-                        key={row.round}
-                        row={row}
-                        matches={matchesByRound[row.round] ?? []}
-                        isOpen={openRound === row.round}
-                        onToggle={() => setOpenRound(openRound === row.round ? null : row.round)}
-                      />
+              {/* Competition breakdown */}
+              {view === "competition" && (
+                competitionRows.length > 0 ? (
+                  <ul className="divide-y divide-zinc-50 px-5 pb-3 dark:divide-zinc-800/60">
+                    {competitionRows.map((row) => (
+                      <CompetitionRow key={row.number} row={row} />
                     ))}
                   </ul>
-                  <p className="px-5 pb-3 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                    {roundSize} מפגשים לסבב
+                ) : (
+                  <p className="px-5 pb-4 text-sm text-zinc-400 dark:text-zinc-500">
+                    עדיין אין תחרויות עם משחקים מתועדים.
                   </p>
-                </>
+                )
               )}
 
               {/* Session breakdown */}

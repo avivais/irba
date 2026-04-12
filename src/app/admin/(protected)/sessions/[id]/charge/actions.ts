@@ -52,7 +52,7 @@ async function checkCompetitionCompletion(
       number: true,
       startDate: true,
       sessionCount: true,
-      minMatchesThreshold: true,
+      minMatchesPct: true,
     },
   });
   if (!challenge) return null;
@@ -108,7 +108,7 @@ async function checkCompetitionCompletion(
   );
 
   const leaderboard = computeLeaderboard({
-    minMatchesThreshold: challenge.minMatchesThreshold,
+    minMatchesPct: challenge.minMatchesPct,
     windowSessionIds,
     matches,
     playerNames,

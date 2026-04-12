@@ -4,12 +4,10 @@ import { getConfigInt, CONFIG } from "@/lib/config";
 import {
   computeMatchStats,
   computeSessionBreakdown,
-  computeRoundBreakdown,
   computeTeammateAffinity,
   type MatchRecord,
   type MatchStats,
   type SessionRecord,
-  type RoundRecord,
   type TeammateAffinity,
 } from "@/lib/match-analytics";
 
@@ -23,23 +21,32 @@ export type MatchResult = {
   outcome: "win" | "loss" | "tie";
 };
 
+export type CompetitionRecord = {
+  number: number;
+  startDate: Date;
+  wins: number;
+  losses: number;
+  ties: number;
+  total: number;
+  winRatio: number;
+  isClosed: boolean;
+  isActive: boolean;
+};
+
 export type PlayerAnalytics = {
   stats: MatchStats;
   sessionBreakdown: SessionRecord[];
-  roundBreakdown: RoundRecord[];
-  /** Individual match results grouped by round number */
-  matchesByRound: Record<number, MatchResult[]>;
+  competitionBreakdown: CompetitionRecord[];
   /** Session dates keyed by sessionId, for display in session breakdown */
   sessionDates: Record<string, Date>;
-  roundSize: number;
   topTeammates: TeammateWithName[];
 };
 
 export async function fetchPlayerMatchAnalytics(
   playerId: string,
 ): Promise<PlayerAnalytics> {
-  // Fetch all matches involving the player + all sessions (for ordering) in parallel
-  const [rawMatches, allSessions, roundSize] = await Promise.all([
+  // Fetch all matches involving the player + all sessions (for ordering) + challenges in parallel
+  const [rawMatches, allSessions, challenges] = await Promise.all([
     prisma.$queryRaw<
       {
         id: string;
@@ -56,12 +63,22 @@ export async function fetchPlayerMatchAnalytics(
       WHERE ${playerId} = ANY("teamAPlayerIds") OR ${playerId} = ANY("teamBPlayerIds")
       ORDER BY "createdAt" ASC
     `,
-    // All sessions ordered by date — used to assign round numbers
+    // All sessions ordered by date — used to build competition windows
     prisma.gameSession.findMany({
       orderBy: { date: "asc" },
       select: { id: true, date: true },
     }),
-    getConfigInt(CONFIG.ROUND_SIZE),
+    prisma.challenge.findMany({
+      orderBy: { number: "asc" },
+      select: {
+        id: true,
+        number: true,
+        startDate: true,
+        sessionCount: true,
+        isActive: true,
+        isClosed: true,
+      },
+    }),
   ]);
 
   const matches: MatchRecord[] = rawMatches.map((m) => ({
@@ -74,40 +91,43 @@ export async function fetchPlayerMatchAnalytics(
     createdAt: new Date(m.createdAt),
   }));
 
-  // Build session order map (sessionId → 0-based index) and date map
-  const sessionOrder = new Map<string, number>(
-    allSessions.map((s, i) => [s.id, i]),
-  );
-  const sessionDateMap = new Map<string, Date>(
+  // Session dates for display
+  const sessionDates: Record<string, Date> = Object.fromEntries(
     allSessions.map((s) => [s.id, s.date]),
   );
 
   const stats = computeMatchStats(playerId, matches);
   const sessionBreakdown = computeSessionBreakdown(playerId, matches);
-  const roundBreakdown = computeRoundBreakdown(playerId, matches, sessionOrder, sessionDateMap, roundSize);
   const affinityRaw = computeTeammateAffinity(playerId, matches, 5);
 
-  // Group individual matches by round for expandable display
-  const matchesByRound: Record<number, MatchResult[]> = {};
-  for (const m of matches) {
-    const idx = sessionOrder.get(m.sessionId);
-    if (idx === undefined) continue;
-    const round = Math.floor(idx / roundSize) + 1;
-    const inA = m.teamAPlayerIds.includes(playerId);
-    const inB = m.teamBPlayerIds.includes(playerId);
-    if (!inA && !inB) continue;
-    let outcome: "win" | "loss" | "tie";
-    if (m.scoreA === m.scoreB) outcome = "tie";
-    else if (inA) outcome = m.scoreA > m.scoreB ? "win" : "loss";
-    else outcome = m.scoreB > m.scoreA ? "win" : "loss";
-    if (!matchesByRound[round]) matchesByRound[round] = [];
-    matchesByRound[round].push({ id: m.id, scoreA: m.scoreA, scoreB: m.scoreB, outcome });
-  }
+  // Build per-competition breakdown
+  const competitionBreakdown: CompetitionRecord[] = [];
+  for (const challenge of challenges) {
+    // Sessions from startDate ordered by date asc, take first sessionCount
+    const windowSessions = allSessions
+      .filter((s) => s.date >= challenge.startDate)
+      .slice(0, challenge.sessionCount);
 
-  // Session dates for the per-session breakdown display
-  const sessionDates: Record<string, Date> = Object.fromEntries(
-    allSessions.map((s) => [s.id, s.date]),
-  );
+    if (windowSessions.length === 0) continue;
+
+    const windowSessionIds = new Set(windowSessions.map((s) => s.id));
+    const windowMatches = matches.filter((m) => windowSessionIds.has(m.sessionId));
+
+    const cStats = computeMatchStats(playerId, windowMatches);
+    if (cStats.total === 0) continue; // player didn't play in this competition window
+
+    competitionBreakdown.push({
+      number: challenge.number,
+      startDate: windowSessions[0].date,
+      wins: cStats.wins,
+      losses: cStats.losses,
+      ties: cStats.ties,
+      total: cStats.total,
+      winRatio: cStats.winRatio,
+      isClosed: challenge.isClosed,
+      isActive: challenge.isActive,
+    });
+  }
 
   // Resolve teammate display names
   const teammateIds = affinityRaw.map((a) => a.teammateId);
@@ -133,5 +153,5 @@ export async function fetchPlayerMatchAnalytics(
     displayName: nameById.get(a.teammateId) ?? "שחקן",
   }));
 
-  return { stats, sessionBreakdown, roundBreakdown, matchesByRound, sessionDates, roundSize, topTeammates };
+  return { stats, sessionBreakdown, competitionBreakdown, sessionDates, topTeammates };
 }

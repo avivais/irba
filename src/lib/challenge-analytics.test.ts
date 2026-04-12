@@ -27,7 +27,7 @@ function makeNames(ids: string[]): Map<string, string> {
   return new Map(ids.map((id) => [id, `Player ${id}`]));
 }
 
-// ── win_ratio (only supported metric) ────────────────────────────────────────
+// ── win_ratio ─────────────────────────────────────────────────────────────────
 
 describe("computeLeaderboard — win_ratio", () => {
   it("ranks players by win ratio descending", () => {
@@ -38,7 +38,7 @@ describe("computeLeaderboard — win_ratio", () => {
     ];
     const names = makeNames(["p1", "p2"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"],
       matches,
       playerNames: names,
@@ -54,7 +54,7 @@ describe("computeLeaderboard — win_ratio", () => {
   it("player with 0 matches has winRatio 0", () => {
     const names = makeNames(["p1"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"],
       matches: [],
       playerNames: names,
@@ -70,7 +70,7 @@ describe("computeLeaderboard — win_ratio", () => {
     ];
     const names = makeNames(["p1", "p2", "p3", "p4"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"],
       matches,
       playerNames: names,
@@ -82,7 +82,7 @@ describe("computeLeaderboard — win_ratio", () => {
   });
 
   it("tie-breaks by more matches played", () => {
-    // p1 and p2 both 100% win rate, but p1 has 2 matches vs p2's 1 → p1 ranks first
+    // p1 and p2 both 100% win rate, but p1 has 2 matches vs p2's 1 → p1 appears first
     const matches: MatchRecord[] = [
       makeMatch("m1", "s1", ["p1"], ["p3"], 12, 8),
       makeMatch("m2", "s1", ["p1"], ["p3"], 12, 8),
@@ -90,7 +90,7 @@ describe("computeLeaderboard — win_ratio", () => {
     ];
     const names = makeNames(["p1", "p2", "p3"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"],
       matches,
       playerNames: names,
@@ -105,19 +105,31 @@ describe("computeLeaderboard — win_ratio", () => {
   });
 });
 
-// ── minMatchesThreshold ───────────────────────────────────────────────────────
+// ── minMatchesPct threshold ───────────────────────────────────────────────────
 
-describe("computeLeaderboard — minMatchesThreshold", () => {
-  it("excludes players below threshold", () => {
-    // p1 plays in 3 matches, p2 plays in only 1 match; threshold=2 → p2 excluded
+describe("computeLeaderboard — minMatchesPct", () => {
+  it("pct=0 includes everyone (even with 0 matches)", () => {
+    const names = makeNames(["p1", "p2"]);
+    const result = computeLeaderboard({
+      minMatchesPct: 0,
+      windowSessionIds: ["s1"],
+      matches: [],
+      playerNames: names,
+    });
+    expect(result).toHaveLength(2);
+  });
+
+  it("excludes players below pct threshold", () => {
+    // p1 plays 4 matches, p2 plays 1 match; threshold=50% → ceil(0.5*4)=2 → p2 excluded
     const matches: MatchRecord[] = [
       makeMatch("m1", "s1", ["p1"], ["p3"], 12, 8),
       makeMatch("m2", "s1", ["p1"], ["p3"], 12, 8),
-      makeMatch("m3", "s1", ["p1"], ["p2"], 12, 8), // p2 only in this one
+      makeMatch("m3", "s1", ["p1"], ["p3"], 12, 8),
+      makeMatch("m4", "s1", ["p1"], ["p2"], 12, 8), // p2 only in this one
     ];
     const names = makeNames(["p1", "p2"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 2,
+      minMatchesPct: 50,
       windowSessionIds: ["s1"],
       matches,
       playerNames: names,
@@ -126,26 +138,39 @@ describe("computeLeaderboard — minMatchesThreshold", () => {
     expect(result[0].playerId).toBe("p1");
   });
 
-  it("threshold=0 includes everyone in playerNames (even with 0 matches)", () => {
-    const names = makeNames(["p1", "p2"]);
+  it("pct=100 keeps only the max-played player(s)", () => {
+    // p1 played 3, p2 played 2 → threshold=ceil(1.0*3)=3 → only p1 qualifies
+    const matches: MatchRecord[] = [
+      makeMatch("m1", "s1", ["p1"], ["p3"], 12, 8),
+      makeMatch("m2", "s1", ["p1"], ["p3"], 12, 8),
+      makeMatch("m3", "s1", ["p1"], ["p2"], 12, 8),
+      makeMatch("m4", "s1", ["p2"], ["p3"], 12, 8),
+      makeMatch("m5", "s1", ["p2"], ["p3"], 12, 8),
+    ];
+    const names = makeNames(["p1", "p2", "p3"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 100,
       windowSessionIds: ["s1"],
-      matches: [],
+      matches,
       playerNames: names,
     });
-    expect(result).toHaveLength(2);
+    // p1 has 3 matches (max), p2 has 3 matches (m4, m5, m3), p3 has 3 (m1, m2, m3... wait)
+    // p1: m1, m2, m3 → 3; p2: m3, m4, m5 → 3; p3: m1, m2, m4, m5 → 4
+    // Actually p3 has 4, p1/p2 have 3. threshold = ceil(1.0*4) = 4 → only p3
+    expect(result.every((e) => e.matchesPlayed === 4)).toBe(true);
   });
 
-  it("player not meeting threshold is excluded", () => {
+  it("player not meeting pct threshold is excluded", () => {
     const names = makeNames(["p1", "p2"]);
+    // No matches → maxPlayed=0 → threshold=ceil(50%*0)=0 → everyone qualifies (pct of 0 is 0)
     const result = computeLeaderboard({
-      minMatchesThreshold: 5,
+      minMatchesPct: 50,
       windowSessionIds: ["s1"],
       matches: [],
       playerNames: names,
     });
-    expect(result).toHaveLength(0);
+    // With maxPlayed=0, threshold=0, all players qualify
+    expect(result).toHaveLength(2);
   });
 });
 
@@ -160,7 +185,7 @@ describe("computeLeaderboard — window scoping", () => {
     ];
     const names = makeNames(["p1", "p2"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"], // only s1
       matches,
       playerNames: names,
@@ -171,7 +196,7 @@ describe("computeLeaderboard — window scoping", () => {
 
   it("returns empty leaderboard for empty window", () => {
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: [],
       matches: [],
       playerNames: new Map([["p1", "Player 1"]]),
@@ -190,7 +215,7 @@ describe("computeLeaderboard — misc", () => {
     ];
     const names = makeNames(["p1"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"],
       matches,
       playerNames: names,
@@ -201,7 +226,7 @@ describe("computeLeaderboard — misc", () => {
   it("LeaderboardEntry has no sessionsAttended field", () => {
     const names = makeNames(["p1"]);
     const result = computeLeaderboard({
-      minMatchesThreshold: 0,
+      minMatchesPct: 0,
       windowSessionIds: ["s1"],
       matches: [],
       playerNames: names,

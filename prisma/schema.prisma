@@ -252,7 +252,7 @@ model Challenge {
   number              Int       @unique  // auto-sequenced: 1, 2, 3…
   startDate           DateTime  @db.Date // first session on or after this date counts
   sessionCount        Int       // how many sessions the competition spans
-  minMatchesThreshold Int       // min matches played in window to appear on leaderboard
+  minMatchesPct       Int       // min matches % of max-player to appear on leaderboard (0–100)
   isActive            Boolean   @default(true)
   isClosed            Boolean   @default(false)
   winnerId            String?

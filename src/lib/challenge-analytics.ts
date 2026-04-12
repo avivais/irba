@@ -15,39 +15,49 @@ export type LeaderboardEntry = {
 /**
  * Compute the win-% leaderboard for a competition window.
  *
- * @param minMatchesThreshold - minimum matches played in window to appear (absolute count)
+ * @param minMatchesPct - 0–100; minimum matches as % of the most-active player's matches.
+ *   e.g. 50 means a player must have played ≥ ceil(0.5 × maxMatchesPlayed) to appear.
+ *   0 = everyone qualifies (even with 0 matches).
  * @param windowSessionIds - ordered session IDs in the window
  * @param matches - all matches (will be filtered to window sessions)
  * @param playerNames - playerId → displayName
  */
 export function computeLeaderboard(params: {
-  minMatchesThreshold: number;
+  minMatchesPct: number;
   windowSessionIds: string[];
   matches: MatchRecord[];
   playerNames: Map<string, string>;
 }): LeaderboardEntry[] {
-  const { minMatchesThreshold, windowSessionIds, matches, playerNames } =
-    params;
+  const { minMatchesPct, windowSessionIds, matches, playerNames } = params;
 
   if (windowSessionIds.length === 0) return [];
 
   const windowSet = new Set(windowSessionIds);
   const windowMatches = matches.filter((m) => windowSet.has(m.sessionId));
 
-  const entries: LeaderboardEntry[] = [];
-
+  // Compute stats for every player first so we can find the max
+  const allEntries: LeaderboardEntry[] = [];
   for (const [playerId, displayName] of playerNames) {
     const stats = computeMatchStats(playerId, windowMatches);
-    if (stats.total < minMatchesThreshold) continue;
-
-    entries.push({
+    allEntries.push({
       playerId,
       displayName,
       winRatio: stats.winRatio,
       matchesPlayed: stats.total,
-      rank: 0, // assigned below
+      rank: 0,
     });
   }
+
+  // Derive the effective threshold from the percentage
+  const maxMatchesPlayed = allEntries.reduce(
+    (max, e) => Math.max(max, e.matchesPlayed),
+    0,
+  );
+  const effectiveThreshold = Math.ceil((minMatchesPct / 100) * maxMatchesPlayed);
+
+  const entries = allEntries.filter(
+    (e) => e.matchesPlayed >= effectiveThreshold,
+  );
 
   // Sort: win ratio desc, then more matches played (tie-break), then name (stable)
   entries.sort((a, b) => {

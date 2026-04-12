@@ -8,7 +8,7 @@ type Props = {
   action: (prev: ChallengeActionState, formData: FormData) => Promise<ChallengeActionState>;
   defaultStartDate?: string;
   defaultSessionCount?: number;
-  defaultMinMatchesThreshold?: number;
+  defaultMinMatchesPct?: number;
   submitLabel: string;
 };
 
@@ -23,7 +23,7 @@ export function ChallengeForm({
   action,
   defaultStartDate,
   defaultSessionCount = 6,
-  defaultMinMatchesThreshold = 10,
+  defaultMinMatchesPct = 50,
   submitLabel,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -50,7 +50,7 @@ export function ChallengeForm({
         </p>
       </div>
 
-      {/* Session count + Min matches */}
+      {/* Session count + Min matches % */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="sessionCount" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -72,21 +72,22 @@ export function ChallengeForm({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="minMatchesThreshold" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            סף משחקים מינימלי
+          <label htmlFor="minMatchesPct" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            סף כניסה לטבלה (%)
           </label>
           <input
-            id="minMatchesThreshold"
+            id="minMatchesPct"
             type="number"
-            name="minMatchesThreshold"
-            defaultValue={defaultMinMatchesThreshold}
+            name="minMatchesPct"
+            defaultValue={defaultMinMatchesPct}
             min={0}
+            max={100}
             step={1}
             className={`${inputBase} ${inputNormal}`}
             required
           />
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            0 = כל השחקנים זכאים ללא תלות במספר משחקים
+            % ממספר המשחקים של השחקן הפעיל ביותר. 0 = כולם
           </p>
         </div>
       </div>

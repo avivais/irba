@@ -44,7 +44,7 @@ export default async function EditChallengePage({
             action={boundAction}
             defaultStartDate={startDateStr}
             defaultSessionCount={challenge.sessionCount}
-            defaultMinMatchesThreshold={challenge.minMatchesThreshold}
+            defaultMinMatchesPct={challenge.minMatchesPct}
             submitLabel="שמור שינויים"
           />
         )}

@@ -75,7 +75,7 @@ export async function fetchChallengeLeaderboard(
   );
 
   const leaderboard = computeLeaderboard({
-    minMatchesThreshold: challenge.minMatchesThreshold,
+    minMatchesPct: challenge.minMatchesPct,
     windowSessionIds,
     matches,
     playerNames,

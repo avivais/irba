@@ -8,20 +8,21 @@ const challengeFormSchema = z.object({
     .number()
     .int("נא להזין מספר שלם")
     .min(1, "חייב להיות לפחות מפגש אחד"),
-  minMatchesThreshold: z.coerce
+  minMatchesPct: z.coerce
     .number()
     .int("נא להזין מספר שלם")
-    .min(0, "לא יכול להיות פחות מ-0"),
+    .min(0, "לא יכול להיות פחות מ-0")
+    .max(100, "לא יכול להיות יותר מ-100"),
 });
 
 export type ChallengeFieldErrors = Partial<
-  Record<"startDate" | "sessionCount" | "minMatchesThreshold", string>
+  Record<"startDate" | "sessionCount" | "minMatchesPct", string>
 >;
 
 export type ParsedChallenge = {
   startDate: string;
   sessionCount: number;
-  minMatchesThreshold: number;
+  minMatchesPct: number;
 };
 
 export type ChallengeFormValidation =
@@ -48,7 +49,7 @@ export function parseChallengeForm(
     data: {
       startDate: parsed.data.startDate,
       sessionCount: parsed.data.sessionCount,
-      minMatchesThreshold: parsed.data.minMatchesThreshold,
+      minMatchesPct: parsed.data.minMatchesPct,
     },
   };
 }

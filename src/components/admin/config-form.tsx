@@ -1107,18 +1107,19 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           </Field>
 
           <Field
-            label="סף משחקים מינימלי ברירת מחדל"
-            hint="מינימום משחקים להשתתפות בטבלה"
-            htmlFor={CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD}
-            error={errors[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD]}
+            label="סף כניסה לטבלה (%)"
+            hint="% ממספר משחקי השחקן הפעיל ביותר. 0 = כולם"
+            htmlFor={CONFIG.COMPETITION_MIN_MATCHES_PCT}
+            error={errors[CONFIG.COMPETITION_MIN_MATCHES_PCT]}
           >
             <input
-              id={CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD}
+              id={CONFIG.COMPETITION_MIN_MATCHES_PCT}
               type="number"
-              name={CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD}
-              defaultValue={values[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD]}
+              name={CONFIG.COMPETITION_MIN_MATCHES_PCT}
+              defaultValue={values[CONFIG.COMPETITION_MIN_MATCHES_PCT]}
               min={0}
-              className={`${inputBase} ${errors[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD] ? inputError : inputNormal}`}
+              max={100}
+              className={`${inputBase} ${errors[CONFIG.COMPETITION_MIN_MATCHES_PCT] ? inputError : inputNormal}`}
             />
           </Field>
         </div>

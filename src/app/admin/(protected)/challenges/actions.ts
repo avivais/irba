@@ -20,7 +20,7 @@ export async function createChallengeAction(
   const raw = {
     startDate: formData.get("startDate")?.toString(),
     sessionCount: formData.get("sessionCount")?.toString(),
-    minMatchesThreshold: formData.get("minMatchesThreshold")?.toString(),
+    minMatchesPct: formData.get("minMatchesPct")?.toString(),
   };
 
   const validation = parseChallengeForm(raw);
@@ -29,7 +29,7 @@ export async function createChallengeAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { startDate, sessionCount, minMatchesThreshold } = validation.data;
+  const { startDate, sessionCount, minMatchesPct } = validation.data;
 
   // Enforce only one active (non-closed) competition at a time
   const existing = await prisma.challenge.findFirst({
@@ -51,7 +51,7 @@ export async function createChallengeAction(
         number,
         startDate: new Date(startDate),
         sessionCount,
-        minMatchesThreshold,
+        minMatchesPct,
         createdBy: adminId,
       },
       select: { id: true },
@@ -66,7 +66,7 @@ export async function createChallengeAction(
     action: "CREATE_CHALLENGE",
     entityType: "Challenge",
     entityId: created.id,
-    after: { number, startDate, sessionCount, minMatchesThreshold },
+    after: { number, startDate, sessionCount, minMatchesPct },
   });
 
   revalidatePath("/admin/challenges");
@@ -88,7 +88,7 @@ export async function updateChallengeAction(
   const raw = {
     startDate: formData.get("startDate")?.toString(),
     sessionCount: formData.get("sessionCount")?.toString(),
-    minMatchesThreshold: formData.get("minMatchesThreshold")?.toString(),
+    minMatchesPct: formData.get("minMatchesPct")?.toString(),
   };
 
   const validation = parseChallengeForm(raw);
@@ -97,12 +97,12 @@ export async function updateChallengeAction(
     return { ok: false, message: first ?? "קלט לא תקין" };
   }
 
-  const { startDate, sessionCount, minMatchesThreshold } = validation.data;
+  const { startDate, sessionCount, minMatchesPct } = validation.data;
 
   try {
     await prisma.challenge.update({
       where: { id },
-      data: { startDate: new Date(startDate), sessionCount, minMatchesThreshold },
+      data: { startDate: new Date(startDate), sessionCount, minMatchesPct },
     });
   } catch (e) {
     console.error("updateChallengeAction failed", e);
@@ -115,7 +115,7 @@ export async function updateChallengeAction(
     entityType: "Challenge",
     entityId: id,
     before: challenge,
-    after: { startDate, sessionCount, minMatchesThreshold },
+    after: { startDate, sessionCount, minMatchesPct },
   });
 
   revalidatePath("/admin/challenges");

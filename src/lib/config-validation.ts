@@ -108,7 +108,7 @@ export const configSchema = z.object({
   fine_kick_ball:               nonNegativeInt("קנס בעיטה בכדור"),
   fine_early_leave:             nonNegativeInt("קנס עזיבה מוקדמת"),
   competition_session_count:             positiveInt("מספר מפגשים בתחרות"),
-  competition_min_matches_threshold:     nonNegativeInt("סף משחקים מינימלי"),
+  competition_min_matches_pct:           z.string().regex(/^\d+$/, "חייב להיות מספר שלם").refine((v) => { const n = parseInt(v, 10); return n >= 0 && n <= 100; }, "חייב להיות בין 0 ל-100"),
   wa_notify_competition_winner_enabled:  enabledFlag,
   wa_notify_competition_winner_template: waTemplate,
   wa_group_jid:                          waGroupJid,

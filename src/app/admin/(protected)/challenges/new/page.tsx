@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "תחרות חדשה" };
 export default async function NewChallengePage() {
   const config = await getAllConfigs();
   const defaultSessionCount = parseInt(config[CONFIG.COMPETITION_SESSION_COUNT] ?? "6", 10);
-  const defaultMinMatchesThreshold = parseInt(config[CONFIG.COMPETITION_MIN_MATCHES_THRESHOLD] ?? "10", 10);
+  const defaultMinMatchesPct = parseInt(config[CONFIG.COMPETITION_MIN_MATCHES_PCT] ?? "50", 10);
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -29,7 +29,7 @@ export default async function NewChallengePage() {
         <ChallengeForm
           action={createChallengeAction}
           defaultSessionCount={defaultSessionCount}
-          defaultMinMatchesThreshold={defaultMinMatchesThreshold}
+          defaultMinMatchesPct={defaultMinMatchesPct}
           submitLabel="פתח תחרות"
         />
       </section>

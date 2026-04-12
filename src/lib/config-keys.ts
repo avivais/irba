@@ -45,7 +45,7 @@ export const CONFIG = {
   FINE_EARLY_LEAVE:             "fine_early_leave",             // precedence points deducted for leaving early
   // Competition
   COMPETITION_SESSION_COUNT:             "competition_session_count",             // default sessions per competition
-  COMPETITION_MIN_MATCHES_THRESHOLD:     "competition_min_matches_threshold",     // default min matches played to appear on leaderboard
+  COMPETITION_MIN_MATCHES_PCT:           "competition_min_matches_pct",           // default min matches % of max-player to appear (0-100)
   WA_NOTIFY_COMPETITION_WINNER_ENABLED:  "wa_notify_competition_winner_enabled",  // "true" | "false"
   WA_NOTIFY_COMPETITION_WINNER_TEMPLATE: "wa_notify_competition_winner_template", // vars: {player_name}, {round_number}
   // WhatsApp notifications
@@ -136,7 +136,7 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   fine_kick_ball:               "2",
   fine_early_leave:             "1",
   competition_session_count:             "6",
-  competition_min_matches_threshold:     "10",
+  competition_min_matches_pct:           "50",
   wa_notify_competition_winner_enabled:  "true",
   wa_notify_competition_winner_template: "🏆 מזל טוב ל{player_name} על זכייה בסיבוב {round_number}! כניסה חינם למפגש הבא",
   wa_group_jid:                          "",

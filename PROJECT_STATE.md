@@ -66,7 +66,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 - **`AuditLog`**: `id Int PK autoincrement`, `timestamp DateTime`, `actor String` ("admin" | player phone | "cron"), `actorIp String?`, `action String` (enum-like constant e.g. `CREATE_PLAYER`), `entityType String?`, `entityId String?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`. Written fire-and-forget via `src/lib/audit.ts`.
 - **`Match`**: `id`, `sessionId`, `teamAPlayerIds String[]`, `teamBPlayerIds String[]`, `scoreA Int`, `scoreB Int`, `createdAt`, `updatedAt`. Indexed on `(sessionId, createdAt)`. Cascades on session delete.
 - **`Player` regulations fields**: `regulationsAcceptedAt DateTime?`, `regulationsAcceptedVersion Int?`. Null = not yet accepted. Version compared against `regulations_version` config to gate access.
-- **`Challenge`**: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesThreshold Int`, `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy String`. Relations: `winner Player?`, `freeEntry FreeEntry[]`. No leaderboard model — computed passively from Match data.
+- **`Challenge`**: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesPct Int` (0–100, % of max-player), `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy String`. Relations: `winner Player?`, `freeEntry FreeEntry[]`. No leaderboard model — computed passively from Match data.
 - **`FreeEntry`**: `id`, `playerId`, `challengeId`, `usedInSessionId String?`, `usedAt DateTime?`, `createdAt`. Prize for competition winner — consumed when winner attends next charged session.
 
 ### RSVP flow (public)
@@ -261,21 +261,21 @@ DROP_IN players: only admin rank component applies.
 One active competition at a time. Win-% only metric. Prize = free entry for winner. Auto-numbered ("סיבוב 1", "סיבוב 2", …). System computes live leaderboards passively from Match data.
 
 **Data model:**
-- `Challenge`: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesThreshold Int`, `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy`. Relations: `winner Player?`, `freeEntry FreeEntry[]`.
+- `Challenge`: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesPct Int`, `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy`. Relations: `winner Player?`, `freeEntry FreeEntry[]`.
 - `FreeEntry`: `id`, `playerId`, `challengeId`, `usedInSessionId?`, `usedAt?`, `createdAt`. Created when competition closes; consumed when winner attends next charged session.
 - `ChargeType` enum includes `FREE_ENTRY` — winner charged ₪0, cost absorbed by other attendees.
 
 **Time window:** Sessions with `date >= challenge.startDate`, ordered by date ASC, take first `sessionCount`. Competition completes when the Nth session in that ordered list is charged.
 
-**Eligibility:** Player must have played ≥ `minMatchesThreshold` matches in the window. `minMatchesThreshold = 0` → everyone qualifies.
+**Eligibility:** Player must have played ≥ `minMatchesPct` matches in the window. `minMatchesPct = 0` → everyone qualifies.
 
-**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesThreshold, windowSessionIds, matches, playerNames })` — no DB imports, safe for tests. Sorts by `winRatio` desc, then `matchesPlayed` desc, then name alphabetically. Ties share rank. Tested in `src/lib/challenge-analytics.test.ts`.
+**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames })` — no DB imports, safe for tests. Sorts by `winRatio` desc, then `matchesPlayed` desc, then name alphabetically. Ties share rank. Tested in `src/lib/challenge-analytics.test.ts`.
 
-**Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod — `startDate`, `sessionCount`, `minMatchesThreshold` only.
+**Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod — `startDate`, `sessionCount`, `minMatchesPct` only.
 
 **Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — uses new window logic, returns `completedSessions` count.
 
-**Config keys:** `COMPETITION_SESSION_COUNT` (default "6"), `COMPETITION_MIN_MATCHES_THRESHOLD` (default "10"), `WA_NOTIFY_COMPETITION_WINNER_ENABLED`, `WA_NOTIFY_COMPETITION_WINNER_TEMPLATE` (vars: `{player_name}`, `{round_number}`).
+**Config keys:** `COMPETITION_SESSION_COUNT` (default "6"), `COMPETITION_MIN_MATCHES_PCT` (default "10"), `WA_NOTIFY_COMPETITION_WINNER_ENABLED`, `WA_NOTIFY_COMPETITION_WINNER_TEMPLATE` (vars: `{player_name}`, `{round_number}`).
 
 **Winner flow** (triggered in `chargeSessionAction`): When the Nth session is charged → compute final leaderboard → create `FreeEntry` for rank-1 player → set `isClosed=true`, `winnerId` → send WA group message → return `competitionResult` to UI. UI shows banner with winner name + link to open new competition.
 
@@ -283,7 +283,7 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 
 **Admin CRUD** (`/admin/challenges`):
 - List page: active competition at top (if any), history (closed, sorted by number desc) below. "פתח תחרות חדשה" button visible only when no active competition exists. Winner name shown on closed rows.
-- New/edit pages: `ChallengeForm` — `startDate` (date picker, default today), `sessionCount` (pre-filled from config), `minMatchesThreshold` (pre-filled from config). Edit disabled when `isClosed`.
+- New/edit pages: `ChallengeForm` — `startDate` (date picker, default today), `sessionCount` (pre-filled from config), `minMatchesPct` (pre-filled from config). Edit disabled when `isClosed`.
 - Server actions: `createChallengeAction` (enforces one active), `updateChallengeAction`, `deleteChallengeAction` (blocked when closed). Audit logs: `CREATE_CHALLENGE`, `UPDATE_CHALLENGE`, `DELETE_CHALLENGE`, `CLOSE_CHALLENGE`.
 
 **Player-facing** (`/challenges`):
@@ -386,7 +386,7 @@ Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); aler
 - **Schedule tests** (`src/lib/schedule.test.ts`): 10 cases — today/tomorrow/multi-day skip, same-weekday-just-passed, DST winter/summer, midnight/23:59 edge cases. Uses `Intl.DateTimeFormat` with `% 24` normalization for older ICU versions.
 - **Waitlist promote tests** (`src/lib/waitlist-promote.test.ts`): 8 cases — promote moves to last confirmed slot, error on confirmed player, error on missing attendance.
 - **Computed rank tests** (`src/lib/computed-rank.test.ts`): 18 cases covering `normalizePeerScore` (position 1/N/middle/N=1/fractional avg), `normalizeWinScore` (0/0.5/1), and `computeBlendedRank` (admin-only, defaultRank, all-three, DROP_IN ignores peer+win, below-threshold excludes win, zero weights → null, custom ratios, admin weight 0, edge 0/100). Imports from `computed-rank-pure.ts` to avoid DB init.
-- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): 11 cases covering win_ratio sorting, 0-match players, ties/tie-breaking, minMatchesThreshold filtering, window scoping (out-of-window matches ignored, empty window → empty result), matchesPlayed field.
+- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): 12 cases covering win_ratio sorting, 0-match players, ties/tie-breaking, minMatchesPct% filtering (pct=0/50/100), window scoping (out-of-window matches ignored, empty window → empty result), matchesPlayed field.
 - Default `npm test` does **not** require a running Postgres.
 
 #### Audit log (`/admin/audit`)
@@ -611,7 +611,7 @@ Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum
 
 **Player-facing `/profile` page — section order:**
 1. **יתרה** — balance card (total paid / charged / net)
-2. **סטטיסטיקות משחק** — match analytics (wins/losses/rounds/teammate affinity)
+2. **סטטיסטיקות משחק** — match analytics: all-time summary (wins/losses/ties/win%), breakdown toggle "לפי תחרות" (per-competition: סיבוב N, win%, W/L/T, active/closed badge) / "לפי מפגש" (per-session date + bar), teammate affinity
 3. **היסטוריית פעולות** — paginated account statement (payments + charges, running balance, filter tabs, per-page selector); URL-param driven
 4. **נוכחות אחרונה** — last 10 sessions attended
 5. **הגדרות** — single card grouping: password change + regulations viewer + theme selector (previously three separate cards)
@@ -711,16 +711,16 @@ No schema changes. No migrations.
 Players see their match stats at the bottom of `/profile`.
 
 **UI sections:**
-- Summary: wins / losses / ties counts + win% (ties excluded from ratio denominator)
-- Breakdown toggle ("לפי סבב" / "לפי מפגש") — `useState` client-side only (no URL param, no scroll-to-top); CSS-only colored bar per row
-  - Per-round view: expandable accordion rows — each round shows "סבב N" + date range (RTL label, LTR dates) + wins/losses bar; expanding reveals individual match results (score + win/loss/tie badge); round size driven by `round_size` config key (default 5 sessions)
+- Summary: all-time wins / losses / ties counts + win% (ties excluded from ratio denominator)
+- Breakdown toggle ("לפי תחרות" / "לפי מפגש") — `useState` client-side only; CSS-only colored bar per row
+  - Per-competition view: one row per Challenge where player has ≥1 match — shows "סיבוב N", start date, total matches, win%, active/closed badge; competitions with 0 player matches are hidden
   - Per-session view: each session date with that night's wins/losses
 - Teammate affinity: top 5 by shared wins; shows "X ניצחונות מתוך Y משחקים יחד"
 
 **Implementation:**
-- `src/lib/match-analytics.ts` — pure functions: `computeMatchStats`, `computeSessionBreakdown`, `computeRoundBreakdown`, `computeTeammateAffinity`; no Prisma
+- `src/lib/match-analytics.ts` — pure functions: `computeMatchStats`, `computeSessionBreakdown`, `computeTeammateAffinity`; no Prisma
 - `src/lib/match-analytics.test.ts` — 25 unit tests
-- `src/app/profile/analytics.ts` — server fetcher; single raw SQL query; fetches all sessions for ordering; reads `round_size` config; resolves teammate names
+- `src/app/profile/analytics.ts` — server fetcher; fetches all sessions + challenges; builds `competitionBreakdown` by filtering player matches to each challenge's window; resolves teammate names
 - `src/components/match-stats-section.tsx` — Client Component; `useState` toggle
 - `src/lib/config-keys.ts` — added `round_size` key (default 5)
 

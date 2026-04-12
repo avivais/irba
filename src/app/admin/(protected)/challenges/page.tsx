@@ -113,7 +113,7 @@ function ChallengeRow({ challenge: c, isActive }: ChallengeRowProps) {
           )}
         </div>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          {c.sessionCount} מפגשים · החל מ-{startDateFormatted} · סף {c.minMatchesThreshold} משחקים
+          {c.sessionCount} מפגשים · החל מ-{startDateFormatted} · סף {c.minMatchesPct}% משחקים
         </p>
         {winnerName && (
           <p className="mt-0.5 text-sm font-medium text-amber-600 dark:text-amber-400">
