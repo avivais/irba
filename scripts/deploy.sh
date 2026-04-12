@@ -33,6 +33,9 @@ log "Building Docker images (this takes ~2 min)..."
 ssh -i "$SSH_KEY" "$HOST" bash <<'REMOTE'
   set -euo pipefail
   cd /opt/irba
+  # Prune build cache older than 24h to prevent multi-GB accumulation
+  # that was causing 10+ minute hidden overhead in BuildKit cache management.
+  docker builder prune --filter "until=24h" -f 2>/dev/null | tail -1 || true
   COMMIT_HASH=$(git rev-parse --short HEAD)
   COMMIT_DATE=$(git log -1 --format='%cI')
   echo "Building commit $COMMIT_HASH ($COMMIT_DATE)"
