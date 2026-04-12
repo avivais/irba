@@ -26,7 +26,7 @@ export default async function AdminRankingPage() {
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-400">
-            שאלון דירוג עמיתים נפתח פעם בשנה. שחקנים קבועים מדרגים את כל שאר השחקנים הקבועים מהטוב ביותר לחלש ביותר.
+            שאלון דירוג שחקנים נפתח פעם בשנה. שחקנים קבועים מדרגים את כל שאר השחקנים הקבועים מהטוב ביותר לחלש ביותר.
             עם סגירת השאלון, הדירוג המחושב של כל שחקן מתעדכן אוטומטית.
           </p>
           <RankingSessionPanel sessions={sessions} />

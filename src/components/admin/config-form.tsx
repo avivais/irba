@@ -520,7 +520,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         <SectionTitle>דירוג שחקנים</SectionTitle>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           משקל כל רכיב בחישוב הדירוג הסופי. הדירוג הסופי מנורמל ל-0–100.
-          רכיב עמיתים חל על שחקנים קבועים בלבד. רכיב ניצחונות חל רק על שחקנים שמשחק מספיק משחקים.
+          רכיב שחקנים חל על שחקנים קבועים בלבד. רכיב ניצחונות חל רק על שחקנים שמשחק מספיק משחקים.
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="משקל דירוג מנהל" hint="מספר לא שלילי" htmlFor={CONFIG.RANK_WEIGHT_ADMIN} error={errors[CONFIG.RANK_WEIGHT_ADMIN]}>
@@ -535,7 +535,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             />
           </Field>
 
-          <Field label="משקל דירוג עמיתים" hint="מספר לא שלילי" htmlFor={CONFIG.RANK_WEIGHT_PEER} error={errors[CONFIG.RANK_WEIGHT_PEER]}>
+          <Field label="משקל דירוג שחקנים" hint="מספר לא שלילי" htmlFor={CONFIG.RANK_WEIGHT_PEER} error={errors[CONFIG.RANK_WEIGHT_PEER]}>
             <input
               id={CONFIG.RANK_WEIGHT_PEER}
               type="number"

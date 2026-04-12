@@ -3,7 +3,7 @@ import Link from "next/link";
 import { fetchPeerRatingPageDataAction } from "./actions";
 import { PeerRatingForm } from "@/components/peer-rating-form";
 
-export const metadata: Metadata = { title: "דירוג עמיתים" };
+export const metadata: Metadata = { title: "דירוג שחקנים" };
 export const dynamic = "force-dynamic";
 
 export default async function PeerRatingSubmitPage() {
@@ -27,7 +27,7 @@ export default async function PeerRatingSubmitPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-zinc-600 dark:text-zinc-400">
-          שאלון דירוג עמיתים זמין לשחקנים קבועים בלבד.
+          שאלון דירוג שחקנים זמין לשחקנים קבועים בלבד.
         </p>
         <Link
           href="/profile"

@@ -156,7 +156,7 @@ function SessionRow({ session }: { session: PeerRatingSessionSummary }) {
       {expanded && session.results && (
         <div className="border-t border-zinc-100 px-4 pb-4 dark:border-zinc-800">
           <p className="mb-2 mt-3 text-xs font-medium uppercase tracking-wide text-zinc-400">
-            תוצאות — ממוצע דירוג עמיתים
+            תוצאות — ממוצע דירוג שחקנים
           </p>
           <table className="w-full text-sm">
             <thead>

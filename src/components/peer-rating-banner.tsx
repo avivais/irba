@@ -11,7 +11,7 @@ export function PeerRatingBanner({ year }: { year: number }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-900/20">
       <p className="text-sm text-amber-800 dark:text-amber-300">
-        <span className="font-medium">שאלון דירוג עמיתים {year} פתוח.</span>{" "}
+        <span className="font-medium">שאלון דירוג שחקנים {year} פתוח.</span>{" "}
         עדיין לא הגשת —{" "}
         <Link
           href="/ranking/submit"

@@ -117,7 +117,7 @@ export default function AdminHomePage() {
           <div>
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">דירוג שחקנים</p>
             <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              ניהול שאלון עמיתים ומשקלות דירוג
+              ניהול שאלון שחקנים ומשקלות דירוג
             </p>
           </div>
         </Link>

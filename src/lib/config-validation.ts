@@ -101,7 +101,7 @@ export const configSchema = z.object({
   fouls_until_penalty:          positiveInt("עבירות קבוצה עד עונשין"),
   round_size:                   positiveInt("גודל סבב"),
   rank_weight_admin:            nonNegativeFloat("משקל דירוג מנהל"),
-  rank_weight_peer:             nonNegativeFloat("משקל דירוג עמיתים"),
+  rank_weight_peer:             nonNegativeFloat("משקל דירוג שחקנים"),
   rank_weight_winloss:          nonNegativeFloat("משקל יחס ניצחונות"),
   rank_winloss_min_games_pct:   pctField("סף משחקים מינימלי"),
   fine_no_show:                 nonNegativeInt("קנס אי-הגעה"),
