@@ -109,7 +109,7 @@ export function MatchStatsSection({ analytics }: Props) {
               <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {Math.round(stats.winRatio * 100)}%
               </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">סה"כ</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{"סה\"כ"}</p>
             </div>
           </div>
 
