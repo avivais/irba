@@ -213,10 +213,10 @@ export async function getPlayerRankBreakdown(
       .values(),
   );
 
-  const meetsThreshold =
-    maxGamesPlayed > 0 &&
-    minGamesPct > 0 &&
-    stats.total >= Math.ceil((minGamesPct / 100) * maxGamesPlayed);
+  const winThreshold = maxGamesPlayed > 0 && minGamesPct > 0
+    ? Math.ceil((minGamesPct / 100) * maxGamesPlayed)
+    : 0;
+  const meetsThreshold = winThreshold > 0 && stats.total >= winThreshold;
 
   // Peer score
   let peerScore: number | null = null;
@@ -255,5 +255,6 @@ export async function getPlayerRankBreakdown(
       ? { total: stats.total, wins: stats.wins, losses: stats.losses, ties: stats.ties, winRatio: stats.winRatio }
       : null,
     meetsThreshold,
+    winThreshold,
   };
 }

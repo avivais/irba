@@ -29,6 +29,8 @@ export type RankBreakdown = {
   weights: RankWeights;
   matchStats: MatchStats | null;
   meetsThreshold: boolean;
+  /** Minimum games required for win/loss component to apply. 0 = no threshold configured. */
+  winThreshold: number;
 };
 
 /**

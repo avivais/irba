@@ -229,7 +229,7 @@ computedRank = (adminW×adminRank + peerW×peerScore + winW×winScore) / totalW
 DROP_IN players: only admin rank component applies.
 
 **Pure computation layer** (`src/lib/computed-rank-pure.ts`): `computeBlendedRank`, `normalizePeerScore`, `normalizeWinScore` — no DB imports, safe for tests and client components.
-**DB orchestrator** (`src/lib/computed-rank.ts`): `recalculateAllComputedRanks(actor)` + `getPlayerRankBreakdown(playerId)` (exposes `matchStats` + `meetsThreshold` for admin display).
+**DB orchestrator** (`src/lib/computed-rank.ts`): `recalculateAllComputedRanks(actor)` + `getPlayerRankBreakdown(playerId)` (exposes `matchStats`, `meetsThreshold`, and `winThreshold` for admin display). `winThreshold` = `Math.ceil((minGamesPct/100) × maxGamesPlayed)` — the minimum games count for win/loss to apply; shown in admin player page as "חסרים X משחקים" when below threshold, and "מתחת לסף (played/needed)" badge.
 
 **Admin UI** (`/admin/ranking`):
 - Lists all `PeerRatingSession` rows ordered by year desc

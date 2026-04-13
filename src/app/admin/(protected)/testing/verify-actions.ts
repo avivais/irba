@@ -394,9 +394,12 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
 
   "7.2": async () => {
     const d = await tp("D");
-    const challenge = await prisma.challenge.findFirst({ where: { isActive: true, isClosed: false } });
+    // Accept any challenge (open or closed) — leaderboard logic is the same either way
+    const challenge = await prisma.challenge.findFirst({ orderBy: { number: "desc" } });
     const sessions = await testSessionsForA();
-    if (!d || !challenge || sessions.length === 0) return fail("חסרים נתונים");
+    if (!d) return fail("שחקן D לא נמצא — בצע שלב 2.4");
+    if (!challenge) return fail("אין תחרות — בצע שלב 6.1");
+    if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש — בצע שלב 3.2");
 
     const windowIds = [sessions[0].id];
     const matches = await prisma.match.findMany({

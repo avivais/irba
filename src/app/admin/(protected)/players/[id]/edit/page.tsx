@@ -283,10 +283,12 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
                           = {(rankBreakdown.winScore * rankBreakdown.weights.winWeight).toFixed(1)}
                         </span>
                       </>
-                    ) : (
+                    ) : rankBreakdown.meetsThreshold === false && rankBreakdown.winThreshold > 0 ? (
                       <span className="w-32 text-left text-xs text-zinc-400">
-                        {rankBreakdown.meetsThreshold === false ? "מתחת לסף" : "אין נתוני משחק"}
+                        חסרים {rankBreakdown.winThreshold - (rankBreakdown.matchStats?.total ?? 0)} משחקים
                       </span>
+                    ) : (
+                      <span className="w-32 text-left text-xs text-zinc-400">אין נתוני משחק</span>
                     )}
                   </div>
                 )}
@@ -327,7 +329,11 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
                           : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
                       }`}
                     >
-                      {rankBreakdown.meetsThreshold ? "מעל הסף" : "מתחת לסף"}
+                      {rankBreakdown.meetsThreshold
+                        ? "מעל הסף"
+                        : rankBreakdown.winThreshold > 0
+                          ? `מתחת לסף (${rankBreakdown.matchStats?.total ?? 0}/${rankBreakdown.winThreshold})`
+                          : "מתחת לסף"}
                     </span>
                   </div>
                 </div>
