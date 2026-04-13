@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import {
   createMatchAction,
@@ -224,12 +225,16 @@ export function SessionMatchPanel({
   attendees,
   matches: initialMatches,
 }: Props) {
+  const router = useRouter();
   const [matches, setMatches] = useState(initialMatches);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newMatchInitial, setNewMatchInitial] = useState<FormData | undefined>(undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Sync local state when server re-renders after router.refresh()
+  useEffect(() => { setMatches(initialMatches); }, [initialMatches]);
 
   function openNew() {
     setEditingId(null);
@@ -265,7 +270,8 @@ export function SessionMatchPanel({
         setError(result.message ?? "שגיאה");
         return;
       }
-      window.location.reload();
+      closeAll();
+      router.refresh();
     });
   }
 
@@ -284,7 +290,8 @@ export function SessionMatchPanel({
         setError(result.message ?? "שגיאה");
         return;
       }
-      window.location.reload();
+      closeAll();
+      router.refresh();
     });
   }
 
