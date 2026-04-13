@@ -27,7 +27,7 @@ function WinLossBar({ wins, losses, className = "" }: { wins: number; losses: nu
   const decided = wins + losses;
   const winPct = decided === 0 ? 50 : (wins / decided) * 100;
   return (
-    <div className={`flex h-1.5 overflow-hidden rounded-full ${className}`} dir="ltr">
+    <div className={`flex h-1.5 overflow-hidden rounded-full ${className}`}>
       <div className="bg-green-500 transition-all" style={{ width: `${winPct}%` }} />
       <div className="bg-red-400 opacity-70 transition-all" style={{ width: `${100 - winPct}%` }} />
     </div>
