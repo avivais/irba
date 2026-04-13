@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
 
-const SNAPSHOT_DIR = "/tmp/irba-snapshots";
+const SNAPSHOT_DIR = "/opt/irba/backups/snapshots";
 
 function ensureDir() {
   if (!fs.existsSync(SNAPSHOT_DIR)) fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
