@@ -4,19 +4,37 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { computeLeaderboard } from "@/lib/challenge-analytics";
 import { computeMatchStats } from "@/lib/match-analytics";
+import { hash } from "bcryptjs";
+import { randomInt } from "crypto";
+import { sendWaMessage } from "@/lib/wa-notify";
 
 export type VerifyResult = { pass: boolean; detail: string; manual?: boolean };
 
-export async function getOtpCode(phone: string): Promise<{ code: string | null; expiresAt: string | null }> {
+/**
+ * Issues a fresh OTP for `phone` and forwards it as a WA DM to the admin.
+ * The OTP is still hashed in DB — plaintext only travels via WA to admin's phone.
+ */
+export async function issueTestOtp(phone: string): Promise<{ ok: boolean; error?: string }> {
   await requireAdmin();
-  const player = await prisma.player.findUnique({
-    where: { phone },
-    select: { otpCode: true, otpExpiresAt: true },
-  });
-  return {
-    code: player?.otpCode ?? null,
-    expiresAt: player?.otpExpiresAt?.toISOString() ?? null,
-  };
+  try {
+    const player = await prisma.player.findUnique({ where: { phone }, select: { id: true } });
+    if (!player) return { ok: false, error: "שחקן לא נמצא — הכנס את הטלפון בדף הבית תחילה" };
+
+    const raw = randomInt(0, 1_000_000).toString().padStart(6, "0");
+    const hashed = await hash(raw, 8);
+    await prisma.player.update({
+      where: { id: player.id },
+      data: { otpCode: hashed, otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+    });
+
+    const admin = await prisma.player.findFirst({ where: { isAdmin: true }, select: { phone: true } });
+    if (!admin?.phone) return { ok: false, error: "לא נמצא אדמין עם טלפון לשליחה" };
+
+    await sendWaMessage(admin.phone, `🧪 קוד בדיקה לטלפון ${phone}: *${raw}*\nתוקף: 10 דקות`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 // ── Test player phones ────────────────────────────────────────────────────────

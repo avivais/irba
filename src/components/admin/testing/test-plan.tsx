@@ -2,35 +2,33 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { runVerification, getOtpCode } from "@/app/admin/(protected)/testing/verify-actions";
+import { runVerification, issueTestOtp } from "@/app/admin/(protected)/testing/verify-actions";
 import { STEPS, STEP_GROUPS, type StepDef } from "./step-definitions";
 
 type StepStatus = "pending" | "verifying" | "pass" | "fail" | "manual";
 
 function OtpLookup({ defaultPhone }: { defaultPhone: string | "custom" }) {
   const [phone, setPhone] = useState(defaultPhone === "custom" ? "" : defaultPhone);
-  const [result, setResult] = useState<{ code: string | null; expiresAt: string | null } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleLookup() {
+  async function handleSend() {
     if (!phone.trim()) return;
-    setLoading(true);
-    setResult(null);
-    try {
-      const res = await getOtpCode(phone.trim());
-      setResult(res);
-    } finally {
-      setLoading(false);
+    setStatus("sending");
+    setError(null);
+    const res = await issueTestOtp(phone.trim());
+    if (res.ok) {
+      setStatus("sent");
+      setTimeout(() => setStatus("idle"), 8000);
+    } else {
+      setStatus("error");
+      setError(res.error ?? "שגיאה");
     }
-  }
-
-  function fmtExpiry(iso: string) {
-    return new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
   return (
     <div className="mb-3 rounded-lg border border-purple-200 bg-purple-50 p-3">
-      <p className="mb-2 text-xs font-medium text-purple-700">הצג קוד OTP</p>
+      <p className="mb-2 text-xs font-medium text-purple-700">שלח OTP ל-WA שלי</p>
       <div className="flex gap-2">
         <input
           type="tel"
@@ -41,26 +39,18 @@ function OtpLookup({ defaultPhone }: { defaultPhone: string | "custom" }) {
           dir="ltr"
         />
         <button
-          onClick={handleLookup}
-          disabled={loading || !phone.trim()}
+          onClick={handleSend}
+          disabled={status === "sending" || !phone.trim()}
           className="rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
         >
-          {loading ? "..." : "הצג קוד"}
+          {status === "sending" ? "..." : "שלח"}
         </button>
       </div>
-      {result && (
-        <div className="mt-2">
-          {result.code ? (
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-2xl font-bold tracking-widest text-purple-900">{result.code}</span>
-              {result.expiresAt && (
-                <span className="text-xs text-purple-500">פג תוקף: {fmtExpiry(result.expiresAt)}</span>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-red-600">לא נמצא קוד פעיל לטלפון זה — נסה לשלוח OTP תחילה</p>
-          )}
-        </div>
+      {status === "sent" && (
+        <p className="mt-2 text-xs text-green-700">הקוד נשלח ל-WA שלך — תוקף 10 דקות</p>
+      )}
+      {status === "error" && error && (
+        <p className="mt-2 text-xs text-red-600">{error}</p>
       )}
     </div>
   );

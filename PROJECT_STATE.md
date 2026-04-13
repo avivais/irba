@@ -396,7 +396,7 @@ Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); aler
 Admin-only page for end-to-end manual testing with automated DB-state verification.
 
 **Snapshot manager** — save, restore, and delete full DB snapshots:
-- Prisma-based serialization: all tables serialized to JSON, gzipped, stored in `/tmp/irba-snapshots/{label}__{ISO_timestamp}.json.gz`
+- Prisma-based serialization: all tables serialized to JSON, gzipped, stored in `/opt/irba/backups/snapshots/{label}__{ISO_timestamp}.json.gz` (persistent volume, survives deploys)
 - Restore: FK-safe delete (children before parents) then insert (parents before children) in a single Prisma `$transaction` (30s timeout); resets `AuditLog` autoincrement sequence afterward
 - Path traversal protection; `requireAdmin()` guard on all server actions
 - UI: `SnapshotManager` client component with label input, file list (label / date / size), restore/delete with confirmation dialogs
@@ -406,6 +406,8 @@ Admin-only page for end-to-end manual testing with automated DB-state verificati
 - Steps unlock sequentially — must pass/mark step N before N+1 becomes clickable
 - "Verify" button calls `runVerification(stepId)` server action → returns `{ pass, detail, manual? }`
 - Steps with no automated verification return `manual=true` (blue dot, unlock without DB check)
+- Progress persisted in `localStorage` (`irba-test-plan-results`) — survives page reloads; "נקה הכל" button resets all results
+- Steps requiring player OTP login show a **"שלח OTP ל-WA שלי"** widget (`OtpLookup`): generates a fresh OTP, stores bcrypt hash in DB, sends plaintext code as a WA DM to the admin phone — secure (plaintext never hits DB or browser)
 - Full coverage: snapshot, config, player CRUD, session lifecycle, RSVP, match recording, competition setup, leaderboard, free entry, charge override, audit, payments, profile, peer ratings, regulations, config effects, WA notifications, cron endpoints, cleanup
 - Test phone numbers: A=0500000001, B=0500000002, C=0500000003, D=0500000004
 
