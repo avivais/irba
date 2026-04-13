@@ -124,6 +124,15 @@ export function TestPlan() {
     });
   }
 
+  function resetStep(id: string) {
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      persistResults(next);
+      return next;
+    });
+  }
+
   function handleVerify(step: StepDef, index: number) {
     if (!isUnlocked(index)) return;
 
@@ -216,22 +225,36 @@ export function TestPlan() {
                     className={`rounded-xl border transition-colors ${stepBorder(status)} ${!unlocked ? "opacity-40" : ""}`}
                   >
                     {/* Step header */}
-                    <button
-                      className="flex w-full items-center gap-3 px-4 py-3 text-right"
-                      onClick={() => unlocked && toggleExpanded(step.id)}
-                      disabled={!unlocked}
-                    >
+                    <div className="flex w-full items-center gap-3 px-4 py-3 text-right">
                       <StatusIcon status={status} />
                       <span className="min-w-[2.5rem] text-xs font-mono text-zinc-400">
                         {step.id}
                       </span>
-                      <span className="flex-1 text-sm font-medium text-zinc-800">
+                      <button
+                        className="flex-1 text-right text-sm font-medium text-zinc-800 disabled:cursor-default"
+                        onClick={() => unlocked && toggleExpanded(step.id)}
+                        disabled={!unlocked}
+                      >
                         {step.title}
-                      </span>
-                      {unlocked && (
-                        <span className="text-xs text-zinc-400">{isExpanded ? "▲" : "▼"}</span>
+                      </button>
+                      {unlocked && status !== "pending" && (
+                        <button
+                          onClick={() => resetStep(step.id)}
+                          className="text-zinc-300 hover:text-red-400 transition-colors text-sm px-1"
+                          title="אפס שלב זה"
+                        >
+                          ✕
+                        </button>
                       )}
-                    </button>
+                      {unlocked && (
+                        <button
+                          onClick={() => toggleExpanded(step.id)}
+                          className="text-xs text-zinc-400"
+                        >
+                          {isExpanded ? "▲" : "▼"}
+                        </button>
+                      )}
+                    </div>
 
                     {/* Expanded body */}
                     {isExpanded && unlocked && (
