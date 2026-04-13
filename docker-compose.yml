@@ -30,6 +30,8 @@ services:
       # Overrides .env localhost URL so the app resolves the `db` service name.
       DATABASE_URL: postgresql://${POSTGRES_USER:-irba}:${POSTGRES_PASSWORD:-irba_dev_password}@db:5432/${POSTGRES_DB:-irba}
       NODE_ENV: production
+    volumes:
+      - /opt/irba/backups/snapshots:/opt/irba/backups/snapshots
     depends_on:
       db:
         condition: service_healthy
