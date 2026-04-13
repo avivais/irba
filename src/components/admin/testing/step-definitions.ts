@@ -8,6 +8,8 @@ export type StepDef = {
   links?: StepLink[];
   verifyFnName: string; // matches a key in VERIFICATIONS in verify-actions.ts
   note?: string;       // optional extra note shown below instructions
+  /** Phone to pre-fill in the OTP lookup widget. "custom" = free input. Omit = no OTP button. */
+  otpPhone?: string | "custom";
 };
 
 export const STEP_GROUPS: { label: string; groupKey: string }[] = [
@@ -232,11 +234,12 @@ export const STEPS: StepDef[] = [
     instructions: [
       "פתח חלון גלישה פרטית (Incognito)",
       "עבור לדף הבית",
-      "התחבר עם 0500000001 + OTP",
-      'וודא הודעת "כבר נרשמת" מוצגת',
+      "הכנס 0500000001, לחץ 'שלח קוד' — אז לחץ 'הצג קוד OTP' כאן לקבל את הקוד",
+      'הכנס את הקוד בדפדפן הפרטי ווודא הודעת "כבר נרשמת" מוצגת',
     ],
     links: [{ label: "דף הבית", href: "/" }],
     verifyFnName: "verifyNoduplicateAttendanceA",
+    otpPhone: "0500000001",
     note: "צעד ידני — הבדיקה מוודאת שלא נוצר רשומת נוכחות כפולה",
   },
   {
@@ -244,11 +247,13 @@ export const STEPS: StepDef[] = [
     group: "4",
     title: "הרשמה עם טלפון חדש (DROP_IN אוטומטי)",
     instructions: [
-      "השתמש בטלפון חדש (לדוגמה 0509999991)",
-      "עבור דרך תהליך OTP",
-      "קבע שם → הירשם",
+      "עבור לדף הבית בחלון פרטי, הכנס טלפון שאינו קיים במערכת (לדוגמה 0509999991)",
+      "לחץ 'שלח קוד' — המערכת תיצור שחקן DROP_IN ותשמור את הקוד ב-DB",
+      "לחץ 'הצג קוד OTP' כאן, הכנס את אותו טלפון — קבל את הקוד",
+      "הכנס קוד בדפדפן, קבע שם → הירשם",
     ],
     verifyFnName: "verifyNewDropInRsvp",
+    otpPhone: "custom",
     note: "שחקן DROP_IN ייצור ורישום נוכחות יווצר (רשימת המתנה כי המפגש מלא)",
   },
   {
@@ -257,12 +262,13 @@ export const STEPS: StepDef[] = [
     title: "ביטול בתוך חלון סגירה",
     instructions: [
       'עבור להגדרות, קבע rsvp_close_hours = 0',
-      "כשחקן א, נסה לבטל — צריך להצליח",
+      "כשחקן א (0500000001), היכנס בחלון פרטי ונסה לבטל — צריך להצליח",
       'קבע rsvp_close_hours = 999',
       "נסה שוב — צריך להיחסם",
     ],
     links: [{ label: "הגדרות", href: "/admin/config" }],
     verifyFnName: "verifyCancellationWindow",
+    otpPhone: "0500000001",
     note: "צעד ידני — בודק רק שהגדרת rsvp_close_hours קיימת ב-DB",
   },
   {
@@ -657,6 +663,7 @@ export const STEPS: StepDef[] = [
     ],
     links: [{ label: "פרופיל", href: "/profile" }],
     verifyFnName: "verifyProfileChallengeRecord",
+    otpPhone: "0500000001",
     note: "צעד ידני ברובו",
   },
   {
@@ -705,6 +712,7 @@ export const STEPS: StepDef[] = [
     ],
     links: [{ label: "שליחת דירוג", href: "/ranking/submit" }],
     verifyFnName: "verifyPeerRatingsSubmitted",
+    otpPhone: "0500000001",
   },
   {
     id: "15.3",
@@ -751,6 +759,7 @@ export const STEPS: StepDef[] = [
     ],
     links: [{ label: "דף הבית", href: "/" }],
     verifyFnName: "verifyRegulationsPrompted",
+    otpPhone: "0500000001",
     note: "צעד ידני — בודק שגרסה מקובלת של שחקן א מפגרת",
   },
   {

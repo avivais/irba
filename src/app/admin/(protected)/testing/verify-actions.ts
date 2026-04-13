@@ -7,6 +7,18 @@ import { computeMatchStats } from "@/lib/match-analytics";
 
 export type VerifyResult = { pass: boolean; detail: string; manual?: boolean };
 
+export async function getOtpCode(phone: string): Promise<{ code: string | null; expiresAt: string | null }> {
+  await requireAdmin();
+  const player = await prisma.player.findUnique({
+    where: { phone },
+    select: { otpCode: true, otpExpiresAt: true },
+  });
+  return {
+    code: player?.otpCode ?? null,
+    expiresAt: player?.otpExpiresAt?.toISOString() ?? null,
+  };
+}
+
 // ── Test player phones ────────────────────────────────────────────────────────
 
 const TEST_PHONES = {

@@ -2,10 +2,69 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { runVerification } from "@/app/admin/(protected)/testing/verify-actions";
+import { runVerification, getOtpCode } from "@/app/admin/(protected)/testing/verify-actions";
 import { STEPS, STEP_GROUPS, type StepDef } from "./step-definitions";
 
 type StepStatus = "pending" | "verifying" | "pass" | "fail" | "manual";
+
+function OtpLookup({ defaultPhone }: { defaultPhone: string | "custom" }) {
+  const [phone, setPhone] = useState(defaultPhone === "custom" ? "" : defaultPhone);
+  const [result, setResult] = useState<{ code: string | null; expiresAt: string | null } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleLookup() {
+    if (!phone.trim()) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await getOtpCode(phone.trim());
+      setResult(res);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function fmtExpiry(iso: string) {
+    return new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  return (
+    <div className="mb-3 rounded-lg border border-purple-200 bg-purple-50 p-3">
+      <p className="mb-2 text-xs font-medium text-purple-700">הצג קוד OTP</p>
+      <div className="flex gap-2">
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="05xxxxxxxx"
+          className="flex-1 rounded-md border border-purple-200 bg-white px-2 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none"
+          dir="ltr"
+        />
+        <button
+          onClick={handleLookup}
+          disabled={loading || !phone.trim()}
+          className="rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+        >
+          {loading ? "..." : "הצג קוד"}
+        </button>
+      </div>
+      {result && (
+        <div className="mt-2">
+          {result.code ? (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-2xl font-bold tracking-widest text-purple-900">{result.code}</span>
+              {result.expiresAt && (
+                <span className="text-xs text-purple-500">פג תוקף: {fmtExpiry(result.expiresAt)}</span>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-red-600">לא נמצא קוד פעיל לטלפון זה — נסה לשלוח OTP תחילה</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type StepResult = {
   status: StepStatus;
@@ -163,6 +222,9 @@ export function TestPlan() {
                             </li>
                           ))}
                         </ol>
+
+                        {/* OTP lookup */}
+                        {step.otpPhone && <OtpLookup defaultPhone={step.otpPhone} />}
 
                         {/* Links */}
                         {step.links && step.links.length > 0 && (
