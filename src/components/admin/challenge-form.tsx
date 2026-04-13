@@ -42,6 +42,7 @@ export function ChallengeForm({
           type="date"
           name="startDate"
           defaultValue={defaultStartDate ?? today}
+          dir="ltr"
           className={`${inputBase} ${inputNormal}`}
           required
         />

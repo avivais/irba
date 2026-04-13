@@ -33,6 +33,7 @@ export function HourlyRateForm({ action, defaultEffectiveFrom, defaultPricePerHo
             type="date"
             name="effectiveFrom"
             defaultValue={defaultEffectiveFrom}
+            dir="ltr"
             className={`${inputBase} ${inputNormal}`}
             required
           />

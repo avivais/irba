@@ -77,6 +77,7 @@ export default async function AdminSessionsPage({
             name="from"
             type="date"
             defaultValue={sp.from ?? ""}
+            dir="ltr"
             className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>
@@ -86,6 +87,7 @@ export default async function AdminSessionsPage({
             name="to"
             type="date"
             defaultValue={sp.to ?? ""}
+            dir="ltr"
             className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>

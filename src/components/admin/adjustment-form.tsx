@@ -88,6 +88,7 @@ export function AdjustmentForm(props: Props) {
           value={date}
           onChange={(e) => onFieldChange(setDate, e.target.value)}
           aria-invalid={Boolean(fieldErrors.date)}
+          dir="ltr"
           className={`${inputBase} ${fieldErrors.date ? inputInvalid : inputNormal}`}
         />
         {fieldErrors.date && (

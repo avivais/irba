@@ -238,6 +238,7 @@ export function SessionForm(props: Props) {
           onBlur={() => setDateBlurred(true)}
           aria-invalid={dateErrorVisible}
           aria-describedby={dateErrorVisible ? "session-date-error" : undefined}
+          dir="ltr"
           className={`${inputBase} ${dateErrorVisible ? inputInvalid : inputNormal}`}
         />
         {dateErrorVisible && (
