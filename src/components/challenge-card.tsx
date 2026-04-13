@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { Trophy, ChevronDown, ChevronUp } from "lucide-react";
-import type { LeaderboardEntry, IneligibleEntry } from "@/lib/challenge-analytics";
+import type { LeaderboardEntry, IneligibleEntry, SessionStat } from "@/lib/challenge-analytics";
 
 const RANK_MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+type SessionInfo = { id: string; date: Date | string };
 
 type Props = {
   number: number;
@@ -18,7 +20,140 @@ type Props = {
   leaderboard: LeaderboardEntry[];
   ineligible: IneligibleEntry[];
   currentPlayerId: string | null;
+  sessions: SessionInfo[];
 };
+
+function WinLossBar({ wins, losses, className = "" }: { wins: number; losses: number; className?: string }) {
+  const decided = wins + losses;
+  const winPct = decided === 0 ? 50 : (wins / decided) * 100;
+  return (
+    <div className={`flex h-1.5 overflow-hidden rounded-full ${className}`} dir="ltr">
+      <div className="bg-green-500 transition-all" style={{ width: `${winPct}%` }} />
+      <div className="bg-red-400 opacity-70 transition-all" style={{ width: `${100 - winPct}%` }} />
+    </div>
+  );
+}
+
+function SessionBreakdown({
+  sessionStats,
+  sessions,
+}: {
+  sessionStats: SessionStat[];
+  sessions: SessionInfo[];
+}) {
+  const dateMap = new Map(sessions.map((s) => [s.id, new Date(s.date)]));
+  const activeStats = sessionStats.filter((s) => s.total > 0);
+  if (activeStats.length === 0) return null;
+
+  return (
+    <div className="border-t border-zinc-100 px-5 py-3 space-y-2 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-800/30">
+      {activeStats.map((stat) => {
+        const date = dateMap.get(stat.sessionId);
+        const label = date
+          ? date.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })
+          : "?";
+        const decided = stat.wins + stat.losses;
+        const pct = decided === 0 ? 0 : Math.round((stat.wins / decided) * 100);
+        return (
+          <div key={stat.sessionId} className="flex items-center gap-2">
+            <span className="shrink-0 w-10 text-xs text-zinc-400 tabular-nums">{label}</span>
+            <span className="shrink-0 text-xs text-zinc-500 tabular-nums">
+              {stat.wins}נ׳ {stat.losses}ה׳
+            </span>
+            <WinLossBar wins={stat.wins} losses={stat.losses} className="flex-1 min-w-0" />
+            <span className="shrink-0 w-8 text-right text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-400" dir="ltr">
+              {pct}%
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlayerRow({
+  entry,
+  medal,
+  isMe,
+  isWinner,
+  sessions,
+  dimmed,
+}: {
+  entry: (LeaderboardEntry | IneligibleEntry);
+  medal: string;
+  isMe: boolean;
+  isWinner: boolean;
+  sessions: SessionInfo[];
+  dimmed?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const canExpand = entry.matchesPlayed > 0;
+  const decided = entry.wins + entry.losses;
+  const winPct = decided === 0 ? 0 : Math.round((entry.wins / decided) * 100);
+  const isMedal = medal.length > 2; // emoji medals are multi-char
+
+  return (
+    <div className={isMe ? "bg-blue-50 dark:bg-blue-950/20" : ""}>
+      <div
+        role={canExpand ? "button" : undefined}
+        onClick={canExpand ? () => setExpanded((v) => !v) : undefined}
+        className={`flex items-center gap-3 px-5 py-3 ${canExpand ? "cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-800/40" : ""} ${dimmed ? "opacity-50" : ""}`}
+      >
+        {/* Medal / rank */}
+        <span className={`shrink-0 ${isMedal ? "text-xl w-6 text-center" : "w-6 text-center text-sm text-zinc-400 dark:text-zinc-500"}`}>
+          {medal}
+        </span>
+
+        {/* Name */}
+        <div className="flex-1 min-w-0">
+          <span className={`text-sm font-medium ${isMe ? "text-blue-700 dark:text-blue-300" : dimmed ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-800 dark:text-zinc-200"}`}>
+            {entry.displayName}
+          </span>
+          {isMe && (
+            <span className="mr-1 text-xs font-normal text-blue-500 dark:text-blue-400"> (אתה)</span>
+          )}
+          {isWinner && (
+            <span className="mr-1 text-xs"> 🏆</span>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+              {entry.wins}נ׳ {entry.losses}ה׳
+            </span>
+            <WinLossBar wins={entry.wins} losses={entry.losses} className="w-14" />
+            <span
+              className={`text-sm font-semibold tabular-nums w-9 text-left ${isMe ? "text-blue-700 dark:text-blue-300" : dimmed ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"}`}
+              dir="ltr"
+            >
+              {winPct}%
+            </span>
+          </div>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+            {entry.matchesPlayed} משחקים
+            {"gamesNeeded" in entry && entry.gamesNeeded > 0 && (
+              <> · חסרים {entry.gamesNeeded}</>
+            )}
+          </span>
+        </div>
+
+        {/* Expand chevron */}
+        {canExpand && (
+          <span className="shrink-0 text-zinc-300 dark:text-zinc-600">
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </span>
+        )}
+      </div>
+
+      {/* Per-session breakdown */}
+      {expanded && canExpand && (
+        <SessionBreakdown sessionStats={entry.sessionStats} sessions={sessions} />
+      )}
+    </div>
+  );
+}
 
 export function ChallengeCard({
   number,
@@ -32,11 +167,12 @@ export function ChallengeCard({
   leaderboard,
   ineligible,
   currentPlayerId,
+  sessions,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [listExpanded, setListExpanded] = useState(false);
+  const [ineligibleExpanded, setIneligibleExpanded] = useState(false);
 
   // Pre-compute which player is the FIRST to appear with each rank
-  // (ties: only the first occurrence gets the rank/medal, rest get "–")
   const firstWithRank = new Set<string>();
   const seenRanks = new Set<number>();
   for (const entry of leaderboard) {
@@ -106,79 +242,31 @@ export function ChallengeCard({
             const isMe = currentPlayerId === entry.playerId;
             const isWinner = isClosed && entry.rank === 1;
             const isFirst = firstWithRank.has(entry.playerId);
-            const medal = isFirst
-              ? (RANK_MEDALS[entry.rank] ?? `${entry.rank}.`)
-              : "–";
+            const medal = isFirst ? (RANK_MEDALS[entry.rank] ?? `${entry.rank}.`) : "–";
             return (
-              <div
+              <PlayerRow
                 key={entry.playerId}
-                className={`flex items-center gap-3 px-5 py-3 ${
-                  isMe ? "bg-blue-50 dark:bg-blue-950/20" : ""
-                }`}
-              >
-                <span className={`shrink-0 ${isFirst ? "text-xl" : "w-6 text-center text-sm text-zinc-400 dark:text-zinc-500"}`}>
-                  {medal}
-                </span>
-                <span
-                  className={`flex-1 text-sm font-medium ${
-                    isMe
-                      ? "text-blue-700 dark:text-blue-300"
-                      : "text-zinc-800 dark:text-zinc-200"
-                  }`}
-                >
-                  {entry.displayName}
-                  {isMe && (
-                    <span className="mr-1.5 text-xs font-normal text-blue-500 dark:text-blue-400">
-                      (אתה)
-                    </span>
-                  )}
-                  {isWinner && (
-                    <span className="mr-1.5 text-xs font-normal text-amber-500 dark:text-amber-400">
-                      🏆
-                    </span>
-                  )}
-                </span>
-                <div className="flex shrink-0 flex-col items-end gap-0.5">
-                  <span
-                    dir="ltr"
-                    className={`text-sm tabular-nums font-semibold ${
-                      isMe
-                        ? "text-blue-700 dark:text-blue-300"
-                        : "text-zinc-700 dark:text-zinc-300"
-                    }`}
-                  >
-                    {Math.round(entry.winRatio * 100)}%
-                  </span>
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-                    {entry.matchesPlayed} משחקים
-                  </span>
-                </div>
-              </div>
+                entry={entry}
+                medal={medal}
+                isMe={isMe}
+                isWinner={isWinner}
+                sessions={sessions}
+              />
             );
           })}
         </div>
       )}
 
       {/* My position (if not in top 3 and list is collapsed) */}
-      {myEntry && myEntry.rank > 3 && !expanded && (
-        <div className="border-t border-zinc-100 dark:border-zinc-800 bg-blue-50 dark:bg-blue-950/20 flex items-center gap-3 px-5 py-3">
-          <span className="w-6 shrink-0 text-center text-sm font-medium text-blue-600 dark:text-blue-400 tabular-nums">
-            {firstWithRank.has(myEntry.playerId) ? myEntry.rank : "–"}
-          </span>
-          <span className="flex-1 text-sm font-medium text-blue-700 dark:text-blue-300">
-            {myEntry.displayName}
-            <span className="mr-1.5 text-xs font-normal text-blue-500 dark:text-blue-400">
-              (אתה)
-            </span>
-          </span>
-          <div className="flex shrink-0 flex-col items-end gap-0.5">
-            <span dir="ltr" className="text-sm tabular-nums font-semibold text-blue-700 dark:text-blue-300">
-              {Math.round(myEntry.winRatio * 100)}%
-            </span>
-            <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-              {myEntry.matchesPlayed} משחקים
-            </span>
-          </div>
+      {myEntry && myEntry.rank > 3 && !listExpanded && (
+        <div className="border-t border-zinc-100 dark:border-zinc-800">
+          <PlayerRow
+            entry={myEntry}
+            medal={firstWithRank.has(myEntry.playerId) ? String(myEntry.rank) : "–"}
+            isMe
+            isWinner={false}
+            sessions={sessions}
+          />
         </div>
       )}
 
@@ -188,10 +276,10 @@ export function ChallengeCard({
           <div className="border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
+              onClick={() => setListExpanded((v) => !v)}
               className="flex w-full items-center justify-center gap-1.5 px-5 py-2.5 text-sm text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
             >
-              {expanded ? (
+              {listExpanded ? (
                 <>
                   <ChevronUp className="h-4 w-4" aria-hidden />
                   הצג פחות
@@ -205,57 +293,20 @@ export function ChallengeCard({
             </button>
           </div>
 
-          {expanded && (
+          {listExpanded && (
             <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 border-t border-zinc-100 dark:border-zinc-800">
               {rest.map((entry) => {
                 const isMe = currentPlayerId === entry.playerId;
                 const isFirst = firstWithRank.has(entry.playerId);
                 return (
-                  <div
+                  <PlayerRow
                     key={entry.playerId}
-                    className={`flex items-center gap-3 px-5 py-3 ${
-                      isMe ? "bg-blue-50 dark:bg-blue-950/20" : ""
-                    }`}
-                  >
-                    <span
-                      className={`w-6 shrink-0 text-center text-sm tabular-nums ${
-                        isMe
-                          ? "font-bold text-blue-600 dark:text-blue-400"
-                          : "font-medium text-zinc-400 dark:text-zinc-500"
-                      }`}
-                    >
-                      {isFirst ? entry.rank : "–"}
-                    </span>
-                    <span
-                      className={`flex-1 text-sm font-medium ${
-                        isMe
-                          ? "text-blue-700 dark:text-blue-300"
-                          : "text-zinc-800 dark:text-zinc-200"
-                      }`}
-                    >
-                      {entry.displayName}
-                      {isMe && (
-                        <span className="mr-1.5 text-xs font-normal text-blue-500 dark:text-blue-400">
-                          (אתה)
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex shrink-0 flex-col items-end gap-0.5">
-                      <span
-                        dir="ltr"
-                        className={`text-sm tabular-nums ${
-                          isMe
-                            ? "font-bold text-blue-700 dark:text-blue-300"
-                            : "text-zinc-500 dark:text-zinc-400"
-                        }`}
-                      >
-                        {Math.round(entry.winRatio * 100)}%
-                      </span>
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-                        {entry.matchesPlayed} משחקים
-                      </span>
-                    </div>
-                  </div>
+                    entry={entry}
+                    medal={isFirst ? String(entry.rank) : "–"}
+                    isMe={isMe}
+                    isWinner={false}
+                    sessions={sessions}
+                  />
                 );
               })}
             </div>
@@ -263,54 +314,45 @@ export function ChallengeCard({
         </>
       )}
 
-      {/* Ineligible players — not yet reached threshold */}
+      {/* Ineligible players — collapsed by default */}
       {ineligible.length > 0 && (
         <div className="border-t border-zinc-100 dark:border-zinc-800">
-          <p className="px-5 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            לא עומדים בסף עדיין
-          </p>
-          <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
-            {ineligible.map((entry) => {
-              const isMe = currentPlayerId === entry.playerId;
-              return (
-                <div
-                  key={entry.playerId}
-                  className={`flex items-center gap-3 px-5 py-3 ${
-                    isMe ? "bg-blue-50 dark:bg-blue-950/20" : ""
-                  }`}
-                >
-                  <span className="w-6 shrink-0 text-center text-sm text-zinc-300 dark:text-zinc-600">
-                    –
-                  </span>
-                  <span
-                    className={`flex-1 text-sm ${
-                      isMe
-                        ? "font-medium text-blue-700 dark:text-blue-300"
-                        : "text-zinc-400 dark:text-zinc-500"
-                    }`}
-                  >
-                    {entry.displayName}
-                    {isMe && (
-                      <span className="mr-1.5 text-xs font-normal text-blue-500 dark:text-blue-400">
-                        (אתה)
-                      </span>
-                    )}
-                  </span>
-                  <div className="flex shrink-0 flex-col items-end gap-0.5">
-                    <span
-                      dir="ltr"
-                      className="text-sm tabular-nums text-zinc-400 dark:text-zinc-500"
-                    >
-                      {Math.round(entry.winRatio * 100)}%
-                    </span>
-                    <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
-                      {entry.matchesPlayed} משחקים · חסרים {entry.gamesNeeded}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => setIneligibleExpanded((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 px-5 py-3 text-right hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+          >
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+              לא עומדים בסף עדיין
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                {ineligible.length} שחקנים
+              </span>
+              {ineligibleExpanded
+                ? <ChevronUp className="h-4 w-4 text-zinc-400" aria-hidden />
+                : <ChevronDown className="h-4 w-4 text-zinc-400" aria-hidden />}
+            </div>
+          </button>
+
+          {ineligibleExpanded && (
+            <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 border-t border-zinc-100 dark:border-zinc-800">
+              {ineligible.map((entry) => {
+                const isMe = currentPlayerId === entry.playerId;
+                return (
+                  <PlayerRow
+                    key={entry.playerId}
+                    entry={entry}
+                    medal="–"
+                    isMe={isMe}
+                    isWinner={false}
+                    sessions={sessions}
+                    dimmed={!isMe}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

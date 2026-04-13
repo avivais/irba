@@ -7,6 +7,8 @@ export type ChallengeWithWinner = Challenge & {
   winner: Pick<Player, "id" | "firstNameHe" | "lastNameHe" | "firstNameEn" | "lastNameEn" | "nickname" | "phone"> | null;
 };
 
+export type ChallengeSession = { id: string; date: Date };
+
 export type ChallengeLeaderboardResult = {
   challenge: ChallengeWithWinner;
   leaderboard: LeaderboardEntry[];
@@ -15,6 +17,8 @@ export type ChallengeLeaderboardResult = {
   effectiveThreshold: number;
   /** Number of sessions charged so far in the window */
   completedSessions: number;
+  /** Ordered window sessions (for per-session breakdown display) */
+  sessions: ChallengeSession[];
 };
 
 export async function fetchChallengeLeaderboard(
@@ -35,14 +39,15 @@ export async function fetchChallengeLeaderboard(
     where: { date: { gte: challenge.startDate } },
     orderBy: { date: "asc" },
     take: challenge.sessionCount,
-    select: { id: true, isCharged: true },
+    select: { id: true, isCharged: true, date: true },
   });
 
   const windowSessionIds = windowSessions.map((s) => s.id);
   const completedSessions = windowSessions.filter((s) => s.isCharged).length;
+  const sessions: ChallengeSession[] = windowSessions.map((s) => ({ id: s.id, date: new Date(s.date) }));
 
   if (windowSessionIds.length === 0) {
-    return { challenge, leaderboard: [], ineligible: [], effectiveThreshold: 0, completedSessions: 0 };
+    return { challenge, leaderboard: [], ineligible: [], effectiveThreshold: 0, completedSessions: 0, sessions: [] };
   }
 
   // Fetch matches in window
@@ -86,7 +91,7 @@ export async function fetchChallengeLeaderboard(
     registeredPlayerIds,
   });
 
-  return { challenge, leaderboard, ineligible, effectiveThreshold, completedSessions };
+  return { challenge, leaderboard, ineligible, effectiveThreshold, completedSessions, sessions };
 }
 
 export async function fetchAllChallengeLeaderboards(): Promise<ChallengeLeaderboardResult[]> {

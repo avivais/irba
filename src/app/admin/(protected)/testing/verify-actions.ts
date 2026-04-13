@@ -429,10 +429,12 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
   },
 
   "7.3": async () => {
-    const [a, c] = await Promise.all([tp("A"), tp("C")]);
-    const challenge = await prisma.challenge.findFirst({ where: { isActive: true, isClosed: false } });
+    const a = await tp("A");
+    const challenge = await prisma.challenge.findFirst({ orderBy: { number: "desc" } });
     const sessions = await testSessionsForA();
-    if (!a || !c || !challenge || sessions.length === 0) return fail("חסרים נתונים");
+    if (!a) return fail("שחקן A לא נמצא");
+    if (!challenge) return fail("אין תחרות — בצע שלב 6.1");
+    if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש");
 
     const windowIds = [sessions[0].id];
     const matches = await prisma.match.findMany({
@@ -456,18 +458,19 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     });
 
     const entryA = leaderboard.find((e) => e.playerId === a.id);
-    const entryC = leaderboard.find((e) => e.playerId === c.id);
     if (!entryA) return fail("שחקן A לא בלוח הזכאים");
-    if (!entryC) return fail("שחקן C לא בלוח הזכאים");
-    if (entryA.rank > entryC.rank) return fail(`A מדורג ${entryA.rank}, C מדורג ${entryC.rank} — A צריך להיות ראשון`);
-    return ok(`A מקום ${entryA.rank} (${Math.round(entryA.winRatio * 100)}%), C מקום ${entryC.rank} (${Math.round(entryC.winRatio * 100)}%) ✓`);
+    if (entryA.rank !== 1) return fail(`שחקן A מדורג ${entryA.rank} במקום 1 — בדוק הרכב הקבוצות`);
+    const top3 = leaderboard.filter((e) => e.rank <= 3);
+    return ok(`שחקן A מקום 1 (${Math.round(entryA.winRatio * 100)}%), ${leaderboard.length} שחקנים זכאים, top3: ${top3.map((e) => `${e.displayName} ${Math.round(e.winRatio * 100)}%`).join(", ")} ✓`);
   },
 
   "7.4": async () => {
     const b = await tp("B");
-    const challenge = await prisma.challenge.findFirst({ where: { isActive: true, isClosed: false } });
+    const challenge = await prisma.challenge.findFirst({ orderBy: { number: "desc" } });
     const sessions = await testSessionsForA();
-    if (!b || !challenge || sessions.length === 0) return fail("חסרים נתונים");
+    if (!b) return fail("שחקן B לא נמצא");
+    if (!challenge) return fail("אין תחרות — בצע שלב 6.1");
+    if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש");
 
     const windowIds = [sessions[0].id];
     const matches = await prisma.match.findMany({

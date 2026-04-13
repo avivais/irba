@@ -269,11 +269,11 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 
 **Eligibility:** Only `REGISTERED` players compete — drop-ins are excluded entirely. Registered players must have played ≥ `effectiveThreshold` matches in the window, where `effectiveThreshold = Math.round(minMatchesPct / 100 × maxMatchesPlayed)`. `minMatchesPct = 0` → everyone qualifies.
 
-**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames, registeredPlayerIds })` — no DB imports, safe for tests. Returns `{ leaderboard: LeaderboardEntry[], ineligible: IneligibleEntry[], effectiveThreshold: number }`. Eligible: sorted by `winRatio` desc, `matchesPlayed` desc, name. Ineligible: sorted by `matchesPlayed` desc (closest to qualifying first). `IneligibleEntry` has `gamesNeeded` field. Tested in `src/lib/challenge-analytics.test.ts`.
+**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames, registeredPlayerIds })` — no DB imports, safe for tests. Returns `{ leaderboard: LeaderboardEntry[], ineligible: IneligibleEntry[], effectiveThreshold: number }`. Each entry includes `wins`, `losses`, and `sessionStats: SessionStat[]` (per-session W/L/total breakdown, one entry per window session). Eligible: sorted by `winRatio` desc, `matchesPlayed` desc, name. Ineligible: sorted by `matchesPlayed` desc (closest to qualifying first). `IneligibleEntry` has `gamesNeeded` field. Tested in `src/lib/challenge-analytics.test.ts`.
 
 **Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod — `startDate`, `sessionCount`, `minMatchesPct` only.
 
-**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — filters players to `REGISTERED` only, returns `{ leaderboard, ineligible, effectiveThreshold, completedSessions }`.
+**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — filters players to `REGISTERED` only, returns `{ leaderboard, ineligible, effectiveThreshold, completedSessions, sessions: ChallengeSession[] }`. Sessions (`id + date`) are passed through to the card for per-session breakdown labels.
 
 **Config keys:** `COMPETITION_SESSION_COUNT` (default "6"), `COMPETITION_MIN_MATCHES_PCT` (default "10"), `WA_NOTIFY_COMPETITION_WINNER_ENABLED`, `WA_NOTIFY_COMPETITION_WINNER_TEMPLATE` (vars: `{player_name}`, `{round_number}`).
 
@@ -289,8 +289,9 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 **Player-facing** (`/challenges`):
 - Login-gated; active competition at top with live leaderboard (rank, player, win%, matches played); history section below (collapsed `ChallengeCard` per past competition with winner badge).
 - `ChallengeCard` subtitle: compact one-row format "{N} מפגשים מ-{date} · סף זכאות {X} משחקים". Eligibility threshold shown as nominal game count (e.g. "5 משחקים"), not percentage.
-- Ranked eligible players (ties share rank; first gets medal, rest "–"). Greyed "לא עומדים בסף עדיין" section below for ineligible REGISTERED players showing their win% + "חסרים X משחקים" incentive text.
+- Ranked eligible players (ties share rank; first gets medal, rest "–"). Greyed "לא עומדים בסף עדיין" section below for ineligible REGISTERED players, **collapsed by default**, showing their win% + "חסרים X משחקים" incentive text.
 - Drop-in players fully excluded from all leaderboard sections. `registeredPlayerIds: Set<string>` param gates computation.
+- **`ChallengeCard` UX**: Each player row shows name + W/L count + red-green win/loss bar (`WinLossBar`) + win%. Rows with ≥1 match are clickable to expand a `SessionBreakdown` (per-session date, W/L counts, mini bar). Top-3 always visible; rest (rank 4+) behind a "הצג הכל" toggle button. Current player's row (rank 4+) pinned above the toggle when list is collapsed. Ineligible section collapses by default behind a header button showing the count.
 - `Trophy` icon in nav (`NavLinks`) for all logged-in players.
 
 ---

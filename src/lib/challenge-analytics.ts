@@ -3,13 +3,24 @@
 
 import { computeMatchStats, type MatchRecord } from "@/lib/match-analytics";
 
+export type SessionStat = {
+  sessionId: string;
+  wins: number;
+  losses: number;
+  total: number;
+};
+
 export type LeaderboardEntry = {
   playerId: string;
   displayName: string;
   /** Win ratio (0–1). Ties excluded from denominator. */
   winRatio: number;
   matchesPlayed: number;
+  wins: number;
+  losses: number;
   rank: number;
+  /** Per-session breakdown within the competition window, ordered by window session order. */
+  sessionStats: SessionStat[];
 };
 
 export type IneligibleEntry = {
@@ -18,8 +29,12 @@ export type IneligibleEntry = {
   /** Win ratio (0–1). Shown for comparison/incentive. */
   winRatio: number;
   matchesPlayed: number;
+  wins: number;
+  losses: number;
   /** How many more matches needed to reach effectiveThreshold. */
   gamesNeeded: number;
+  /** Per-session breakdown within the competition window, ordered by window session order. */
+  sessionStats: SessionStat[];
 };
 
 export type LeaderboardResult = {
@@ -55,16 +70,26 @@ export function computeLeaderboard(params: {
   const windowMatches = matches.filter((m) => windowSet.has(m.sessionId));
 
   // Compute stats for every registered player first so we can find the max
-  const allEntries: Array<LeaderboardEntry & { isEligible?: boolean }> = [];
+  const allEntries: Array<Omit<LeaderboardEntry, "rank">> = [];
   for (const [playerId, displayName] of playerNames) {
     if (!registeredPlayerIds.has(playerId)) continue; // drop-ins excluded
     const stats = computeMatchStats(playerId, windowMatches);
+
+    // Per-session breakdown
+    const sessionStats: SessionStat[] = windowSessionIds.map((sessionId) => {
+      const sessionMatches = windowMatches.filter((m) => m.sessionId === sessionId);
+      const s = computeMatchStats(playerId, sessionMatches);
+      return { sessionId, wins: s.wins, losses: s.losses, total: s.total };
+    });
+
     allEntries.push({
       playerId,
       displayName,
       winRatio: stats.winRatio,
       matchesPlayed: stats.total,
-      rank: 0,
+      wins: stats.wins,
+      losses: stats.losses,
+      sessionStats,
     });
   }
 
@@ -81,13 +106,10 @@ export function computeLeaderboard(params: {
 
   for (const entry of allEntries) {
     if (entry.matchesPlayed >= effectiveThreshold) {
-      eligibleEntries.push(entry);
+      eligibleEntries.push({ ...entry, rank: 0 });
     } else {
       ineligibleEntries.push({
-        playerId: entry.playerId,
-        displayName: entry.displayName,
-        winRatio: entry.winRatio,
-        matchesPlayed: entry.matchesPlayed,
+        ...entry,
         gamesNeeded: effectiveThreshold - entry.matchesPlayed,
       });
     }
