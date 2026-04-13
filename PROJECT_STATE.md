@@ -409,7 +409,10 @@ Admin-only page for end-to-end manual testing with automated DB-state verificati
 - Progress persisted in `localStorage` (`irba-test-plan-results`) — survives page reloads; "נקה הכל" button resets all results
 - Steps requiring player OTP login show a **"שלח OTP ל-WA שלי"** widget (`OtpLookup`): generates a fresh OTP, stores bcrypt hash in DB, sends plaintext code as a WA DM to the admin phone — secure (plaintext never hits DB or browser)
 - Full coverage: snapshot, config, player CRUD, session lifecycle, RSVP, match recording, competition setup, leaderboard, free entry, charge override, audit, payments, profile, peer ratings, regulations, config effects, WA notifications, cron endpoints, cleanup
-- Test phone numbers: A=0500000001, B=0500000002, C=0500000003, D=0500000004
+- **11 test players** (A–K, phones 0500000001–0500000011): A–C created manually, D–K auto-created by clicking "בדוק" on step 2.4 (server action creates them idempotently). D=DROP_IN, E–K=REGISTERED
+- All match steps use **5v5** (system enforces exactly 5 per team); sessions use maxPlayers=10
+- Session 1 lifecycle: 10 confirmed (A, C–K), B waitlisted then removed, K promoted from waitlist — leaves exactly 10 players for 4 matches of 5v5
+- OTP text in steps 4.1/4.2 updated to say "שלח OTP ל-WA שלי" (matching the widget label)
 
 **Nav**: `FlaskConical` icon in admin nav links (`NavLinks`) pointing to `/admin/testing`.
 

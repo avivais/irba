@@ -44,6 +44,13 @@ const TEST_PHONES = {
   B: "0500000002",
   C: "0500000003",
   D: "0500000004",
+  E: "0500000005",
+  F: "0500000006",
+  G: "0500000007",
+  H: "0500000008",
+  I: "0500000009",
+  J: "0500000010",
+  K: "0500000011",
 } as const;
 
 async function tp(key: keyof typeof TEST_PHONES) {
@@ -141,13 +148,6 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`שחקן C קיים (${p.firstNameHe ?? p.phone}), REGISTERED ✓`);
   },
 
-  "2.4": async () => {
-    const p = await tp("D");
-    if (!p) return fail(`שחקן ${TEST_PHONES.D} לא נמצא`);
-    if (p.playerKind !== "DROP_IN") return fail(`שחקן D קיים אך kind=${p.playerKind} (צריך DROP_IN)`);
-    return ok(`שחקן D קיים (${p.firstNameHe ?? p.phone}), DROP_IN ✓`);
-  },
-
   "2.5": async () => {
     const p = await tp("A");
     if (!p) return fail("שחקן A לא נמצא");
@@ -155,9 +155,31 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`Nickname: "${p.nickname}" ✓`);
   },
 
+  "2.4": async () => {
+    // Auto-create test players D–K
+    const toCreate = [
+      { phone: "0500000004", name: "מזדמן ד", kind: "DROP_IN" as const },
+      { phone: "0500000005", name: "שחקן ה", kind: "REGISTERED" as const },
+      { phone: "0500000006", name: "שחקן ו", kind: "REGISTERED" as const },
+      { phone: "0500000007", name: "שחקן ז", kind: "REGISTERED" as const },
+      { phone: "0500000008", name: "שחקן ח", kind: "REGISTERED" as const },
+      { phone: "0500000009", name: "שחקן ט", kind: "REGISTERED" as const },
+      { phone: "0500000010", name: "שחקן י", kind: "REGISTERED" as const },
+      { phone: "0500000011", name: "שחקן כ", kind: "REGISTERED" as const },
+    ];
+    let created = 0, existing = 0;
+    for (const { phone, name, kind } of toCreate) {
+      const exists = await prisma.player.findUnique({ where: { phone } });
+      if (exists) { existing++; continue; }
+      await prisma.player.create({ data: { phone, firstNameHe: name, playerKind: kind } });
+      created++;
+    }
+    return ok(`נוצרו ${created} שחקנים חדשים, ${existing} כבר היו קיימים ✓`);
+  },
+
   "2.6": async () => {
-    const players = await Promise.all([tp("A"), tp("B"), tp("C"), tp("D")]);
-    const ids = players.filter(Boolean).map((p) => p!.id);
+    const allPhones = Object.values(TEST_PHONES);
+    const ids = (await prisma.player.findMany({ where: { phone: { in: allPhones } }, select: { id: true } })).map(p => p.id);
     const [charges, payments] = await Promise.all([
       prisma.sessionCharge.aggregate({ where: { playerId: { in: ids } }, _sum: { amount: true } }),
       prisma.payment.aggregate({ where: { playerId: { in: ids } }, _sum: { amount: true } }),
@@ -172,12 +194,11 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
 
   // ── Group 3: Session ──────────────────────────────────────────────────────
   "3.1": async () => {
-    // Most recent session with maxPlayers=3 and not charged
     const session = await prisma.gameSession.findFirst({
-      where: { maxPlayers: 3, isCharged: false },
+      where: { maxPlayers: 10, isCharged: false },
       orderBy: { createdAt: "desc" },
     });
-    if (!session) return fail("לא נמצאה מפגש עם maxPlayers=3. צור מפגש חדש.");
+    if (!session) return fail("לא נמצא מפגש עם maxPlayers=10. צור מפגש חדש.");
     const dur = session.durationMinutes ? `${session.durationMinutes} דק'` : "משך לא הוגדר";
     return ok(`מפגש נמצא (${new Date(session.date).toLocaleDateString("he-IL")}), משך: ${dur} ✓`);
   },
@@ -195,28 +216,27 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש");
     const session = sessions[0];
     const count = await prisma.attendance.count({ where: { gameSessionId: session.id } });
-    if (count < 2) return fail(`רק ${count} נרשמים — הוסף שחקן B ו-C`);
-    return ok(`${count} נרשמים למפגש 1 ✓`);
+    if (count < 10) return fail(`רק ${count} נרשמים — הוסף ב, ג, ד, ה, ו, ז, ח, ט, י עד שיש 10`);
+    return ok(`${count} נרשמים למפגש 1, מפגש מלא (${session.maxPlayers}) ✓`);
   },
 
   "3.4": async () => {
-    const d = await tp("D");
+    const k = await tp("K");
     const sessions = await testSessionsForA();
-    if (!d || sessions.length === 0) return fail("חסרים נתונים");
+    if (!k || sessions.length === 0) return fail("חסרים נתונים");
     const session = sessions[0];
     const att = await prisma.attendance.findUnique({
-      where: { playerId_gameSessionId: { playerId: d.id, gameSessionId: session.id } },
+      where: { playerId_gameSessionId: { playerId: k.id, gameSessionId: session.id } },
     });
-    if (!att) return fail("מזדמן D לא נמצא במפגש");
-    // Check if waitlisted: get all attendances ordered by createdAt, see if D is beyond maxPlayers
+    if (!att) return fail("שחקן כ לא נמצא במפגש — הוסף אותו");
     const allAtts = await prisma.attendance.findMany({
       where: { gameSessionId: session.id },
       orderBy: { createdAt: "asc" },
     });
-    const dIdx = allAtts.findIndex((a) => a.playerId === d.id);
-    const isWaitlisted = dIdx >= session.maxPlayers;
-    if (!isWaitlisted) return fail(`מזדמן D הוא נרשם ${dIdx + 1} מתוך ${session.maxPlayers} — הוא מאושר, לא ברשימת המתנה`);
-    return ok(`מזדמן D ברשימת המתנה (מקום ${dIdx + 1}, מקסימום ${session.maxPlayers}) ✓`);
+    const kIdx = allAtts.findIndex((a) => a.playerId === k.id);
+    const isWaitlisted = kIdx >= session.maxPlayers;
+    if (!isWaitlisted) return fail(`שחקן כ הוא נרשם ${kIdx + 1} מתוך ${session.maxPlayers} — הוא מאושר, לא ברשימת המתנה`);
+    return ok(`שחקן כ ברשימת המתנה (מקום ${kIdx + 1}, מקסימום ${session.maxPlayers}) ✓`);
   },
 
   "3.5": async () => {
@@ -232,35 +252,37 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
   },
 
   "3.6": async () => {
-    const d = await tp("D");
+    const k = await tp("K");
     const sessions = await testSessionsForA();
-    if (!d || sessions.length === 0) return fail("חסרים נתונים");
+    if (!k || sessions.length === 0) return fail("חסרים נתונים");
     const session = sessions[0];
     const allAtts = await prisma.attendance.findMany({
       where: { gameSessionId: session.id },
       orderBy: { createdAt: "asc" },
     });
-    const dIdx = allAtts.findIndex((a) => a.playerId === d.id);
-    if (dIdx === -1) return fail("מזדמן D לא נמצא במפגש");
-    if (dIdx >= session.maxPlayers) return fail(`מזדמן D עדיין ברשימת המתנה (${dIdx + 1} > ${session.maxPlayers}) — קדם אותו`);
-    return ok(`מזדמן D מאושר (מקום ${dIdx + 1}) ✓`);
+    const kIdx = allAtts.findIndex((a) => a.playerId === k.id);
+    if (kIdx === -1) return fail("שחקן כ לא נמצא במפגש");
+    if (kIdx >= session.maxPlayers) return fail(`שחקן כ עדיין ברשימת המתנה (${kIdx + 1} > ${session.maxPlayers}) — קדם אותו`);
+    return ok(`שחקן כ מאושר (מקום ${kIdx + 1}) ✓`);
   },
 
   "3.7": async () => {
-    const [a, c, d] = await Promise.all([tp("A"), tp("C"), tp("D")]);
+    const [a, b, k] = await Promise.all([tp("A"), tp("B"), tp("K")]);
     const sessions = await testSessionsForA();
-    if (!a || !c || !d || sessions.length === 0) return fail("חסרים נתונים");
+    if (!a || !b || !k || sessions.length === 0) return fail("חסרים נתונים");
     const session = sessions[0];
     const allAtts = await prisma.attendance.findMany({
       where: { gameSessionId: session.id },
       orderBy: { createdAt: "asc" },
     });
-    const confirmedIds = allAtts.slice(0, session.maxPlayers).map((x) => x.playerId);
-    const aOk = confirmedIds.includes(a.id);
-    const cOk = confirmedIds.includes(c.id);
-    const dOk = confirmedIds.includes(d.id);
-    if (!aOk || !cOk || !dOk) return fail(`מאושרים: ${confirmedIds.length}. A=${aOk}, C=${cOk}, D=${dOk}`);
-    return ok(`מאושרים: A, C, D (${confirmedIds.length} סה"כ) ✓`);
+    const confirmedIds = new Set(allAtts.slice(0, session.maxPlayers).map((x) => x.playerId));
+    const bGone = !confirmedIds.has(b.id);
+    const kIn = confirmedIds.has(k.id);
+    const aIn = confirmedIds.has(a.id);
+    if (!aIn) return fail("שחקן א לא מאושר");
+    if (!bGone) return fail("שחקן ב עדיין מאושר — צריך להיות מוסר");
+    if (!kIn) return fail("שחקן כ לא מאושר — צריך להיות מקודם");
+    return ok(`${confirmedIds.size} שחקנים מאושרים, א ✓, ב הוסר ✓, כ קודם ✓`);
   },
 
   // ── Group 4: Public RSVP ──────────────────────────────────────────────────
@@ -300,18 +322,18 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
   },
 
   "4.4": async () => {
-    const [a, c, d] = await Promise.all([tp("A"), tp("C"), tp("D")]);
+    const [a, k] = await Promise.all([tp("A"), tp("K")]);
     const sessions = await testSessionsForA();
-    if (!a || !c || !d || sessions.length === 0) return fail("חסרים נתונים");
+    if (!a || !k || sessions.length === 0) return fail("חסרים נתונים");
     const session = sessions[0];
     const allAtts = await prisma.attendance.findMany({
       where: { gameSessionId: session.id },
       orderBy: { createdAt: "asc" },
     });
     const confirmedIds = allAtts.slice(0, session.maxPlayers).map((x) => x.playerId);
-    const ok2 = confirmedIds.includes(a.id) && confirmedIds.includes(c.id) && confirmedIds.includes(d.id);
+    const ok2 = confirmedIds.includes(a.id) && confirmedIds.includes(k.id);
     if (!ok2) return fail("רשימת המאושרים לא תואמת את הצפוי (A, C, D)");
-    return ok("מפגש 1 חזר למצב: A, C, D מאושרים ✓");
+    return ok(`מפגש 1 חזר למצב תקין: ${confirmedIds.length} שחקנים מאושרים ✓`);
   },
 
   // ── Group 5: Matches ──────────────────────────────────────────────────────
@@ -720,9 +742,10 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
 
   // ── Group 20: Cleanup ─────────────────────────────────────────────────────
   "20.1": async () => {
-    const count = await prisma.player.count({ where: { phone: { in: Object.values(TEST_PHONES) } } });
-    if (count > 0) return fail(`${count} שחקני בדיקה עדיין קיימים — שחזר את ה-snapshot`);
-    return ok("כל שחקני הבדיקה הוסרו ✓");
+    const allPhones = Object.values(TEST_PHONES);
+    const count = await prisma.player.count({ where: { phone: { in: allPhones } } });
+    if (count > 0) return fail(`${count} שחקני בדיקה עדיין קיימים (מתוך ${allPhones.length}) — שחזר את ה-snapshot`);
+    return ok(`כל ${allPhones.length} שחקני הבדיקה הוסרו ✓`);
   },
 
   "20.2": async () => {
