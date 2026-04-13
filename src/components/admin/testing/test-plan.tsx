@@ -90,10 +90,29 @@ function stepBorder(status: StepStatus) {
   return "border-zinc-100 bg-white";
 }
 
+const STORAGE_KEY = "irba-test-plan-results";
+
 export function TestPlan() {
-  const [results, setResults] = useState<Record<string, StepResult>>({});
+  const [results, setResults] = useState<Record<string, StepResult>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? (JSON.parse(saved) as Record<string, StepResult>) : {};
+    } catch {
+      return {};
+    }
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["0.1"]));
   const [isPending, startTransition] = useTransition();
+
+  function persistResults(next: Record<string, StepResult>) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  }
+
+  function clearAll() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    setResults({});
+    setExpanded(new Set(["0.1"]));
+  }
 
   function getStatus(id: string): StepStatus {
     return results[id]?.status ?? "pending";
@@ -118,13 +137,21 @@ export function TestPlan() {
   function handleVerify(step: StepDef, index: number) {
     if (!isUnlocked(index)) return;
 
-    setResults((prev) => ({ ...prev, [step.id]: { status: "verifying" } }));
+    setResults((prev) => {
+      const next = { ...prev, [step.id]: { status: "verifying" as StepStatus } };
+      persistResults(next);
+      return next;
+    });
     setExpanded((prev) => new Set(prev).add(step.id));
 
     startTransition(async () => {
       const result = await runVerification(step.id);
       const status: StepStatus = result.manual ? "manual" : result.pass ? "pass" : "fail";
-      setResults((prev) => ({ ...prev, [step.id]: { status, detail: result.detail } }));
+      setResults((prev) => {
+        const next = { ...prev, [step.id]: { status, detail: result.detail } };
+        persistResults(next);
+        return next;
+      });
 
       // Auto-expand next step if this one passed
       if ((status === "pass" || status === "manual") && index + 1 < STEPS.length) {
@@ -144,9 +171,15 @@ export function TestPlan() {
       <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium text-zinc-700">התקדמות</span>
-          <span className="text-sm text-zinc-500">
-            {passCount} / {total} צעדים
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-500">{passCount} / {total} צעדים</span>
+            <button
+              onClick={clearAll}
+              className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
+            >
+              נקה הכל
+            </button>
+          </div>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
           <div
