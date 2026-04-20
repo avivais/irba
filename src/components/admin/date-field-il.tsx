@@ -60,7 +60,7 @@ export function DateFieldIL({
         type="text"
         inputMode="numeric"
         value={display}
-        placeholder="יי.חח.שששש"
+        placeholder="d.m.yyyy"
         aria-label={ariaLabel}
         onChange={(e) => {
           const text = e.target.value;

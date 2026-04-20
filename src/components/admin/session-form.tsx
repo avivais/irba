@@ -265,7 +265,7 @@ export function SessionForm(props: Props) {
             type="text"
             inputMode="numeric"
             value={dateDisplay}
-            placeholder="יי.חח.שששש שש:דד"
+            placeholder="d.m.yyyy HH:mm"
             onChange={(e) => {
               const text = e.target.value;
               setDateDisplay(text);
