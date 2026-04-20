@@ -99,7 +99,6 @@ export function SessionForm(props: Props) {
   const [dateDisplay, setDateDisplay] = useState(() =>
     formatDateDisplay(session ? toJerusalemLocalInput(session.date) : defaults!.date),
   );
-  const datePickerRef = useRef<HTMLInputElement | null>(null);
   const [maxPlayers, setMaxPlayers] = useState(
     String(session?.maxPlayers ?? defaults!.maxPlayers),
   );
@@ -286,21 +285,10 @@ export function SessionForm(props: Props) {
             dir="ltr"
             className={`${inputBase} w-full pr-12 ${dateErrorVisible ? inputInvalid : inputNormal}`}
           />
-          <button
-            type="button"
-            onClick={() => {
-              const el = datePickerRef.current;
-              if (!el) return;
-              if (typeof el.showPicker === "function") el.showPicker();
-              else el.click();
-            }}
-            aria-label="בחר תאריך ושעה"
-            className="absolute inset-y-0 right-2 flex items-center justify-center px-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-          >
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center justify-center text-zinc-500 dark:text-zinc-400">
             <Calendar className="h-5 w-5" aria-hidden />
-          </button>
+          </div>
           <input
-            ref={datePickerRef}
             type="datetime-local"
             value={date}
             onChange={(e) => {
@@ -309,9 +297,10 @@ export function SessionForm(props: Props) {
               setDateDisplay(formatDateDisplay(v));
               setSuppressServerError(true);
             }}
-            tabIndex={-1}
-            aria-hidden
-            className="absolute inset-0 h-0 w-0 opacity-0"
+            onBlur={() => setDateBlurred(true)}
+            aria-label="בחר תאריך ושעה"
+            dir="ltr"
+            className="absolute inset-y-0 right-0 w-12 cursor-pointer opacity-0"
           />
         </div>
         <input type="hidden" name="date" value={date} />
