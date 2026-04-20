@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import {
   createSessionAction,
   updateSessionAction,
@@ -55,6 +55,33 @@ function toJerusalemLocalInput(date: Date): string {
     .slice(0, 16);
 }
 
+/** "YYYY-MM-DDTHH:mm" → "d.m.yyyy HH:mm" (no leading zeros on day/month, 2-digit time). */
+function formatDateDisplay(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!m) return "";
+  const [, y, mo, d, h, mi] = m;
+  return `${parseInt(d, 10)}.${parseInt(mo, 10)}.${y} ${h}:${mi}`;
+}
+
+/** "d.m.yyyy HH:mm" (flexible) → "YYYY-MM-DDTHH:mm", or null if invalid. */
+function parseDateDisplay(text: string): string | null {
+  const m = /^\s*(\d{1,2})\.(\d{1,2})\.(\d{4})[\s,]+(\d{1,2}):(\d{2})\s*$/.exec(text);
+  if (!m) return null;
+  const d = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10);
+  const y = parseInt(m[3], 10);
+  const h = parseInt(m[4], 10);
+  const mi = parseInt(m[5], 10);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+  // Cross-check day is valid for the given month (handles 31.2, 30.2, 31.4, etc.)
+  const check = new Date(Date.UTC(y, mo - 1, d));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d) {
+    return null;
+  }
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+}
+
 export function SessionForm(props: Props) {
   const isEdit = props.mode === "edit";
   const session = isEdit ? props.session : null;
@@ -69,6 +96,10 @@ export function SessionForm(props: Props) {
   const [date, setDate] = useState(
     session ? toJerusalemLocalInput(session.date) : defaults!.date,
   );
+  const [dateDisplay, setDateDisplay] = useState(() =>
+    formatDateDisplay(session ? toJerusalemLocalInput(session.date) : defaults!.date),
+  );
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
   const [maxPlayers, setMaxPlayers] = useState(
     String(session?.maxPlayers ?? defaults!.maxPlayers),
   );
@@ -229,18 +260,61 @@ export function SessionForm(props: Props) {
         >
           תאריך ושעה
         </label>
-        <input
-          id="session-date"
-          name="date"
-          type="datetime-local"
-          value={date}
-          onChange={(e) => onFieldChange(setDate, e.target.value)}
-          onBlur={() => setDateBlurred(true)}
-          aria-invalid={dateErrorVisible}
-          aria-describedby={dateErrorVisible ? "session-date-error" : undefined}
-          dir="ltr"
-          className={`${inputBase} ${dateErrorVisible ? inputInvalid : inputNormal}`}
-        />
+        <div className="relative">
+          <input
+            id="session-date"
+            type="text"
+            inputMode="numeric"
+            value={dateDisplay}
+            placeholder="יי.חח.שששש שש:דד"
+            onChange={(e) => {
+              const text = e.target.value;
+              setDateDisplay(text);
+              setSuppressServerError(true);
+              const iso = parseDateDisplay(text);
+              // When text doesn't parse, clear canonical date so validation catches it
+              setDate(iso ?? "");
+            }}
+            onBlur={() => {
+              setDateBlurred(true);
+              // Normalize display on blur if parseable
+              const iso = parseDateDisplay(dateDisplay);
+              if (iso) setDateDisplay(formatDateDisplay(iso));
+            }}
+            aria-invalid={dateErrorVisible}
+            aria-describedby={dateErrorVisible ? "session-date-error" : undefined}
+            dir="ltr"
+            className={`${inputBase} w-full pr-12 ${dateErrorVisible ? inputInvalid : inputNormal}`}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const el = datePickerRef.current;
+              if (!el) return;
+              if (typeof el.showPicker === "function") el.showPicker();
+              else el.click();
+            }}
+            aria-label="בחר תאריך ושעה"
+            className="absolute inset-y-0 right-2 flex items-center justify-center px-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            <Calendar className="h-5 w-5" aria-hidden />
+          </button>
+          <input
+            ref={datePickerRef}
+            type="datetime-local"
+            value={date}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDate(v);
+              setDateDisplay(formatDateDisplay(v));
+              setSuppressServerError(true);
+            }}
+            tabIndex={-1}
+            aria-hidden
+            className="absolute inset-0 h-0 w-0 opacity-0"
+          />
+        </div>
+        <input type="hidden" name="date" value={date} />
         {dateErrorVisible && (
           <p id="session-date-error" className="text-xs text-red-600 dark:text-red-400">
             {dateError}
