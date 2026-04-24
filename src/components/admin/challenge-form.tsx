@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import type { ChallengeActionState } from "@/app/admin/(protected)/challenges/actions";
+import { DateFieldIL } from "./date-field-il";
 
 type Props = {
   action: (prev: ChallengeActionState, formData: FormData) => Promise<ChallengeActionState>;
@@ -37,14 +38,11 @@ export function ChallengeForm({
         <label htmlFor="startDate" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           תאריך התחלה
         </label>
-        <input
+        <DateFieldIL
           id="startDate"
-          type="date"
           name="startDate"
           defaultValue={defaultStartDate ?? today}
-          dir="ltr"
           className={`${inputBase} ${inputNormal}`}
-          required
         />
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           מפגשים החל מתאריך זה יחשבו לתחרות

@@ -16,10 +16,10 @@ export const STEP_GROUPS: { label: string; groupKey: string }[] = [
   { label: "קבוצה 0 — Snapshot", groupKey: "0" },
   { label: "קבוצה 1 — הגדרות בסיס", groupKey: "1" },
   { label: "קבוצה 2 — ניהול שחקנים", groupKey: "2" },
-  { label: "קבוצה 3 — מחזור מפגש", groupKey: "3" },
-  { label: "קבוצה 4 — הרשמה ציבורית", groupKey: "4" },
-  { label: "קבוצה 5 — רישום משחקים", groupKey: "5" },
-  { label: "קבוצה 6 — הגדרת תחרות", groupKey: "6" },
+  { label: "קבוצה 3 — הגדרת תחרות", groupKey: "3" },
+  { label: "קבוצה 4 — מחזור מפגש", groupKey: "4" },
+  { label: "קבוצה 5 — הרשמה ציבורית", groupKey: "5" },
+  { label: "קבוצה 6 — רישום משחקים", groupKey: "6" },
   { label: "קבוצה 7 — טבלה אחרי מפגש 1", groupKey: "7" },
   { label: "קבוצה 8 — מפגש 2 מתוך 3", groupKey: "8" },
   { label: "קבוצה 9 — מפגש 3 — סיום תחרות", groupKey: "9" },
@@ -159,6 +159,46 @@ export const STEPS: StepDef[] = [
   {
     id: "3.1",
     group: "3",
+    title: "צור תחרות",
+    instructions: [
+      "עבור ליצירת תחרות חדשה",
+      "תאריך התחלה: היום",
+      "מספר מפגשים: 3",
+      "אחוז משחקים מינימלי: 50",
+      "שמור",
+    ],
+    links: [{ label: "תחרות חדשה", href: "/admin/challenges/new" }],
+    verifyFnName: "verifyChallengeActive",
+    note: "התחרות חייבת להיות קיימת לפני יצירת מפגשים כדי שהמפגשים יזקפו אליה",
+  },
+  {
+    id: "3.2",
+    group: "3",
+    title: "נסה ליצור תחרות שנייה → שגיאה",
+    instructions: [
+      "עבור ליצירת תחרות שנייה",
+      "מלא את הפרטים ושלח",
+      "צפה בהודעת שגיאה",
+    ],
+    links: [{ label: "תחרות חדשה", href: "/admin/challenges/new" }],
+    verifyFnName: "verifyOnlyOneActiveChallenge",
+  },
+  {
+    id: "3.3",
+    group: "3",
+    title: "דף ציבורי מציג תחרות פעילה",
+    instructions: [
+      'עבור לדף התחרויות',
+      'וודא תג "פעיל" מוצג על כרטיס התחרות',
+    ],
+    links: [{ label: "תחרויות", href: "/challenges" }],
+    verifyFnName: "verifyChallengeActivePublic",
+  },
+
+  // ── Group 4 ────────────────────────────────────────────────────────────────
+  {
+    id: "4.1",
+    group: "4",
     title: "צור מפגש 1 (חלון תחרות)",
     instructions: [
       "עבור ליצירת מפגש",
@@ -171,8 +211,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1Created",
   },
   {
-    id: "3.2",
-    group: "3",
+    id: "4.2",
+    group: "4",
     title: "הוסף שחקן א למפגש 1",
     instructions: [
       "עבור לדף המפגש",
@@ -182,8 +222,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1PlayerA",
   },
   {
-    id: "3.3",
-    group: "3",
+    id: "4.3",
+    group: "4",
     title: "מלא מפגש 1 עד קיבולת (ב, ג, ד, ה, ו, ז, ח, ט, י)",
     instructions: [
       "הוסף שחקנים ב, ג, ד, ה, ו, ז, ח, ט, י אחד-אחד",
@@ -192,8 +232,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1Capacity",
   },
   {
-    id: "3.4",
-    group: "3",
+    id: "4.4",
+    group: "4",
     title: "הוסף שחקן כ (רשימת המתנה)",
     instructions: [
       "הוסף שחקן כ (0500000011) — אמור לעבור לרשימת המתנה כי המפגש מלא",
@@ -201,8 +241,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1Waitlist",
   },
   {
-    id: "3.5",
-    group: "3",
+    id: "4.5",
+    group: "4",
     title: "בטל השתתפות שחקן ב",
     instructions: [
       "מחק את רישום שחקן ב — שחקן כ עדיין ברשימת המתנה",
@@ -210,8 +250,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1PlayerBRemoved",
   },
   {
-    id: "3.6",
-    group: "3",
+    id: "4.6",
+    group: "4",
     title: "קדם שחקן כ מרשימת המתנה",
     instructions: [
       'לחץ "קדם" ליד שחקן כ',
@@ -219,17 +259,17 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1KPromoted",
   },
   {
-    id: "3.7",
-    group: "3",
+    id: "4.7",
+    group: "4",
     title: "וודא רשימה מאושרת: א, ג–כ (10 שחקנים, ב הוסר)",
     instructions: ["אין פעולה — בודק שב הוסר וכ קודם, 10 שחקנים מאושרים"],
     verifyFnName: "verifySession1ConfirmedList",
   },
 
-  // ── Group 4 ────────────────────────────────────────────────────────────────
+  // ── Group 5 ────────────────────────────────────────────────────────────────
   {
-    id: "4.1",
-    group: "4",
+    id: "5.1",
+    group: "5",
     title: "הרשמה ציבורית — שחקן א (כבר נרשם)",
     instructions: [
       "פתח חלון גלישה פרטית (Incognito)",
@@ -243,8 +283,8 @@ export const STEPS: StepDef[] = [
     note: "צעד ידני — הבדיקה מוודאת שלא נוצר רשומת נוכחות כפולה",
   },
   {
-    id: "4.2",
-    group: "4",
+    id: "5.2",
+    group: "5",
     title: "הרשמה עם טלפון חדש (DROP_IN אוטומטי)",
     instructions: [
       "עבור לדף הבית בחלון פרטי, הכנס טלפון שאינו קיים במערכת (לדוגמה 0509999991)",
@@ -257,8 +297,8 @@ export const STEPS: StepDef[] = [
     note: "שחקן DROP_IN ייצור ורישום נוכחות יווצר (רשימת המתנה כי המפגש מלא)",
   },
   {
-    id: "4.3",
-    group: "4",
+    id: "5.3",
+    group: "5",
     title: "ביטול בתוך חלון סגירה",
     instructions: [
       'עבור להגדרות, קבע rsvp_close_hours = 0',
@@ -272,8 +312,8 @@ export const STEPS: StepDef[] = [
     note: "צעד ידני — בודק רק שהגדרת rsvp_close_hours קיימת ב-DB",
   },
   {
-    id: "4.4",
-    group: "4",
+    id: "5.4",
+    group: "5",
     title: "שחזר רשימה מאושרת למפגש 1",
     instructions: [
       "אם שחקן א בוטל — הוסף מחדש",
@@ -283,10 +323,10 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifySession1ConfirmedListAfterRsvp",
   },
 
-  // ── Group 5 ────────────────────────────────────────────────────────────────
+  // ── Group 6 ────────────────────────────────────────────────────────────────
   {
-    id: "5.1",
-    group: "5",
+    id: "6.1",
+    group: "6",
     title: "רשום משחק 1 (5 נגד 5) — א מנצח",
     instructions: [
       "עבור למפגש 1 → לוח משחקים",
@@ -299,8 +339,8 @@ export const STEPS: StepDef[] = [
     note: "ב לא משחק בשום משחק במפגש 1 — יישאר לא-זכאי לצורך בדיקת שלב 7.4",
   },
   {
-    id: "5.2",
-    group: "5",
+    id: "6.2",
+    group: "6",
     title: "רשום משחק 2 (5 נגד 5) — א מנצח",
     instructions: [
       "קבוצה א = [א, ד, ח, ט, י]",
@@ -310,8 +350,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifyMatch2",
   },
   {
-    id: "5.3",
-    group: "5",
+    id: "6.3",
+    group: "6",
     title: "רשום משחק 3 (5 נגד 5) — א מפסיד",
     instructions: [
       "קבוצה א = [ד, ח, ט, י, כ]",
@@ -321,8 +361,8 @@ export const STEPS: StepDef[] = [
     verifyFnName: "verifyMatch3",
   },
   {
-    id: "5.4",
-    group: "5",
+    id: "6.4",
+    group: "6",
     title: "רשום משחק 4 (5 נגד 5) — א מנצח",
     instructions: [
       "קבוצה א = [א, ה, ז, ט, כ]",
@@ -331,45 +371,6 @@ export const STEPS: StepDef[] = [
     ],
     verifyFnName: "verifyMatch4",
     note: "תוצאות: א — 3נ 1ה (75%), ג — 1נ 3ה (25%), ד (מזדמן) — אינו בדירוג, ב — 0 משחקים → לא-זכאי",
-  },
-
-  // ── Group 6 ────────────────────────────────────────────────────────────────
-  {
-    id: "6.1",
-    group: "6",
-    title: "צור תחרות",
-    instructions: [
-      "עבור ליצירת תחרות חדשה",
-      "תאריך התחלה: היום",
-      "מספר מפגשים: 3",
-      "אחוז משחקים מינימלי: 50",
-      "שמור",
-    ],
-    links: [{ label: "תחרות חדשה", href: "/admin/challenges/new" }],
-    verifyFnName: "verifyChallengeActive",
-  },
-  {
-    id: "6.2",
-    group: "6",
-    title: "נסה ליצור תחרות שנייה → שגיאה",
-    instructions: [
-      "עבור ליצירת תחרות שנייה",
-      "מלא את הפרטים ושלח",
-      "צפה בהודעת שגיאה",
-    ],
-    links: [{ label: "תחרות חדשה", href: "/admin/challenges/new" }],
-    verifyFnName: "verifyOnlyOneActiveChallenge",
-  },
-  {
-    id: "6.3",
-    group: "6",
-    title: "דף ציבורי מציג תחרות פעילה",
-    instructions: [
-      'עבור לדף התחרויות',
-      'וודא תג "פעיל" מוצג על כרטיס התחרות',
-    ],
-    links: [{ label: "תחרויות", href: "/challenges" }],
-    verifyFnName: "verifyChallengeActivePublic",
   },
 
   // ── Group 7 ────────────────────────────────────────────────────────────────

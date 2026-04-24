@@ -192,8 +192,21 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok("כל שחקני הבדיקה עם יתרה 0 ✓");
   },
 
-  // ── Group 3: Session ──────────────────────────────────────────────────────
+  // ── Group 3: Competition ──────────────────────────────────────────────────
   "3.1": async () => {
+    const challenge = await prisma.challenge.findFirst({ where: { isActive: true, isClosed: false } });
+    if (!challenge) return fail("אין תחרות פעילה. פתח תחרות ב-/admin/challenges/new.");
+    return ok(`תחרות פעילה: סיבוב ${challenge.number}, ${challenge.sessionCount} מפגשים, סף ${challenge.minMatchesPct}% ✓`);
+  },
+
+  "3.2": async () => {
+    const count = await prisma.challenge.count({ where: { isActive: true, isClosed: false } });
+    if (count !== 1) return fail(`נמצאו ${count} תחרויות פעילות — צריך בדיוק 1`);
+    return ok("בדיוק תחרות פעילה אחת ✓");
+  },
+
+  // ── Group 4: Session ──────────────────────────────────────────────────────
+  "4.1": async () => {
     const session = await prisma.gameSession.findFirst({
       where: { maxPlayers: 10, isCharged: false },
       orderBy: { createdAt: "desc" },
@@ -203,7 +216,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`מפגש נמצא (${new Date(session.date).toLocaleDateString("he-IL")}), משך: ${dur} ✓`);
   },
 
-  "3.2": async () => {
+  "4.2": async () => {
     const a = await tp("A");
     if (!a) return fail("שחקן A לא נמצא");
     const sessions = await testSessionsForA();
@@ -211,7 +224,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`שחקן A רשום ל-${sessions.length} מפגש/ים ✓`);
   },
 
-  "3.3": async () => {
+  "4.3": async () => {
     const sessions = await testSessionsForA();
     if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש");
     const session = sessions[0];
@@ -220,7 +233,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`${count} נרשמים למפגש 1, מפגש מלא (${session.maxPlayers}) ✓`);
   },
 
-  "3.4": async () => {
+  "4.4": async () => {
     const k = await tp("K");
     const sessions = await testSessionsForA();
     if (!k || sessions.length === 0) return fail("חסרים נתונים");
@@ -239,7 +252,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`שחקן כ ברשימת המתנה (מקום ${kIdx + 1}, מקסימום ${session.maxPlayers}) ✓`);
   },
 
-  "3.5": async () => {
+  "4.5": async () => {
     const b = await tp("B");
     const sessions = await testSessionsForA();
     if (!b || sessions.length === 0) return fail("חסרים נתונים");
@@ -251,7 +264,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok("שחקן B בוטל בהצלחה ✓");
   },
 
-  "3.6": async () => {
+  "4.6": async () => {
     const k = await tp("K");
     const sessions = await testSessionsForA();
     if (!k || sessions.length === 0) return fail("חסרים נתונים");
@@ -266,7 +279,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`שחקן כ מאושר (מקום ${kIdx + 1}) ✓`);
   },
 
-  "3.7": async () => {
+  "4.7": async () => {
     const [a, b, k] = await Promise.all([tp("A"), tp("B"), tp("K")]);
     const sessions = await testSessionsForA();
     if (!a || !b || !k || sessions.length === 0) return fail("חסרים נתונים");
@@ -285,8 +298,8 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`${confirmedIds.size} שחקנים מאושרים, א ✓, ב הוסר ✓, כ קודם ✓`);
   },
 
-  // ── Group 4: Public RSVP ──────────────────────────────────────────────────
-  "4.1": async () => {
+  // ── Group 5: Public RSVP ──────────────────────────────────────────────────
+  "5.1": async () => {
     const a = await tp("A");
     if (!a) return fail("שחקן A לא נמצא");
     const sessions = await testSessionsForA();
@@ -297,7 +310,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok("רישום יחיד לשחקן A, ללא כפילויות ✓");
   },
 
-  "4.2": async () => {
+  "5.2": async () => {
     // Check a new DROP_IN player was created (phone other than test phones)
     // We look for any DROP_IN created in the last hour
     const cutoff = new Date(Date.now() - 60 * 60 * 1000);
@@ -314,14 +327,14 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`שחקן מזדמן חדש: ${newDropIn.phone} (${newDropIn.firstNameHe ?? "ללא שם"}) ✓`);
   },
 
-  "4.3": async () => {
+  "5.3": async () => {
     const config = await prisma.appConfig.findUnique({ where: { key: "rsvp_close_hours" } });
     const val = Number(config?.value ?? "13");
     if (val !== 0 && val !== 999) return fail(`rsvp_close_hours=${val} — הגדר ל-0 ואז ל-999 לבדיקת ביטול`);
     return ok(`rsvp_close_hours=${val} — בדיקה ידנית ✓`);
   },
 
-  "4.4": async () => {
+  "5.4": async () => {
     const [a, k] = await Promise.all([tp("A"), tp("K")]);
     const sessions = await testSessionsForA();
     if (!a || !k || sessions.length === 0) return fail("חסרים נתונים");
@@ -336,8 +349,8 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`מפגש 1 חזר למצב תקין: ${confirmedIds.length} שחקנים מאושרים ✓`);
   },
 
-  // ── Group 5: Matches ──────────────────────────────────────────────────────
-  "5.1": async () => {
+  // ── Group 6: Matches ──────────────────────────────────────────────────────
+  "6.1": async () => {
     const sessions = await testSessionsForA();
     if (sessions.length === 0) return fail("אין מפגשים");
     const count = await prisma.match.count({ where: { sessionId: sessions[0].id } });
@@ -345,7 +358,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`${count} משחקים רשומים למפגש 1 ✓`);
   },
 
-  "5.2": async () => {
+  "6.2": async () => {
     const sessions = await testSessionsForA();
     if (sessions.length === 0) return fail("אין מפגשים");
     const count = await prisma.match.count({ where: { sessionId: sessions[0].id } });
@@ -353,7 +366,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`${count} משחקים רשומים ✓`);
   },
 
-  "5.3": async () => {
+  "6.3": async () => {
     const sessions = await testSessionsForA();
     if (sessions.length === 0) return fail("אין מפגשים");
     const count = await prisma.match.count({ where: { sessionId: sessions[0].id } });
@@ -361,25 +374,12 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     return ok(`${count} משחקים רשומים ✓`);
   },
 
-  "5.4": async () => {
+  "6.4": async () => {
     const sessions = await testSessionsForA();
     if (sessions.length === 0) return fail("אין מפגשים");
     const count = await prisma.match.count({ where: { sessionId: sessions[0].id } });
     if (count < 4) return fail(`רק ${count} משחקים — צריך 4 לבדיקת ה-threshold`);
     return ok(`${count} משחקים במפגש 1 ✓`);
-  },
-
-  // ── Group 6: Competition ──────────────────────────────────────────────────
-  "6.1": async () => {
-    const challenge = await prisma.challenge.findFirst({ where: { isActive: true, isClosed: false } });
-    if (!challenge) return fail("אין תחרות פעילה. פתח תחרות ב-/admin/challenges/new.");
-    return ok(`תחרות פעילה: סיבוב ${challenge.number}, ${challenge.sessionCount} מפגשים, סף ${challenge.minMatchesPct}% ✓`);
-  },
-
-  "6.2": async () => {
-    const count = await prisma.challenge.count({ where: { isActive: true, isClosed: false } });
-    if (count !== 1) return fail(`נמצאו ${count} תחרויות פעילות — צריך בדיוק 1`);
-    return ok("בדיוק תחרות פעילה אחת ✓");
   },
 
   // ── Group 7: Leaderboard after session 1 ─────────────────────────────────
@@ -398,8 +398,8 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     const challenge = await prisma.challenge.findFirst({ orderBy: { number: "desc" } });
     const sessions = await testSessionsForA();
     if (!d) return fail("שחקן D לא נמצא — בצע שלב 2.4");
-    if (!challenge) return fail("אין תחרות — בצע שלב 6.1");
-    if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש — בצע שלב 3.2");
+    if (!challenge) return fail("אין תחרות — בצע שלב 3.1");
+    if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש — בצע שלב 4.2");
 
     const windowIds = [sessions[0].id];
     const matches = await prisma.match.findMany({
@@ -433,7 +433,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     const challenge = await prisma.challenge.findFirst({ orderBy: { number: "desc" } });
     const sessions = await testSessionsForA();
     if (!a) return fail("שחקן A לא נמצא");
-    if (!challenge) return fail("אין תחרות — בצע שלב 6.1");
+    if (!challenge) return fail("אין תחרות — בצע שלב 3.1");
     if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש");
 
     const windowIds = [sessions[0].id];
@@ -469,7 +469,7 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
     const challenge = await prisma.challenge.findFirst({ orderBy: { number: "desc" } });
     const sessions = await testSessionsForA();
     if (!b) return fail("שחקן B לא נמצא");
-    if (!challenge) return fail("אין תחרות — בצע שלב 6.1");
+    if (!challenge) return fail("אין תחרות — בצע שלב 3.1");
     if (sessions.length === 0) return fail("שחקן A לא רשום לאף מפגש");
 
     const windowIds = [sessions[0].id];
