@@ -65,6 +65,11 @@ async function checkCompetitionCompletion(
     select: { id: true, isCharged: true },
   });
 
+  // The window must be fully populated — otherwise charging the only existing
+  // session would close a 3-session competition after just session 1 (the
+  // "last" session would simply be the only one created so far).
+  if (windowSessions.length < challenge.sessionCount) return null;
+
   // Check if the charged session is the Nth session (last in window)
   const lastSession = windowSessions[windowSessions.length - 1];
   if (!lastSession || lastSession.id !== chargedSessionId) return null;
