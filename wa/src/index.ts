@@ -74,24 +74,49 @@ async function clearSessionDir(): Promise<void> {
   );
 }
 
-async function resetSession(): Promise<void> {
-  isReady = false;
-  currentQr = null;
-  try {
-    await sock?.logout();
-  } catch {
-    // ignore — socket may already be dead
+// Throttle auto-resets so we don't hammer WhatsApp's pairing endpoint when it
+// rejects us repeatedly with 401 — that turns into a tight reset/QR/401 loop
+// where the QR is replaced before any client can scan it.
+let lastResetAt = 0;
+let isResetting = false;
+const RESET_COOLDOWN_MS = 30_000;
+
+/**
+ * Wipe auth state, tear down the current socket, and bootstrap a fresh one.
+ * Used by `POST /logout` (manual) and by the disconnect handler when WhatsApp
+ * invalidates our session (`DisconnectReason.loggedOut`).
+ *
+ * Does NOT call `sock.logout()` — when we get here we're already logged out,
+ * and calling logout on a freshly-pairing socket aggravates WhatsApp.
+ */
+async function resetSession({ manual }: { manual: boolean }): Promise<void> {
+  if (isResetting) {
+    logger.info("resetSession already in flight — skipping");
+    return;
   }
-  sock = null;
+  isResetting = true;
   try {
-    await clearSessionDir();
-    logger.info("Session cleared — reconnecting for new QR");
+    isReady = false;
+    currentQr = null;
+    lastResetAt = Date.now();
+    if (sock) {
+      try { sock.ev.removeAllListeners("connection.update"); } catch { /* ignore */ }
+      try { sock.ev.removeAllListeners("creds.update"); } catch { /* ignore */ }
+      try { sock.end(undefined); } catch { /* ignore */ }
+    }
+    sock = null;
+    try {
+      await clearSessionDir();
+      logger.info({ manual }, "Session cleared — reconnecting for new QR");
+    } catch (err) {
+      logger.error({ err }, "Failed to clear session dir — attempting reconnect anyway");
+    }
+    await connectToWhatsApp();
   } catch (err) {
-    logger.error({ err }, "Failed to clear session dir — attempting reconnect anyway");
+    logger.error({ err }, "resetSession failed");
+  } finally {
+    isResetting = false;
   }
-  connectToWhatsApp().catch((err) =>
-    logger.error({ err }, "Reconnect after reset failed"),
-  );
 }
 
 async function connectToWhatsApp(): Promise<void> {
@@ -146,12 +171,26 @@ async function connectToWhatsApp(): Promise<void> {
           );
         }, 3000);
       } else {
-        logger.warn("Logged out from WhatsApp — clearing session and re-pairing");
-        setTimeout(() => {
-          resetSession().catch((err) =>
-            logger.error({ err }, "Auto-reset after loggedOut failed"),
+        const sinceLastReset = Date.now() - lastResetAt;
+        if (sinceLastReset < RESET_COOLDOWN_MS) {
+          // Repeated loggedOut within the cooldown window means WhatsApp is
+          // refusing to pair right now (rate-limit or flagged identity). Stop
+          // auto-resetting so we don't spin a tight loop — operator hits "אפס
+          // וצור QR חדש" once things settle, which calls /logout and bypasses
+          // the cooldown.
+          currentQr = null;
+          logger.warn(
+            { sinceLastResetMs: sinceLastReset },
+            "Logged out again within cooldown — staying disconnected, awaiting manual reset",
           );
-        }, 1000);
+        } else {
+          logger.warn("Logged out from WhatsApp — clearing session and re-pairing");
+          setTimeout(() => {
+            resetSession({ manual: false }).catch((err) =>
+              logger.error({ err }, "Auto-reset after loggedOut failed"),
+            );
+          }, 3000);
+        }
       }
     }
   });
@@ -234,7 +273,10 @@ app.get("/qr", (_req: Request, res: Response) => {
 });
 
 app.post("/logout", async (_req: Request, res: Response) => {
-  await resetSession();
+  // Manual reset bypasses the cooldown — operator wouldn't press the button
+  // unless they intend to re-pair.
+  lastResetAt = 0;
+  await resetSession({ manual: true });
   res.json({ ok: true });
 });
 
