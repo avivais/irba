@@ -325,12 +325,16 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on internal port 3100. Next.js POSTs to sidecar endpoints; if `wa` is down, calls are best-effort (logs, doesn't throw).
 
 - `GET /status` → `{ ready: boolean }` — health probe
+- `GET /qr` → `{ qr: string | null }` — current pairing QR as a data URL (null when connected or not yet emitted)
 - `POST /send` → `{ to: "05xxxxxxxx", message: "text" }` — individual DM
 - `POST /send-group` → `{ groupId: "XXXXXXXXXX@g.us", message: "text" }` — group broadcast
+- `POST /send-poll` → `{ groupId, question, options[] }` — single-choice poll
+- `POST /logout` → wipes session dir + reconnects to emit a fresh QR
 - `GET /groups` → `[{ id, subject }]` — list groups the bot is in; used by admin group-search UI
 - Phone normalization: `05xxxxxxxx → 972xxxxxxxx@s.whatsapp.net`
 - Session persisted to `/opt/irba/wa-session/` (bind-mounted volume); survives deploys
-- First run: QR printed to stdout → admin scans once with dedicated WA account
+- **Auto-recovery on `loggedOut`**: when WhatsApp invalidates the bot session, the disconnect handler now wipes `SESSION_PATH` and reconnects automatically (shared `resetSession()` helper used by both `/logout` and the `DisconnectReason.loggedOut` branch). Previously the bot stayed disconnected with no QR until an operator SSHed in to delete the session dir.
+- First run / re-pair: QR appears in the `/admin/wa` UI; admin scans with dedicated WA account
 - Controlled by `WA_NOTIFY_ENABLED=true` env var (default off; set `true` on EC2)
 
 **`src/lib/wa-notify.ts`** — typed notification dispatcher; `renderTemplate` for `{placeholder}` substitution; per-type high-level functions route to group or individual DM.
@@ -351,7 +355,7 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 
 **Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
 
-**Bot status & re-link** — dedicated `/admin/wa` page (`src/app/admin/(protected)/wa/page.tsx`). Shows `WaBotStatus` widget (green/red dot, QR code when disconnected, logout button; polls every 15s). Bot status actions (`fetchWaStatusAction`, `logoutWaAction`) live in `src/app/admin/(protected)/wa/actions.ts`.
+**Bot status & re-link** — dedicated `/admin/wa` page (`src/app/admin/(protected)/wa/page.tsx`). Shows `WaBotStatus` widget (green/red dot, QR code when disconnected, action button; polls every 15s when ready, every 4s when disconnected so a fresh QR appears quickly). Action button is context-aware: **"התנתק"** when ready (sends `POST /logout` → wipes session); **"אפס וצור QR חדש"** when disconnected (same call, but framed as the manual recovery path when the bot is stuck without a QR). Bot status actions (`fetchWaStatusAction`, `logoutWaAction`) live in `src/app/admin/(protected)/wa/actions.ts`. Combined with the sidecar's auto-recovery on `loggedOut`, an admin no longer needs to SSH to the EC2 box to re-pair the WA bot.
 
 **Global status indicator** — `WaStatusDot` (`src/components/admin/wa-status-dot.tsx`) renders a green/red `h-2 w-2` dot in the admin nav (via `NavLinks`), positioned as a badge on the MessageCircle icon. Polls `fetchWaStatusAction` every 15s; shows nothing until first response. Admins see connection state on every page without visiting `/admin/wa`.
 

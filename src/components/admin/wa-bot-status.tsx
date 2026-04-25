@@ -26,14 +26,16 @@ export function WaBotStatus() {
     }
 
     void refresh();
-    // Poll every 15 s so QR stays fresh as Baileys regenerates it every ~30 s.
-    const id = setInterval(() => { void refresh(); }, 15_000);
+    // Faster polling while disconnected so the QR appears quickly after a
+    // /logout reset; back off to 15s once connected.
+    const intervalMs = status === "ready" ? 15_000 : 4_000;
+    const id = setInterval(() => { void refresh(); }, intervalMs);
 
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, []);
+  }, [status]);
 
   async function handleRefresh() {
     setBusy(true);
@@ -45,6 +47,7 @@ export function WaBotStatus() {
 
   async function handleLogout() {
     setBusy(true);
+    setQr(null);
     await logoutWaAction();
     const result = await fetchWaStatusAction();
     setStatus(result.ready ? "ready" : "disconnected");
@@ -106,6 +109,18 @@ export function WaBotStatus() {
               התנתק
             </button>
           )}
+
+          {status === "disconnected" && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} aria-hidden />
+              אפס וצור QR חדש
+            </button>
+          )}
         </div>
       </div>
 
@@ -123,7 +138,7 @@ export function WaBotStatus() {
 
       {status === "disconnected" && !qr && (
         <p className="text-center text-sm text-zinc-400 dark:text-zinc-500">
-          ממתין לקוד QR…
+          {busy ? "מאפס חיבור…" : "ממתין לקוד QR…"}
         </p>
       )}
     </div>

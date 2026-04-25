@@ -37,6 +37,28 @@ function toJid(phone: string): string {
   return `${normalised}@s.whatsapp.net`;
 }
 
+/**
+ * Wipe the on-disk auth state and re-bootstrap the socket so Baileys emits a
+ * fresh QR. Used both on explicit /logout and when WhatsApp invalidates the
+ * session (DisconnectReason.loggedOut) — without this auto-recovery, the bot
+ * stays disconnected with no QR until an operator SSHes in.
+ */
+async function resetSession(): Promise<void> {
+  isReady = false;
+  currentQr = null;
+  try {
+    await sock?.logout();
+  } catch {
+    // ignore — socket may already be dead
+  }
+  sock = null;
+  await fs.rm(SESSION_PATH, { recursive: true, force: true });
+  logger.info("Session cleared — reconnecting for new QR");
+  connectToWhatsApp().catch((err) =>
+    logger.error({ err }, "Reconnect after reset failed"),
+  );
+}
+
 async function connectToWhatsApp(): Promise<void> {
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_PATH);
   const { version } = await fetchLatestBaileysVersion();
@@ -89,9 +111,12 @@ async function connectToWhatsApp(): Promise<void> {
           );
         }, 3000);
       } else {
-        logger.error(
-          "Logged out from WhatsApp — delete the session directory and restart to re-link"
-        );
+        logger.warn("Logged out from WhatsApp — clearing session and re-pairing");
+        setTimeout(() => {
+          resetSession().catch((err) =>
+            logger.error({ err }, "Auto-reset after loggedOut failed"),
+          );
+        }, 1000);
       }
     }
   });
@@ -174,19 +199,7 @@ app.get("/qr", (_req: Request, res: Response) => {
 });
 
 app.post("/logout", async (_req: Request, res: Response) => {
-  isReady = false;
-  currentQr = null;
-  try {
-    await sock?.logout();
-  } catch {
-    // ignore — socket may already be dead
-  }
-  sock = null;
-  await fs.rm(SESSION_PATH, { recursive: true, force: true });
-  logger.info("Logged out and session cleared — reconnecting for new QR");
-  connectToWhatsApp().catch((err) =>
-    logger.error({ err }, "Reconnect after logout failed"),
-  );
+  await resetSession();
   res.json({ ok: true });
 });
 
