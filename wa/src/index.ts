@@ -5,6 +5,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import express, { Request, Response } from "express";
 import { promises as fs } from "fs";
+import path from "path";
 import pino from "pino";
 import QRCode from "qrcode";
 import qrcode from "qrcode-terminal";
@@ -15,6 +16,16 @@ const logger = pino({
   transport: process.stdout.isTTY
     ? { target: "pino-pretty", options: { colorize: true } }
     : undefined,
+});
+
+// Don't let a stray rejection (Baileys cleanup, fs error, etc.) crashloop the
+// container — the docker restart policy keeps respawning and the bot never
+// gets to the QR-emit phase.
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "unhandledRejection");
+});
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "uncaughtException");
 });
 
 const SESSION_PATH = process.env.WA_SESSION_PATH ?? "./session";
@@ -43,6 +54,26 @@ function toJid(phone: string): string {
  * session (DisconnectReason.loggedOut) — without this auto-recovery, the bot
  * stays disconnected with no QR until an operator SSHes in.
  */
+/**
+ * Empty the contents of SESSION_PATH without removing the directory itself.
+ * SESSION_PATH is a docker bind-mount — `fs.rm(SESSION_PATH, …)` on the mount
+ * point fails with EBUSY. Wipe each child entry individually instead.
+ */
+async function clearSessionDir(): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(SESSION_PATH);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw err;
+  }
+  await Promise.all(
+    entries.map((entry) =>
+      fs.rm(path.join(SESSION_PATH, entry), { recursive: true, force: true }),
+    ),
+  );
+}
+
 async function resetSession(): Promise<void> {
   isReady = false;
   currentQr = null;
@@ -52,8 +83,12 @@ async function resetSession(): Promise<void> {
     // ignore — socket may already be dead
   }
   sock = null;
-  await fs.rm(SESSION_PATH, { recursive: true, force: true });
-  logger.info("Session cleared — reconnecting for new QR");
+  try {
+    await clearSessionDir();
+    logger.info("Session cleared — reconnecting for new QR");
+  } catch (err) {
+    logger.error({ err }, "Failed to clear session dir — attempting reconnect anyway");
+  }
   connectToWhatsApp().catch((err) =>
     logger.error({ err }, "Reconnect after reset failed"),
   );
