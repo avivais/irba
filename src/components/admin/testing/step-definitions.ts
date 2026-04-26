@@ -560,18 +560,19 @@ export const STEPS: StepDef[] = [
   {
     id: "10.4",
     group: "10",
-    title: "תצוגה מקדימה — ב מציג ₪0 FREE_ENTRY",
+    title: "חייב מפגש 4 — ב מוצג ₪0 FREE_ENTRY",
     instructions: [
-      'צפה בתצוגה מקדימה של החיוב',
-      "שחקן ב אמור להיות ₪0 עם סוג FREE_ENTRY",
+      'לחץ "חייב מפגש"',
+      "בלוח החיובים — שחקן ב אמור להופיע ב-₪0 עם תג FREE_ENTRY",
     ],
     verifyFnName: "verifyFreeEntryProposal",
+    note: "אין שלב תצוגה מקדימה נפרד — החיוב מוחל מיד עם הלחיצה",
   },
   {
     id: "10.5",
     group: "10",
-    title: "אשר חיובים",
-    instructions: ["לחץ אשר חיובים"],
+    title: "וודא FreeEntry נצרך ב-DB",
+    instructions: ["אין פעולה — בודק את הסטטוס ב-DB אחרי החיוב"],
     verifyFnName: "verifyFreeEntryConsumed",
     note: "צפה: SessionCharge.amount=0 לשחקן ב, FreeEntry.usedAt מאוכלס",
   },
@@ -621,6 +622,7 @@ export const STEPS: StepDef[] = [
     ],
     links: [{ label: "מפגש חדש", href: "/admin/sessions/new" }],
     verifyFnName: "verifyDebtChargeType",
+    note: "לאחר 4 מפגשים ללא תשלומים, סביר שכל השחקנים נכנסו לחוב מצטבר ויסומנו DROP_IN — הבדיקה האוטומטית מאמתת רק את ב",
   },
   {
     id: "12.3",
