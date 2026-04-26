@@ -120,7 +120,7 @@ function MatchForm({
                     type="button"
                     onClick={() => assignPlayer(p.id, team)}
                     disabled={isPending || isTeamFull}
-                    className={`w-full rounded-lg px-2 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    className={`min-h-11 w-full rounded-lg px-2 py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       isSelected
                         ? team === "A"
                           ? "bg-blue-600 text-white dark:bg-blue-500"

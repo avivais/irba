@@ -500,7 +500,7 @@ export const STEPS: StepDef[] = [
       "אמור להופיע באנר זוכה",
     ],
     verifyFnName: "verifyCompetitionClosed",
-    note: "צפה: isClosed=true, winnerId=A, FreeEntry נוצר לשחקן א",
+    note: "צפה: isClosed=true, winnerId=B, FreeEntry נוצר לשחקן ב (ב — 83%, א — 70%)",
   },
   {
     id: "9.4",
@@ -546,24 +546,24 @@ export const STEPS: StepDef[] = [
   {
     id: "10.2",
     group: "10",
-    title: "הוסף שחקן א (זוכה) למפגש 4",
-    instructions: ["הוסף שחקן א"],
-    verifyFnName: "verifySession4PlayerA",
+    title: "הוסף שחקן ב (זוכה) למפגש 4",
+    instructions: ["הוסף שחקן ב"],
+    verifyFnName: "verifySession4PlayerB",
   },
   {
     id: "10.3",
     group: "10",
     title: "הוסף 9 שחקנים נוספים למפגש 4",
-    instructions: ["הוסף ב, ג, ה, ו, ז, ח, ט, י, כ (9 שחקנים נוספים = 10 סה\"כ)"],
+    instructions: ["הוסף א, ג, ה, ו, ז, ח, ט, י, כ (9 שחקנים נוספים = 10 סה\"כ)"],
     verifyFnName: "verifySession4ThreePlayers",
   },
   {
     id: "10.4",
     group: "10",
-    title: "תצוגה מקדימה — א מציג ₪0 FREE_ENTRY",
+    title: "תצוגה מקדימה — ב מציג ₪0 FREE_ENTRY",
     instructions: [
       'צפה בתצוגה מקדימה של החיוב',
-      "שחקן א אמור להיות ₪0 עם סוג FREE_ENTRY",
+      "שחקן ב אמור להיות ₪0 עם סוג FREE_ENTRY",
     ],
     verifyFnName: "verifyFreeEntryProposal",
   },
@@ -573,22 +573,23 @@ export const STEPS: StepDef[] = [
     title: "אשר חיובים",
     instructions: ["לחץ אשר חיובים"],
     verifyFnName: "verifyFreeEntryConsumed",
-    note: "צפה: SessionCharge.amount=0 לשחקן א, FreeEntry.usedAt מאוכלס",
+    note: "צפה: SessionCharge.amount=0 לשחקן ב, FreeEntry.usedAt מאוכלס",
   },
 
   // ── Group 11 ───────────────────────────────────────────────────────────────
   {
     id: "11.1",
     group: "11",
-    title: "עקוף חיוב שחקן ב במפגש 4",
+    title: "עקוף חיוב שחקן א במפגש 4",
     instructions: [
       "עבור למפגש 4",
-      "לחץ עריכה על חיוב שחקן ב",
+      "לחץ עריכה על חיוב שחקן א",
       "שנה סכום ב-+10",
       'הוסף סיבה "בדיקה"',
       "שמור",
     ],
     verifyFnName: "verifyChargeAudit",
+    note: "ב נמצא בכניסה חינם (₪0) — נבחן עקיפה על חיוב רגיל של א",
   },
   {
     id: "11.2",

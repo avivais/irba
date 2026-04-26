@@ -545,21 +545,21 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
   },
 
   "9.3": async () => {
-    const a = await tp("A");
-    if (!a) return fail("שחקן A לא נמצא");
+    const b = await tp("B");
+    if (!b) return fail("שחקן B לא נמצא");
     const closedChallenge = await prisma.challenge.findFirst({
       where: { isClosed: true },
       orderBy: { createdAt: "desc" },
     });
     if (!closedChallenge) return fail("אין תחרות סגורה — גבה תשלום במפגש 3");
-    if (closedChallenge.winnerId !== a.id) {
-      return fail(`התחרות נסגרה אך הזוכה הוא ${closedChallenge.winnerId} ≠ שחקן A (${a.id})`);
+    if (closedChallenge.winnerId !== b.id) {
+      return fail(`התחרות נסגרה אך הזוכה הוא ${closedChallenge.winnerId} ≠ שחקן B (${b.id})`);
     }
     const freeEntry = await prisma.freeEntry.findFirst({
-      where: { challengeId: closedChallenge.id, playerId: a.id, usedAt: null },
+      where: { challengeId: closedChallenge.id, playerId: b.id, usedAt: null },
     });
-    if (!freeEntry) return fail("לא נמצא FreeEntry לשחקן A");
-    return ok(`תחרות סגורה, זוכה: שחקן A, FreeEntry נוצר ✓`);
+    if (!freeEntry) return fail("לא נמצא FreeEntry לשחקן B");
+    return ok(`תחרות סגורה, זוכה: שחקן B, FreeEntry נוצר ✓`);
   },
 
   "9.5": async () => {
@@ -574,40 +574,40 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
 
   // ── Group 10: Free entry ──────────────────────────────────────────────────
   "10.3": async () => {
-    const a = await tp("A");
+    const b = await tp("B");
     const freeEntry = await prisma.freeEntry.findFirst({
-      where: { player: { phone: TEST_PHONES.A }, usedAt: null },
+      where: { player: { phone: TEST_PHONES.B }, usedAt: null },
     });
-    if (!a || !freeEntry) return fail("לא נמצא FreeEntry פנוי לשחקן A");
-    return ok("FreeEntry פנוי קיים לשחקן A ✓ (ודא בתצוגה מקדימה ש-A מוצג כ-₪0)");
+    if (!b || !freeEntry) return fail("לא נמצא FreeEntry פנוי לשחקן B");
+    return ok("FreeEntry פנוי קיים לשחקן B ✓ (ודא בתצוגה מקדימה ש-B מוצג כ-₪0)");
   },
 
   "10.5": async () => {
-    const a = await tp("A");
-    if (!a) return fail("שחקן A לא נמצא");
+    const b = await tp("B");
+    if (!b) return fail("שחקן B לא נמצא");
     const freeEntry = await prisma.freeEntry.findFirst({
-      where: { playerId: a.id, usedAt: { not: null } },
+      where: { playerId: b.id, usedAt: { not: null } },
       orderBy: { usedAt: "desc" },
     });
-    if (!freeEntry) return fail("FreeEntry של שחקן A עדיין לא נוצל");
+    if (!freeEntry) return fail("FreeEntry של שחקן B עדיין לא נוצל");
     const charge = await prisma.sessionCharge.findFirst({
-      where: { sessionId: freeEntry.usedInSessionId ?? "", playerId: a.id },
+      where: { sessionId: freeEntry.usedInSessionId ?? "", playerId: b.id },
     });
-    if (!charge) return fail("לא נמצא חיוב לשחקן A במפגש עם כניסה חינם");
-    if (charge.amount !== 0) return fail(`חיוב שחקן A: ₪${charge.amount} (צריך ₪0)`);
+    if (!charge) return fail("לא נמצא חיוב לשחקן B במפגש עם כניסה חינם");
+    if (charge.amount !== 0) return fail(`חיוב שחקן B: ₪${charge.amount} (צריך ₪0)`);
     if (charge.chargeType !== "FREE_ENTRY") return fail(`chargeType: ${charge.chargeType} (צריך FREE_ENTRY)`);
-    return ok(`FreeEntry נוצל, חיוב A = ₪0 (FREE_ENTRY) ✓`);
+    return ok(`FreeEntry נוצל, חיוב B = ₪0 (FREE_ENTRY) ✓`);
   },
 
   // ── Group 11: Charge override ─────────────────────────────────────────────
   "11.1": async () => {
-    const b = await tp("B");
-    if (!b) return fail("שחקן B לא נמצא");
+    const a = await tp("A");
+    if (!a) return fail("שחקן A לא נמצא");
     const audit = await prisma.chargeAuditEntry.findFirst({
-      where: { sessionCharge: { playerId: b.id } },
+      where: { sessionCharge: { playerId: a.id } },
       orderBy: { changedAt: "desc" },
     });
-    if (!audit) return fail("לא נמצא רשומת ביקורת לחיוב שחקן B");
+    if (!audit) return fail("לא נמצא רשומת ביקורת לחיוב שחקן A");
     return ok(`רשומת ביקורת נמצאה: ${audit.previousAmount}₪ → ${audit.newAmount}₪ (${audit.reason ?? "ללא סיבה"}) ✓`);
   },
 
