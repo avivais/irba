@@ -37,6 +37,9 @@ type Props = {
   className?: string;
   id?: string;
   "aria-label"?: string;
+  /** Called with the parsed ISO value ("" when invalid/empty). */
+  onChange?: (iso: string) => void;
+  invalid?: boolean;
 };
 
 /**
@@ -49,9 +52,16 @@ export function DateFieldIL({
   className = "",
   id,
   "aria-label": ariaLabel,
+  onChange,
+  invalid,
 }: Props) {
   const [iso, setIso] = useState(defaultValue);
   const [display, setDisplay] = useState(formatDateDisplay(defaultValue));
+
+  function updateIso(next: string) {
+    setIso(next);
+    onChange?.(next);
+  }
 
   return (
     <div className="relative">
@@ -62,11 +72,12 @@ export function DateFieldIL({
         value={display}
         placeholder="d.m.yyyy"
         aria-label={ariaLabel}
+        aria-invalid={invalid || undefined}
         onChange={(e) => {
           const text = e.target.value;
           setDisplay(text);
           const parsed = parseDateDisplay(text);
-          setIso(parsed ?? "");
+          updateIso(parsed ?? "");
         }}
         onBlur={() => {
           const parsed = parseDateDisplay(display);
@@ -85,7 +96,7 @@ export function DateFieldIL({
         value={iso}
         onChange={(e) => {
           const v = e.target.value;
-          setIso(v);
+          updateIso(v);
           setDisplay(formatDateDisplay(v));
         }}
         aria-label={ariaLabel ? `${ariaLabel} — בחר מלוח` : "בחר תאריך"}

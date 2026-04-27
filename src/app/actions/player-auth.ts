@@ -12,6 +12,7 @@ import {
   getPlayerSessionPlayerId,
 } from "@/lib/player-session";
 import {
+  consumeOtpSendRateLimit,
   consumePlayerLoginRateLimit,
   getClientIpFromHeaders,
 } from "@/lib/rate-limit";
@@ -107,6 +108,9 @@ export async function requestOtpAction(
 
   const clientIp = await getClientIp();
   if (!consumePlayerLoginRateLimit(clientIp)) {
+    return { ok: false, message: RATE_LIMIT_MESSAGE };
+  }
+  if (!consumeOtpSendRateLimit(phone, clientIp)) {
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 
@@ -388,6 +392,9 @@ export async function requestPasswordResetAction(
 
   const clientIp = await getClientIp();
   if (!consumePlayerLoginRateLimit(clientIp)) {
+    return { ok: false, message: RATE_LIMIT_MESSAGE };
+  }
+  if (!consumeOtpSendRateLimit(phone, clientIp)) {
     return { ok: false, message: RATE_LIMIT_MESSAGE };
   }
 

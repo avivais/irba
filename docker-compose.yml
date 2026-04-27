@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-irba}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-irba_dev_password}
@@ -17,6 +18,7 @@ services:
 
   app:
     init: true
+    restart: unless-stopped
     build:
       context: .
       args:
@@ -38,11 +40,20 @@ services:
 
   wa:
     build: ./wa
+    init: true
     restart: unless-stopped
     volumes:
       - /opt/irba/wa-session:/app/session
     environment:
       WA_SESSION_PATH: /app/session
+    healthcheck:
+      # `/status` always responds 200 once the HTTP server is up — a hung event
+      # loop will fail the check, prompting Docker to restart the container.
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3100/status >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   postgres_data:

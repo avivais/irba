@@ -7,6 +7,8 @@ import { computeMatchStats } from "@/lib/match-analytics";
 import { hash } from "bcryptjs";
 import { randomInt } from "crypto";
 import { sendWaMessage } from "@/lib/wa-notify";
+import { autoClosePastSessions } from "@/lib/auto-close-sessions";
+import { autoCreateNextSession } from "@/lib/auto-create-session";
 
 export type VerifyResult = { pass: boolean; detail: string; manual?: boolean };
 
@@ -723,27 +725,16 @@ const VERIFICATIONS: Record<string, () => Promise<VerifyResult>> = {
 
   // ── Group 19: Cron ────────────────────────────────────────────────────────
   "19.1": async () => {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) return fail("CRON_SECRET לא מוגדר בסביבה");
-    const origin = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const res = await fetch(`${origin}/api/cron/auto-close`, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
-    });
-    if (!res.ok) return fail(`auto-close החזיר ${res.status}`);
-    const body = await res.json().catch(() => ({}));
-    return ok(`auto-close: ${res.status} OK. תגובה: ${JSON.stringify(body).slice(0, 80)} ✓`);
+    const result = await autoClosePastSessions();
+    return ok(`auto-close OK: סגרו ${result.closed.length}, דילגו ${result.skipped} ✓`);
   },
 
   "19.2": async () => {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) return fail("CRON_SECRET לא מוגדר בסביבה");
-    const origin = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const res = await fetch(`${origin}/api/cron/auto-create`, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
-    });
-    if (!res.ok) return fail(`auto-create החזיר ${res.status}`);
-    const body = await res.json().catch(() => ({}));
-    return ok(`auto-create: ${res.status} OK. תגובה: ${JSON.stringify(body).slice(0, 80)} ✓`);
+    const result = await autoCreateNextSession({ force: true });
+    const summary = result.created
+      ? `נוצר מפגש ${result.sessionId}`
+      : `לא נוצר (${result.reason})`;
+    return ok(`auto-create OK: ${summary} ✓`);
   },
 
   // ── Group 20: Cleanup ─────────────────────────────────────────────────────

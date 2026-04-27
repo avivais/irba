@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { RegulationsOverlay } from "@/components/regulations-overlay";
@@ -11,6 +11,12 @@ const heebo = Heebo({
   subsets: ["hebrew", "latin"],
   variable: "--font-heebo",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
 
 export const metadata: Metadata = {
   title: {

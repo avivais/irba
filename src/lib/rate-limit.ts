@@ -6,6 +6,7 @@
 const store = new Map<string, number[]>();
 const adminLoginStore = new Map<string, number[]>();
 const playerLoginStore = new Map<string, number[]>();
+const otpSendStore = new Map<string, number[]>();
 
 function parsePositiveInt(env: string | undefined, fallback: number): number {
   if (env == null || env === "") return fallback;
@@ -98,6 +99,42 @@ export function consumePlayerLoginRateLimit(ip: string, now = Date.now()): boole
   );
 }
 
+/**
+ * OTP send: stricter limiter applied only when an OTP is being *issued* (which
+ * costs a WhatsApp send). Both the per-phone and per-IP buckets must allow the
+ * request — phone alone protects an individual victim from spam, IP alone
+ * protects the WA budget when an attacker rotates phone numbers from one host.
+ *
+ * Defaults: 3 sends per phone per 10 min, 5 sends per IP per 10 min.
+ */
+export function consumeOtpSendRateLimit(
+  phone: string,
+  ip: string,
+  now = Date.now(),
+): boolean {
+  const phoneMax = parsePositiveInt(process.env.IRBA_RL_OTP_SEND_PHONE_MAX, 3);
+  const ipMax = parsePositiveInt(process.env.IRBA_RL_OTP_SEND_IP_MAX, 5);
+  const windowMs = parsePositiveInt(
+    process.env.IRBA_RL_OTP_SEND_WINDOW_MS,
+    10 * 60 * 1000,
+  );
+  const phoneOk = slidingWindowAllow(
+    otpSendStore,
+    `otp-send-phone:${phone}`,
+    phoneMax,
+    windowMs,
+    now,
+  );
+  if (!phoneOk) return false;
+  return slidingWindowAllow(
+    otpSendStore,
+    `otp-send-ip:${ip}`,
+    ipMax,
+    windowMs,
+    now,
+  );
+}
+
 /** Vitest only — clears process-local counters between tests. */
 export function clearRsvpRateLimitStoreForTests(): void {
   store.clear();
@@ -111,4 +148,9 @@ export function clearAdminLoginRateLimitStoreForTests(): void {
 /** Vitest only — clears player login rate limit bucket. */
 export function clearPlayerLoginRateLimitStoreForTests(): void {
   playerLoginStore.clear();
+}
+
+/** Vitest only — clears OTP send rate limit bucket. */
+export function clearOtpSendRateLimitStoreForTests(): void {
+  otpSendStore.clear();
 }

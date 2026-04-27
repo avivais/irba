@@ -73,13 +73,16 @@ Backups are kept for 30 days. The nightly cron runs at 03:00 server time.
 crontab -e
 ```
 
-Add these two lines:
+Add these lines:
 ```cron
 # Daily database backup at 03:00
 0 3 * * * /opt/irba/scripts/backup.sh >> /opt/irba/backups/backup.log 2>&1
 
 # Hourly check to auto-create the next session when the lead window opens
 0 * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.sportgroup.cl/api/cron/auto-create >> /opt/irba/cron.log 2>&1
+
+# Daily audit-log prune at 03:30 (default retention: 90 days; override with AUDIT_LOG_RETENTION_DAYS in .env)
+30 3 * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.sportgroup.cl/api/cron/prune-audit >> /opt/irba/cron.log 2>&1
 ```
 
 Auto-create only fires if `SESSION_SCHEDULE_ENABLED=true` is set in admin config.
@@ -134,11 +137,14 @@ ssh -i ~/.ssh/VaisenKey.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com \
 | `RSVP_SESSION_SECRET` | Yes | Min 32 chars — signs RSVP JWT cookies |
 | `ADMIN_SESSION_SECRET` | Yes | Min 32 chars — signs admin JWT cookies |
 | `ADMIN_PASSWORD_HASH` | Yes | Bcrypt hash — generate with `npm run hash-admin-password` |
-| `CRON_SECRET` | Yes | Bearer token for `/api/cron/auto-create` — min 32 chars |
+| `CRON_SECRET` | Yes | Bearer token for `/api/cron/*` endpoints — min 32 chars |
 | `NODE_ENV` | Yes | Set to `production` |
 | `WA_NOTIFY_ENABLED` | No | Set to `true` to enable WA notifications (default: off) |
 | `IRBA_RL_ATTEND_MAX` | No | RSVP rate limit max requests (default: 15/15min) |
 | `IRBA_RL_CANCEL_MAX` | No | Cancel rate limit max requests (default: 30/15min) |
+| `IRBA_RL_OTP_SEND_PHONE_MAX` | No | OTP sends per phone (default: 3/10min) |
+| `IRBA_RL_OTP_SEND_IP_MAX` | No | OTP sends per IP (default: 5/10min) |
+| `AUDIT_LOG_RETENTION_DAYS` | No | Days of audit history to keep (default: 90) |
 
 Generate secrets:
 ```bash

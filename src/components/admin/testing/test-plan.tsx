@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { runVerification, issueTestOtp } from "@/app/admin/(protected)/testing/verify-actions";
 import { STEPS, STEP_GROUPS, type StepDef } from "./step-definitions";
@@ -93,6 +93,25 @@ export function TestPlan() {
   });
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["0.1"]));
   const [isPending, startTransition] = useTransition();
+  const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const didInitialScroll = useRef(false);
+
+  useEffect(() => {
+    if (didInitialScroll.current) return;
+    didInitialScroll.current = true;
+    const firstUntested = STEPS.find((s) => {
+      const st = results[s.id]?.status;
+      return st !== "pass" && st !== "manual";
+    });
+    if (!firstUntested || firstUntested.id === STEPS[0].id) return;
+    requestAnimationFrame(() => {
+      setExpanded((prev) => new Set(prev).add(firstUntested.id));
+      stepRefs.current[firstUntested.id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, [results]);
 
   function persistResults(next: Record<string, StepResult>) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
@@ -222,6 +241,7 @@ export function TestPlan() {
                 return (
                   <div
                     key={step.id}
+                    ref={(el) => { stepRefs.current[step.id] = el; }}
                     className={`rounded-xl border transition-colors ${stepBorder(status)} ${!unlocked ? "opacity-40" : ""}`}
                   >
                     {/* Step header */}

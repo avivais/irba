@@ -8,6 +8,7 @@ import {
   type PrecedenceActionState,
 } from "@/app/admin/(protected)/precedence/[playerId]/actions";
 import { parseAdjustmentForm } from "@/lib/adjustment-validation";
+import { DateFieldIL } from "@/components/admin/date-field-il";
 
 type AdjustmentData = {
   id: string;
@@ -81,14 +82,13 @@ export function AdjustmentForm(props: Props) {
         >
           תאריך
         </label>
-        <input
+        <DateFieldIL
           id="adj-date"
           name="date"
-          type="date"
-          value={date}
-          onChange={(e) => onFieldChange(setDate, e.target.value)}
-          aria-invalid={Boolean(fieldErrors.date)}
-          dir="ltr"
+          defaultValue={date}
+          onChange={(iso) => onFieldChange(setDate, iso)}
+          invalid={Boolean(fieldErrors.date)}
+          aria-label="תאריך"
           className={`${inputBase} ${fieldErrors.date ? inputInvalid : inputNormal}`}
         />
         {fieldErrors.date && (

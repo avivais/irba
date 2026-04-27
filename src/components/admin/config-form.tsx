@@ -1156,21 +1156,36 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
         </div>
       </section>
 
-      {/* ── Submit ──────────────────────────────────────── */}
-      <button
-        type="submit"
-        disabled={pending || !isDirty}
-        className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50 sm:w-auto sm:min-w-[14rem]"
+      {/* Spacer so sticky bar doesn't cover the last section */}
+      {isDirty && <div aria-hidden className="h-20" />}
+
+      {/* ── Sticky save bar (visible while dirty) ───────── */}
+      <div
+        className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4 transition-all duration-200 ${
+          isDirty ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
+        }`}
+        aria-hidden={!isDirty}
       >
-        {pending ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-            שומר…
-          </>
-        ) : (
-          "שמור הגדרות"
-        )}
-      </button>
+        <div className="pointer-events-auto flex w-full max-w-2xl md:max-w-4xl items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+          <span className="text-sm text-zinc-600 dark:text-zinc-300">
+            יש שינויים שלא נשמרו
+          </span>
+          <button
+            type="submit"
+            disabled={pending || !isDirty}
+            className="flex min-h-11 min-w-32 cursor-pointer items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-base font-semibold text-white shadow-md transition hover:bg-zinc-800 active:bg-zinc-700 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-zinc-300 dark:focus:ring-zinc-300/50"
+          >
+            {pending ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                שומר…
+              </>
+            ) : (
+              "שמור הגדרות"
+            )}
+          </button>
+        </div>
+      </div>
       <Toast toast={toast} onDismiss={dismiss} />
     </form>
   );

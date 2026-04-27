@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import type { RateActionState } from "@/app/admin/(protected)/config/rates/actions";
+import { DateFieldIL } from "@/components/admin/date-field-il";
 
 type Props = {
   action: (prev: RateActionState, formData: FormData) => Promise<RateActionState>;
@@ -28,14 +29,12 @@ export function HourlyRateForm({ action, defaultEffectiveFrom, defaultPricePerHo
           <label htmlFor="effectiveFrom" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             תאריך תחילת תוקף
           </label>
-          <input
+          <DateFieldIL
             id="effectiveFrom"
-            type="date"
             name="effectiveFrom"
             defaultValue={defaultEffectiveFrom}
-            dir="ltr"
+            aria-label="תאריך תחילת תוקף"
             className={`${inputBase} ${inputNormal}`}
-            required
           />
         </div>
 

@@ -60,7 +60,7 @@ export async function setAdminSessionCookie(): Promise<void> {
   store.set(ADMIN_COOKIE_NAME, token, {
     httpOnly: true,
     secure: cookieSecure(),
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     maxAge,
   });
