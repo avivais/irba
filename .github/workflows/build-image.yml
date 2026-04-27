@@ -13,7 +13,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # EC2 is Graviton (arm64). Use the native arm64 runner so we don't need
+    # QEMU emulation — same speed as x86 runners, free for public repos.
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -54,6 +56,10 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          # Single-platform: production runs on ARM64 (EC2 Graviton) and
+          # local dev is on M-series Macs (also ARM64). Adding linux/amd64
+          # would double build time for no consumer.
+          platforms: linux/arm64
           push: true
           tags: |
             ${{ steps.meta.outputs.image }}:latest
