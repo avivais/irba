@@ -3,16 +3,17 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-# Install deps and generate Prisma client here so this stage can be fully
-# cached when only app code changes (package.json + schema unchanged).
+# `npm ci`'s postinstall hook (in package.json) runs `prisma generate`, so a
+# separate `npx prisma generate` step here would be redundant.
 RUN npm ci
-RUN npx prisma generate
 
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Cap heap so a runaway TypeScript validation can't OOM the build host.
+ENV NODE_OPTIONS=--max-old-space-size=1024
 # Dummy DATABASE_URL prevents module-level throw in prisma.ts during next build.
 # The real URL is injected at runtime via docker-compose env.
 ENV DATABASE_URL="postgresql://build:placeholder@localhost:5432/build"
@@ -33,12 +34,19 @@ COPY --chown=nextjs:nodejs --from=builder /app/.next/standalone ./
 # Static assets alongside server.js (standalone server resolves these from cwd)
 COPY --chown=nextjs:nodejs --from=builder /app/.next/static ./.next/static
 COPY --chown=nextjs:nodejs --from=builder /app/public ./public
-# Full node_modules needed for `npx prisma migrate deploy` at startup.
-# Copied from the cached `deps` stage (not builder) so this layer is reused
-# across deployments when package.json and schema.prisma haven't changed.
-COPY --chown=nextjs:nodejs --from=deps /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs --from=builder /app/prisma ./prisma
 COPY --chown=nextjs:nodejs --from=builder /app/prisma.config.ts ./
+# Install ONLY the packages the entrypoint needs at startup (`prisma migrate
+# deploy` requires the prisma CLI + @prisma/client). Avoids dragging the full
+# 800MB+ deps node_modules — Next.js standalone already bundles everything the
+# app itself imports.
+COPY --chown=nextjs:nodejs --from=builder /app/package.json /app/package-lock.json ./
+# `prisma migrate deploy` loads prisma.config.ts at startup, which imports
+# `dotenv/config` and `prisma/config`. Install just those three packages
+# instead of the full deps tree (~800MB → ~70MB).
+RUN npm install --omit=dev --no-save --no-audit --no-fund --ignore-scripts \
+      prisma @prisma/client dotenv \
+    && npm cache clean --force
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 

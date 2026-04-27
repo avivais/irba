@@ -19,11 +19,11 @@ services:
   app:
     init: true
     restart: unless-stopped
-    build:
-      context: .
-      args:
-        COMMIT_HASH: ${COMMIT_HASH:-dev}
-        COMMIT_DATE: ${COMMIT_DATE:-}
+    # Image is built off-prod by .github/workflows/build-image.yml and pushed
+    # to GHCR; deploy on EC2 is a `docker compose pull && up -d`. Override the
+    # tag with IRBA_APP_IMAGE in .env (defaults to the floating `latest` tag).
+    image: ${IRBA_APP_IMAGE:-ghcr.io/avivais/irba/app:latest}
+    pull_policy: always
     env_file:
       - .env
     ports:
@@ -39,7 +39,8 @@ services:
         condition: service_healthy
 
   wa:
-    build: ./wa
+    image: ${IRBA_WA_IMAGE:-ghcr.io/avivais/irba/wa:latest}
+    pull_policy: always
     init: true
     restart: unless-stopped
     volumes:

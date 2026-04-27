@@ -1,0 +1,65 @@
+name: Build and publish images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One in-flight build per ref — newer pushes cancel older runs so EC2 always
+# pulls the most recent commit.
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: app
+            context: .
+            dockerfile: Dockerfile
+          - name: wa
+            context: ./wa
+            dockerfile: ./wa/Dockerfile
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_DATE=$(git log -1 --format='%cI')
+          echo "image=ghcr.io/${OWNER_LOWER}/irba/${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "date=${COMMIT_DATE}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache,mode=max
+          build-args: |
+            COMMIT_HASH=${{ steps.meta.outputs.sha }}
+            COMMIT_DATE=${{ steps.meta.outputs.date }}

@@ -10,14 +10,17 @@
 
 ## Deploy
 
+Images are built off-prod by `.github/workflows/build-image.yml` on every push to `main` and published to GHCR (`ghcr.io/avivais/irba/{app,wa}`). Deployment on EC2 is just `git pull → docker compose pull → docker compose up -d` — no on-box build.
+
 ```bash
 ./scripts/deploy.sh
 ```
 
-Runs a pre-deploy backup, then SSHes into EC2 and runs:
-`git pull → docker compose build → docker compose up -d`
+The script waits for the GHCR image tagged with the current commit SHA to exist before SSHing to EC2. Both services (`app` + `wa`) are pinned to that SHA via `IRBA_APP_IMAGE` / `IRBA_WA_IMAGE` env vars exported just before the compose call, so a concurrent push of `:latest` can't race the restart.
 
-**First-time setup (one-off):**
+You can also trigger the deploy from the GitHub Actions tab → "Deploy" → Run workflow (uses the same image-pull path).
+
+**First-time EC2 setup:**
 ```bash
 ssh -i ~/.ssh/VaisenKey.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com
 sudo mkdir -p /opt/irba && sudo chown ubuntu:ubuntu /opt/irba
@@ -25,18 +28,29 @@ cd /opt/irba
 git clone <repo-url> .
 cp .env.example .env
 # Edit .env — see Env Vars section below
+
+# GHCR pull authentication: the irba images are public so anonymous pulls work,
+# but rate limits are higher when authenticated. Optional but recommended:
+echo <github-pat-with-read:packages> | docker login ghcr.io -u avivais --password-stdin
 ```
 
 ---
 
 ## Rollback
 
+Deploy a previous SHA — the GHCR image for any commit on `main` is retained, so rollback is just pinning to the older tag.
+
 ```bash
-ssh -i ~/.ssh/VaisenKey.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com \
-  "cd /opt/irba && git checkout <sha> && docker compose build && docker compose up -d"
+ssh -i ~/.ssh/VaisenKey.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com bash <<REMOTE
+  cd /opt/irba
+  git checkout <sha>
+  export IRBA_APP_IMAGE=ghcr.io/avivais/irba/app:<sha>
+  export IRBA_WA_IMAGE=ghcr.io/avivais/irba/wa:<sha>
+  docker compose pull && docker compose up -d
+REMOTE
 ```
 
-To find the SHA: `git log --oneline -10`
+To find the SHA: `git log --oneline -10` (locally) or `gh run list --workflow build-image.yml --limit 10`.
 
 ---
 
@@ -86,6 +100,23 @@ Add these lines:
 ```
 
 Auto-create only fires if `SESSION_SCHEDULE_ENABLED=true` is set in admin config.
+
+---
+
+## Swap (one-off on EC2)
+
+EC2 Ubuntu AMIs ship without swap. The `next build` step on prior deploys could push the 4 GB box over its memory budget; even though builds now happen off-prod via GHCR, a 2 GB swap file is still cheap insurance against pulled-image start-up spikes (Postgres + Node + WA all warming up at once).
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboots
+free -h                                                       # verify Swap row shows 2.0G
+```
+
+To remove: `sudo swapoff /swapfile && sudo rm /swapfile` and remove the `/etc/fstab` line.
 
 ---
 

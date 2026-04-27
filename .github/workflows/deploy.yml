@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch or tag to deploy
+        description: Branch, tag, or commit SHA to deploy
         required: false
         default: main
+
+# Don't run two deploys against EC2 at the same time.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -15,6 +20,34 @@ jobs:
     environment: production
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'main' }}
+
+      - name: Resolve deploy SHA
+        id: meta
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for image
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/irba/app
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          # Public GHCR images don't need auth for HEAD on the manifest; this
+          # blocks deploy until the build-image workflow has published the SHA.
+          for i in $(seq 1 30); do
+            if docker manifest inspect "${IMAGE,,}:$SHA" >/dev/null 2>&1; then
+              echo "Image ${IMAGE,,}:$SHA is available."
+              exit 0
+            fi
+            echo "Waiting for ${IMAGE,,}:$SHA ($i/30)..."
+            sleep 10
+          done
+          echo "Image $SHA never published. Check the build-image workflow."
+          exit 1
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -27,46 +60,27 @@ jobs:
           ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com \
             "/opt/irba/scripts/backup.sh || echo 'Warning: backup failed — continuing'"
 
-      - name: Pull latest code
+      - name: Pull image and restart
+        env:
+          SHA: ${{ steps.meta.outputs.sha }}
         run: |
-          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com bash <<'EOF'
+          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com bash <<REMOTE
             set -euo pipefail
             cd /opt/irba
-            TARGET="${{ github.event.inputs.ref || 'main' }}"
-            echo "Pulling $TARGET..."
             git fetch origin
-            git log --oneline HEAD..origin/$TARGET | head -10 || true
-            git checkout $TARGET
-            git pull --ff-only origin $TARGET
-            echo "Now at: $(git log -1 --oneline)"
-          EOF
+            git checkout ${{ github.event.inputs.ref || 'main' }}
+            git pull --ff-only origin ${{ github.event.inputs.ref || 'main' }}
 
-      - name: Build Docker images
-        run: |
-          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com bash <<'EOF'
-            set -euo pipefail
-            cd /opt/irba
-            COMMIT_HASH=$(git rev-parse --short HEAD)
-            COMMIT_DATE=$(git log -1 --format='%cI')
-            echo "Building commit $COMMIT_HASH ($COMMIT_DATE)"
-            COMMIT_HASH=$COMMIT_HASH COMMIT_DATE=$COMMIT_DATE \
-              docker compose build --progress=plain 2>&1
-          EOF
+            export IRBA_APP_IMAGE=ghcr.io/avivais/irba/app:$SHA
+            export IRBA_WA_IMAGE=ghcr.io/avivais/irba/wa:$SHA
 
-      - name: Restart containers
-        run: |
-          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com bash <<'EOF'
-            set -euo pipefail
-            cd /opt/irba
+            docker compose pull
             docker compose up -d
-            echo ""
-            echo "Container status:"
             docker compose ps
-          EOF
+            docker image prune -f >/dev/null 2>&1 || true
+          REMOTE
 
       - name: Health check
         run: |
-          echo "Waiting 10s for app to start..."
-          sleep 10
-          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com \
-            'curl -sf https://irba.sportgroup.cl/api/health && echo "" || (echo "Health check failed" && exit 1)'
+          sleep 8
+          curl -sf https://irba.sportgroup.cl/api/health
