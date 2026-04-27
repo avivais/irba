@@ -43,10 +43,15 @@ COPY --chown=nextjs:nodejs --from=builder /app/prisma.config.ts ./
 COPY --chown=nextjs:nodejs --from=builder /app/package.json /app/package-lock.json ./
 # `prisma migrate deploy` loads prisma.config.ts at startup, which imports
 # `dotenv/config` and `prisma/config`. Install just those three packages
-# instead of the full deps tree (~800MB → ~70MB).
-RUN npm install --omit=dev --no-save --no-audit --no-fund --ignore-scripts \
+# instead of the full deps tree (~800MB → ~70MB). Postinstall must run so
+# Prisma can fetch the migration engine binary at build time — otherwise it
+# tries to download it at container start, which fails because node_modules
+# is root-owned and the container runs as `nextjs`. After install, chown the
+# tree so the runtime user can read it.
+RUN npm install --omit=dev --no-save --no-audit --no-fund \
       prisma @prisma/client dotenv \
-    && npm cache clean --force
+    && npm cache clean --force \
+    && chown -R nextjs:nodejs /app/node_modules
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 
