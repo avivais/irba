@@ -56,9 +56,13 @@ ssh -i "$SSH_KEY" "$HOST" bash <<REMOTE
   echo "Container status:"
   docker compose ps
 
-  # Trim old images to keep disk usage in check (keeps anything tagged or
-  # currently in use; only deletes dangling layers from previous deploys).
-  docker image prune -f >/dev/null 2>&1 || true
+  # Trim old images: remove anything not currently in use AND older than 7
+  # days. Keeps recent tags (so we have rollback options) and the running
+  # images (always referenced). The 7-day window matters because plain
+  # `docker image prune -f` only removes dangling layers and let us
+  # accumulate ~7GB of stale tagged builds last time.
+  docker image prune -af --filter "until=168h" >/dev/null 2>&1 || true
+  docker builder prune -af --filter "until=168h" >/dev/null 2>&1 || true
 REMOTE
 
 # ── 4. Health check ───────────────────────────────────────────────────────────

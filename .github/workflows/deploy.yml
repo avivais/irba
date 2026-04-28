@@ -77,7 +77,11 @@ jobs:
             docker compose pull
             docker compose up -d
             docker compose ps
-            docker image prune -f >/dev/null 2>&1 || true
+            # Aggressive prune (older than 7 days, not currently in use). Plain
+            # `image prune -f` only removes dangling layers and let stale tagged
+            # builds accumulate to ~7 GB on the 38 GB box.
+            docker image prune -af --filter "until=168h" >/dev/null 2>&1 || true
+            docker builder prune -af --filter "until=168h" >/dev/null 2>&1 || true
           REMOTE
 
       - name: Health check
