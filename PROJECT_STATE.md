@@ -800,6 +800,20 @@ Admin creates a `Challenge` with a metric (e.g. win ratio), an eligibility rule 
 
 See "Competitions / Challenges" section under "What exists today" for full implementation details.
 
+#### 14. Shared expenses (advanced charging) ✅ DONE
+
+**Models:** `SharedExpense(title, totalAmount, lookbackYears, minAttendancePct, eligibilityPool, createdBy, revertedAt?)` + `SharedExpenseCharge(sharedExpenseId, playerId, amount, manuallyAdded)`. New enum `EligibilityPool { REGISTERED_ONLY, ALL_PLAYERS }`.
+
+**Engine (`src/lib/shared-expenses.ts` pure + `shared-expenses-server.ts` DB):** `computeSharedExpenseShares(total, count)` — floor split with deterministic remainder distribution so the per-player sum equals `totalAmount` exactly. `computeEligible(candidates, sessionsTotal, minPct, pool)` — pure threshold + pool filter. `findEligiblePlayers({lookbackYears, minAttendancePct, eligibilityPool})` — DB orchestrator: rolling cutoff = `now − lookbackYears`, sessions denominator counts only `isCharged && !isArchived` sessions in window, attendance numerator uses `SessionCharge` rows (excludes waitlist-only attendance). `listAllPlayersForManualAdd()` powers the manual-add dropdown.
+
+**Balance helper (`src/lib/balance.ts`):** Updated to subtract `SharedExpenseCharge` totals alongside `SessionCharge` totals. New optional `sessionChargesTotal` / `sharedExpenseChargesTotal` breakout fields on `BalanceBreakdown`. Existing consumers still see correct `balance` / `totalCharged` / `totalPaid`.
+
+**Admin flow (`/admin/finance/shared-expenses`):** New entry on the finance dashboard. Index lists past expenses with active/reverted status. `/new` → `SharedExpenseForm` (client) — title, amount, lookback years, min attendance %, eligibility radio (registered-only default vs all players). "טען תצוגה מקדימה" calls `loadInitialPreviewAction`, populates the eligible table + the full roster. Admin can remove rows or use the searchable add-player dropdown to manually include any player from the full pool (flagged with a manual badge). Share recomputes locally on every change. Submit → `createSharedExpenseAction` re-runs eligibility server-side (rejects stale lists), validates manual IDs exist, writes parent + N children in a `prisma.$transaction`. Detail page shows criteria + per-charge rows + revert button. `revertSharedExpenseAction` soft-marks the parent (`revertedAt = now()`) and deletes the children — balances restore automatically.
+
+**Audit:** New `CREATE_SHARED_EXPENSE` and `REVERT_SHARED_EXPENSE` actions on `AuditLog`.
+
+**Tests:** `shared-expenses.test.ts` (14 cases) — share split (clean / remainder distribution / total-smaller-than-count edge / zero count / zero total), rolling cutoff (whole + fractional years), eligibility filter (threshold pass/fail, REGISTERED_ONLY vs ALL_PLAYERS, sessionsTotal=0, sort order, balance preservation). `balance.test.ts` extended with shared-expense regression cases.
+
 ---
 
-*Last updated: Apr 2026 — All Phase 1 items (#1–#11) shipped. All Phase 2 items (#12–#13) ✅ DONE.*
+*Last updated: Apr 2026 — All Phase 1 items (#1–#11) shipped. All Phase 2 items (#12–#14) ✅ DONE.*
