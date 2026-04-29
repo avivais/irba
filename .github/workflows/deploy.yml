@@ -87,4 +87,4 @@ jobs:
       - name: Health check
         run: |
           sleep 8
-          curl -sf https://irba.sportgroup.cl/api/health
+          curl -sf https://irba.club/api/health

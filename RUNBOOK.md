@@ -1,7 +1,7 @@
 # IRBA Operations Runbook
 
-**App:** https://irba.sportgroup.cl
-**Health:** https://irba.sportgroup.cl/api/health
+**App:** https://irba.club
+**Health:** https://irba.club/api/health
 **Server:** `ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com`
 **SSH key:** `~/.ssh/VaisenKey.pem`
 **Deploy dir:** `/opt/irba`
@@ -93,10 +93,10 @@ Add these lines:
 0 3 * * * /opt/irba/scripts/backup.sh >> /opt/irba/backups/backup.log 2>&1
 
 # Hourly check to auto-create the next session when the lead window opens
-0 * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.sportgroup.cl/api/cron/auto-create >> /opt/irba/cron.log 2>&1
+0 * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/auto-create >> /opt/irba/cron.log 2>&1
 
 # Daily audit-log prune at 03:30 (default retention: 90 days; override with AUDIT_LOG_RETENTION_DAYS in .env)
-30 3 * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.sportgroup.cl/api/cron/prune-audit >> /opt/irba/cron.log 2>&1
+30 3 * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/prune-audit >> /opt/irba/cron.log 2>&1
 ```
 
 Auto-create only fires if `SESSION_SCHEDULE_ENABLED=true` is set in admin config.

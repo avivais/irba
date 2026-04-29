@@ -67,4 +67,4 @@ Repeat until CI passes (`conclusion: success`).
 - Deploy and CI verification can run in parallel after the push (deploy ~3 min, CI ~45s)
 - CI checks: lint → test → build (no DB needed)
 - Common CI failures: ESLint errors, TypeScript errors, failing unit tests
-- Health endpoint: `https://irba.sportgroup.cl/api/health` — verify `version` matches the pushed commit hash
+- Health endpoint: `https://irba.club/api/health` — verify `version` matches the pushed commit hash

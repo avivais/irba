@@ -141,7 +141,7 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   wa_notify_competition_winner_template: "🏆 מזל טוב ל{player_name} על זכייה בסיבוב {round_number}! כניסה חינם למפגש הבא",
   wa_group_jid:                          "",
   wa_notify_session_open_enabled:        "true",
-  wa_notify_session_open_template:       "ההרשמה למפגש ב{date} פתוחה! כנסו ל-irba.sportgroup.cl להירשם",
+  wa_notify_session_open_template:       "ההרשמה למפגש ב{date} פתוחה! כנסו ל-irba.club להירשם",
   wa_notify_session_close_enabled:       "false",
   wa_notify_session_close_template:      "ההרשמה למפגש ב{date} נסגרה",
   wa_notify_player_registered_enabled:   "false",

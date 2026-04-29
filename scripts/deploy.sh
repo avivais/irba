@@ -70,11 +70,11 @@ step "HEALTH CHECK"
 log "Waiting 8s for app to start and run migrations..."
 sleep 8
 ssh -i "$SSH_KEY" "$HOST" bash <<REMOTE
-  response=\$(curl -sf https://irba.sportgroup.cl/api/health 2>&1) \
+  response=\$(curl -sf https://irba.club/api/health 2>&1) \
     && echo "Health: \$response" \
     || echo "Warning: health check failed — check container logs"
 REMOTE
 
 echo ""
-log "Deploy complete. https://irba.sportgroup.cl"
+log "Deploy complete. https://irba.club"
 log "Deployed: $COMMIT_HASH"

@@ -1,0 +1,16 @@
+# Secrets — Azure key
+.env.local
+.env.*.local
+
+# Generated artifacts
+assets/audio/
+assets/screenshots/
+out/
+node_modules/
+
+# Remotion bundle output
+.remotion/
+
+# OS / editor
+.DS_Store
+*.log

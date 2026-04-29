@@ -311,7 +311,7 @@ One active competition at a time. Win-% only metric. Prize = free entry for winn
 - **Build pipeline**: `.github/workflows/build-image.yml` runs on every push to `main` (matrix: `app` + `wa`), builds with `docker/build-push-action`, pushes both `:latest` and `:<short-sha>` tags to GHCR (public, anonymous-pullable), and reuses a `:buildcache` registry layer for fast incremental rebuilds. Builds happen on GitHub-hosted runners — never on the EC2 box, so deploys can no longer OOM the 4 GB host. `NODE_OPTIONS=--max-old-space-size=1024` is also set in the builder stage as a belt-and-braces cap.
 - **Deploy**: `./scripts/deploy.sh` — local entry point: waits for the GHCR image tagged with the current commit SHA to exist (polls up to 5 min), runs a pre-deploy DB backup, then SSHes to EC2: `git pull → docker compose pull → docker compose up -d → docker image prune -f`. Both services are pinned to the SHA via `IRBA_APP_IMAGE` / `IRBA_WA_IMAGE` env vars exported just before the compose call so a concurrent push of `:latest` can't race the restart. `.github/workflows/deploy.yml` does the same thing as a manual `workflow_dispatch` trigger from the Actions tab. See `RUNBOOK.md` for full ops guide.
 - **Versioning**: `COMMIT_HASH` build arg passed through `docker-compose.yml` → `Dockerfile` → baked as `NEXT_PUBLIC_COMMIT_HASH` at `next build` time. `COMMIT_DATE` is set via `git log -1 --format='%cI'` (strict ISO 8601 with full timezone offset, e.g. `2026-04-08T18:46:43+00:00`) — the full offset is required so `new Date()` on the client correctly parses UTC and `Intl.DateTimeFormat` converts to the user's local timezone. Displayed as a subtle footer on all admin pages (`src/app/admin/(protected)/layout.tsx`) and in the `/api/health` response. Footer uses `CommitInfo` client component (`src/components/admin/commit-info.tsx`) to show local-timezone date and a Hebrew relative time ("לפני X שעות") — avoids showing UTC server time to the user.
-- **Production**: live at `https://irba.sportgroup.cl` — EC2 `t4g.large` (Graviton ARM, 8 GB RAM + 2 GB swap, 50 GB gp3 EBS) → Apache TLS → localhost:3004. Instance is on a 1-year reserved instance (No Upfront, ~$30.73/mo compute) purchased 2026-04-28 — total monthly bill ~$44.50 including storage, public IPv4, tax. Renews / expires 2027-04-28; revisit whether to renew or convert to Savings Plan before then.
+- **Production**: live at `https://irba.club` — EC2 `t4g.large` (Graviton ARM, 8 GB RAM + 2 GB swap, 50 GB gp3 EBS) → Apache TLS → localhost:3004. Instance is on a 1-year reserved instance (No Upfront, ~$30.73/mo compute) purchased 2026-04-28 — total monthly bill ~$44.50 including storage, public IPv4, tax. Renews / expires 2027-04-28; revisit whether to renew or convert to Savings Plan before then.
 - **Monitoring**: CloudWatch Agent runs on the EC2 instance under namespace `IRBA/EC2`, pushing `mem_used_percent`, `swap_used_percent`, `disk_used_percent` every 60 s. Four alarms (`irba-ec2-{cpu,memory,disk,status-check}-*`): CPU > 90% / 5 min, memory > 90% / 5 min, disk > 85% / 15 min route to SNS topic `irba-alarms-info` (email to `avivais@gmail.com`); `StatusCheckFailed` ≥ 1 / 2 min routes to `irba-alarms-critical` (email + SMS to `+972507666550`). Disk-high alarm has full dimensions (`InstanceId`, `path=/`, `device=nvme0n1p1`, `fstype=ext4`) — partial dimensions silently won't match the metric. Instance has `IrbaEC2CloudWatchAgent` IAM role (with `CloudWatchAgentServerPolicy`) attached so it can publish without static credentials.
 - **Billing**: AWS Budgets has a `"My Monthly Cost Budget"` set to $60/month with notifications at 85% actual, 100% actual, and 100% forecast — all email to `avivais@gmail.com`.
 - **Custom 404**: `src/app/not-found.tsx` — Hebrew page ("הדף לא נמצא") with back-to-home link; fixes RTL layout issue with the default Next.js 404 page.
@@ -372,7 +372,7 @@ Idempotent endpoint called hourly by EC2 cron. Bearer-token auth (`CRON_SECRET`)
 3. If `now >= sessionTime - autoCreateHours` and no session exists for that Israel day → create session + notify WA group (if `wa_notify_session_open_enabled` and `wa_group_jid` set)
 4. Otherwise → `{ created: false, reason }` (idempotent)
 
-EC2 cron: `0 * * * * curl -s -H "Authorization: Bearer ..." https://irba.sportgroup.cl/api/cron/auto-create`
+EC2 cron: `0 * * * * curl -s -H "Authorization: Bearer ..." https://irba.club/api/cron/auto-create`
 
 Core logic extracted to `src/lib/auto-create-session.ts` (`autoCreateNextSession({ force? })`). The cron route calls it normally; the admin config page has a **"הרץ עכשיו"** button (in the "לוח זמנים" section) that calls `runAutoCreateAction` with `force: true` to bypass the lead-time window check. Result shown as a toast.
 
@@ -394,7 +394,7 @@ Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); aler
 
 Idempotent endpoint called daily by EC2 cron. Bearer-token auth (`CRON_SECRET`). Deletes `AuditLog` rows where `timestamp < now − retentionDays` (default 90, override with `AUDIT_LOG_RETENTION_DAYS` env var, clamped to `[1, 3650]`). Returns `{ deleted, cutoff }`.
 
-EC2 cron: `30 3 * * * curl -s -H "Authorization: Bearer ..." https://irba.sportgroup.cl/api/cron/prune-audit`
+EC2 cron: `30 3 * * * curl -s -H "Authorization: Bearer ..." https://irba.club/api/cron/prune-audit`
 
 Core logic in `src/lib/audit-prune.ts` (`pruneAuditLogs(retentionDays)`).
 
@@ -736,7 +736,7 @@ Players must read and accept the IRBA regulations before using the app.
 - ✅ Ops runbook (`RUNBOOK.md`) — deploy, rollback, DB restore, WA re-auth, env vars, cron setup
 - ✅ Health monitoring: `GET /api/health`; 200 = DB up, 503 = down
 - ✅ CSP header in `next.config.ts`
-- ✅ **Deployed**: `https://irba.sportgroup.cl` — EC2 → Apache TLS → localhost:3004 → Docker
+- ✅ **Deployed**: `https://irba.club` — EC2 → Apache TLS → localhost:3004 → Docker
 - ✅ Auto-create cron running hourly on EC2
 - ✅ Uptime alerts — UptimeRobot free tier, public status page: https://stats.uptimerobot.com/dHQF2WHXL9
 - Redis rate limits — single replica, in-memory is fine for now

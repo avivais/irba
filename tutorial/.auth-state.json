@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "irba_player_session",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJyZW1lbWJlck1lIjpmYWxzZSwic3ViIjoiY21uZWU4NTY4MDAwMDA3bXl1MG1lOXc3ZiIsImlzcyI6ImlyYmEiLCJhdWQiOiJpcmJhLXBsYXllciIsImlhdCI6MTc3NzM4Njc0OSwiZXhwIjoxNzc3NDI5OTQ5fQ.K2u9UFFF77rCDiGG0LIcZnkcOUQHKCjDSdZm99FAFm8",
+      "domain": "irba.sportgroup.cl",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
