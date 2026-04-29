@@ -35,4 +35,27 @@ describe("computeBalanceFromTotals", () => {
     const result = computeBalanceFromTotals(300, 0);
     expect(result.balance).toBe(300);
   });
+
+  it("subtracts shared-expense charges from balance", () => {
+    const result = computeBalanceFromTotals(200, 100, 50);
+    expect(result.balance).toBe(50);
+    expect(result.totalPaid).toBe(200);
+    expect(result.totalCharged).toBe(150);
+    expect(result.sessionChargesTotal).toBe(100);
+    expect(result.sharedExpenseChargesTotal).toBe(50);
+  });
+
+  it("treats shared-expense-only debt the same as session-charge debt", () => {
+    const sessionOnly = computeBalanceFromTotals(0, 50, 0);
+    const sharedOnly = computeBalanceFromTotals(0, 0, 50);
+    expect(sharedOnly.balance).toBe(sessionOnly.balance);
+    expect(sharedOnly.totalCharged).toBe(50);
+  });
+
+  it("defaults sharedExpenseChargesTotal to 0 when omitted", () => {
+    const result = computeBalanceFromTotals(100, 30);
+    expect(result.sharedExpenseChargesTotal).toBe(0);
+    expect(result.totalCharged).toBe(30);
+    expect(result.balance).toBe(70);
+  });
 });

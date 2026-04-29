@@ -36,6 +36,11 @@ enum ChargeType {
   FREE_ENTRY
 }
 
+enum EligibilityPool {
+  REGISTERED_ONLY
+  ALL_PLAYERS
+}
+
 model Player {
   id          String     @id @default(cuid())
   phone       String     @unique
@@ -64,13 +69,15 @@ model Player {
 
   computedRank Float?
 
-  attendances    Attendance[]
-  yearAggregates PlayerYearAggregate[]
-  adjustments    PlayerAdjustment[]
-  payments       Payment[]
-  sessionCharges SessionCharge[]
-  freeEntries    FreeEntry[]
-  wonChallenges  Challenge[]     @relation("ChallengeWinner")
+  attendances           Attendance[]
+  yearAggregates        PlayerYearAggregate[]
+  adjustments           PlayerAdjustment[]
+  payments              Payment[]
+  sessionCharges        SessionCharge[]
+  freeEntries           FreeEntry[]
+  wonChallenges         Challenge[]           @relation("ChallengeWinner")
+  sharedExpenseCharges  SharedExpenseCharge[]
+  sharedExpensesCreated SharedExpense[]       @relation("SharedExpenseCreator")
 
   @@index([phone])
   @@index([nickname])
@@ -277,6 +284,39 @@ model FreeEntry {
 
   @@index([playerId])
   @@index([challengeId])
+}
+
+model SharedExpense {
+  id               String                @id @default(cuid())
+  title            String
+  description      String?
+  totalAmount      Int
+  lookbackYears    Float
+  minAttendancePct Float
+  eligibilityPool  EligibilityPool
+  createdById      String
+  createdAt        DateTime              @default(now())
+  revertedAt       DateTime?
+
+  createdBy Player                @relation("SharedExpenseCreator", fields: [createdById], references: [id])
+  charges   SharedExpenseCharge[]
+
+  @@index([createdAt])
+}
+
+model SharedExpenseCharge {
+  id              String   @id @default(cuid())
+  sharedExpenseId String
+  playerId        String
+  amount          Int
+  manuallyAdded   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  sharedExpense SharedExpense @relation(fields: [sharedExpenseId], references: [id], onDelete: Cascade)
+  player        Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([sharedExpenseId, playerId])
+  @@index([playerId])
 }
 
 model AuditLog {

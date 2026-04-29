@@ -2,6 +2,8 @@ export type BalanceBreakdown = {
   totalPaid: number;
   totalCharged: number;
   balance: number;
+  sessionChargesTotal: number;
+  sharedExpenseChargesTotal: number;
 };
 
 /**
@@ -11,9 +13,17 @@ export type BalanceBreakdown = {
  */
 export function computeBalanceFromTotals(
   totalPaid: number,
-  totalCharged: number,
+  sessionChargesTotal: number,
+  sharedExpenseChargesTotal = 0,
 ): BalanceBreakdown {
-  return { totalPaid, totalCharged, balance: totalPaid - totalCharged };
+  const totalCharged = sessionChargesTotal + sharedExpenseChargesTotal;
+  return {
+    totalPaid,
+    totalCharged,
+    balance: totalPaid - totalCharged,
+    sessionChargesTotal,
+    sharedExpenseChargesTotal,
+  };
 }
 
 /**
@@ -24,7 +34,7 @@ export async function computePlayerBalance(
   playerId: string,
 ): Promise<BalanceBreakdown> {
   const { prisma } = await import("./prisma");
-  const [paymentsAgg, chargesAgg] = await Promise.all([
+  const [paymentsAgg, chargesAgg, sharedAgg] = await Promise.all([
     prisma.payment.aggregate({
       where: { playerId },
       _sum: { amount: true },
@@ -33,15 +43,21 @@ export async function computePlayerBalance(
       where: { playerId },
       _sum: { amount: true },
     }),
+    prisma.sharedExpenseCharge.aggregate({
+      where: { playerId },
+      _sum: { amount: true },
+    }),
   ]);
 
-  const totalPaid = paymentsAgg._sum.amount ?? 0;
-  const totalCharged = chargesAgg._sum.amount ?? 0;
-  return computeBalanceFromTotals(totalPaid, totalCharged);
+  return computeBalanceFromTotals(
+    paymentsAgg._sum.amount ?? 0,
+    chargesAgg._sum.amount ?? 0,
+    sharedAgg._sum.amount ?? 0,
+  );
 }
 
 /**
- * Bulk: compute balances for many players in two queries.
+ * Bulk: compute balances for many players in three queries.
  * Returns a Map<playerId, BalanceBreakdown>.
  */
 export async function computePlayerBalances(
@@ -50,13 +66,18 @@ export async function computePlayerBalances(
   if (playerIds.length === 0) return new Map();
 
   const { prisma } = await import("./prisma");
-  const [payments, charges] = await Promise.all([
+  const [payments, charges, sharedCharges] = await Promise.all([
     prisma.payment.groupBy({
       by: ["playerId"],
       where: { playerId: { in: playerIds } },
       _sum: { amount: true },
     }),
     prisma.sessionCharge.groupBy({
+      by: ["playerId"],
+      where: { playerId: { in: playerIds } },
+      _sum: { amount: true },
+    }),
+    prisma.sharedExpenseCharge.groupBy({
       by: ["playerId"],
       where: { playerId: { in: playerIds } },
       _sum: { amount: true },
@@ -69,12 +90,20 @@ export async function computePlayerBalances(
   const chargedMap = new Map(
     charges.map((r) => [r.playerId, r._sum.amount ?? 0]),
   );
+  const sharedMap = new Map(
+    sharedCharges.map((r) => [r.playerId, r._sum.amount ?? 0]),
+  );
 
   const result = new Map<string, BalanceBreakdown>();
   for (const id of playerIds) {
-    const totalPaid = paidMap.get(id) ?? 0;
-    const totalCharged = chargedMap.get(id) ?? 0;
-    result.set(id, computeBalanceFromTotals(totalPaid, totalCharged));
+    result.set(
+      id,
+      computeBalanceFromTotals(
+        paidMap.get(id) ?? 0,
+        chargedMap.get(id) ?? 0,
+        sharedMap.get(id) ?? 0,
+      ),
+    );
   }
   return result;
 }
