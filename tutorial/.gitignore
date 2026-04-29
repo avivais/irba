@@ -2,6 +2,9 @@
 .env.local
 .env.*.local
 
+# Playwright session cookie — never commit (impersonation risk)
+.auth-state.json
+
 # Generated artifacts
 assets/audio/
 assets/screenshots/
