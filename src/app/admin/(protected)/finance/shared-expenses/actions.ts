@@ -4,14 +4,16 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
+import { computeSharedExpenseShares } from "@/lib/shared-expenses";
+import type {
+  EligibilityPool,
+  EligiblePlayer,
+  RosterPlayer,
+} from "@/lib/shared-expenses";
 import {
-  computeSharedExpenseShares,
   findEligiblePlayers,
   listAllPlayersForManualAdd,
-  type EligibilityPool,
-  type EligiblePlayer,
-  type RosterPlayer,
-} from "@/lib/shared-expenses";
+} from "@/lib/shared-expenses-server";
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
 

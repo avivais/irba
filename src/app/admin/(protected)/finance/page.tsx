@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Receipt } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getPlayerDisplayName } from "@/lib/player-display";
+import { computePlayerBalances } from "@/lib/balance";
 
 export const metadata: Metadata = { title: "פיננסים" };
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ function formatDate(d: Date): string {
 }
 
 export default async function AdminFinancePage() {
-  const [players, paymentsAgg, chargesAgg, recentPayments, recentCharges] =
+  const [players, recentPayments, recentCharges] =
     await Promise.all([
       prisma.player.findMany({
         where: { isAdmin: false },
@@ -37,14 +39,6 @@ export default async function AdminFinancePage() {
           phone: true,
           playerKind: true,
         },
-      }),
-      prisma.payment.groupBy({
-        by: ["playerId"],
-        _sum: { amount: true },
-      }),
-      prisma.sessionCharge.groupBy({
-        by: ["playerId"],
-        _sum: { amount: true },
       }),
       prisma.payment.findMany({
         orderBy: { date: "desc" },
@@ -92,13 +86,16 @@ export default async function AdminFinancePage() {
       }),
     ]);
 
-  const paidMap = new Map(paymentsAgg.map((r) => [r.playerId, r._sum.amount ?? 0]));
-  const chargedMap = new Map(chargesAgg.map((r) => [r.playerId, r._sum.amount ?? 0]));
+  const balances = await computePlayerBalances(players.map((p) => p.id));
 
   const playerRows = players.map((p) => {
-    const totalPaid = paidMap.get(p.id) ?? 0;
-    const totalCharged = chargedMap.get(p.id) ?? 0;
-    return { ...p, totalPaid, totalCharged, balance: totalPaid - totalCharged };
+    const b = balances.get(p.id);
+    return {
+      ...p,
+      totalPaid: b?.totalPaid ?? 0,
+      totalCharged: b?.totalCharged ?? 0,
+      balance: b?.balance ?? 0,
+    };
   });
 
   // Sort: biggest debtors first
@@ -149,6 +146,22 @@ export default async function AdminFinancePage() {
               </span>
             </div>
           ))}
+        </section>
+
+        {/* Shared expenses entry */}
+        <section>
+          <Link
+            href="/admin/finance/shared-expenses"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800/50"
+          >
+            <div className="flex items-center gap-3">
+              <Receipt className="h-5 w-5 text-zinc-500 dark:text-zinc-400" aria-hidden />
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                חיובים משותפים
+              </span>
+            </div>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">→</span>
+          </Link>
         </section>
 
         {/* Debtors */}
