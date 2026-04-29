@@ -212,32 +212,59 @@ export function parseProfileForm(
     return { ok: false, errors };
   }
 
+  const errors: ProfileFieldErrors = {};
+
   const nickname = parsed.data.nickname?.trim() || null;
-  const firstNameHe = parsed.data.firstNameHe?.trim() || null;
-  const lastNameHe = parsed.data.lastNameHe?.trim() || null;
   const firstNameEn = parsed.data.firstNameEn?.trim() || null;
   const lastNameEn = parsed.data.lastNameEn?.trim() || null;
-  const email = parsed.data.email?.trim() || null;
+
+  const firstNameHe = parsed.data.firstNameHe?.trim() || null;
+  if (!firstNameHe) errors.firstNameHe = "נא להזין שם פרטי";
+
+  const lastNameHe = parsed.data.lastNameHe?.trim() || null;
+  if (!lastNameHe) errors.lastNameHe = "נא להזין שם משפחה";
+
+  const emailTrimmed = parsed.data.email?.trim() || null;
+  if (!emailTrimmed) errors.email = "נא להזין כתובת מייל";
 
   let nationalId: string | null = null;
-  if (parsed.data.nationalId && parsed.data.nationalId.replace(/\D/g, "").length > 0) {
-    if (!isValidIsraeliId(parsed.data.nationalId)) {
-      return { ok: false, errors: { nationalId: "תעודת זהות לא תקינה" } };
-    }
-    nationalId = normalizeIsraeliId(parsed.data.nationalId);
+  const nationalIdRaw = parsed.data.nationalId?.trim() ?? "";
+  if (nationalIdRaw === "" || nationalIdRaw.replace(/\D/g, "").length === 0) {
+    errors.nationalId = "נא להזין תעודת זהות";
+  } else if (!isValidIsraeliId(nationalIdRaw)) {
+    errors.nationalId = "תעודת זהות לא תקינה";
+  } else {
+    nationalId = normalizeIsraeliId(nationalIdRaw);
   }
 
   let birthdate: Date | null = null;
-  if (parsed.data.birthdate && parsed.data.birthdate.trim() !== "") {
-    const d = new Date(parsed.data.birthdate.trim());
+  const birthdateRaw = parsed.data.birthdate?.trim() ?? "";
+  if (birthdateRaw === "") {
+    errors.birthdate = "נא להזין תאריך לידה";
+  } else {
+    const d = new Date(birthdateRaw);
     if (isNaN(d.getTime())) {
-      return { ok: false, errors: { birthdate: "תאריך לא תקין" } };
+      errors.birthdate = "תאריך לא תקין";
+    } else {
+      birthdate = d;
     }
-    birthdate = d;
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { ok: false, errors };
   }
 
   return {
     ok: true,
-    data: { nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId },
+    data: {
+      nickname,
+      firstNameHe,
+      lastNameHe,
+      firstNameEn,
+      lastNameEn,
+      birthdate,
+      email: emailTrimmed,
+      nationalId,
+    },
   };
 }

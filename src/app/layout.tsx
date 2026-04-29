@@ -2,9 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { RegulationsOverlay } from "@/components/regulations-overlay";
+import { ProfileCompletionOverlay } from "@/components/profile-completion-overlay";
 import { getPlayerSessionPlayerId } from "@/lib/player-session";
 import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
+import { isProfileComplete } from "@/lib/profile-completion";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -40,12 +42,24 @@ export default async function RootLayout({
   let needsRegulations = false;
   let regulationsText = "";
   let allConfigs: Record<string, string> = {};
+  let profileInitial: React.ComponentProps<typeof ProfileCompletionOverlay>["initial"] | null = null;
 
   if (playerId) {
     const [player, version, configs] = await Promise.all([
       prisma.player.findUnique({
         where: { id: playerId },
-        select: { regulationsAcceptedVersion: true },
+        select: {
+          regulationsAcceptedVersion: true,
+          playerKind: true,
+          nickname: true,
+          firstNameHe: true,
+          lastNameHe: true,
+          firstNameEn: true,
+          lastNameEn: true,
+          birthdate: true,
+          email: true,
+          nationalId: true,
+        },
       }),
       getConfigInt(CONFIG.REGULATIONS_VERSION),
       getAllConfigs(),
@@ -58,6 +72,17 @@ export default async function RootLayout({
     if (needsRegulations) {
       regulationsText = configs[CONFIG.REGULATIONS_TEXT];
       allConfigs = configs;
+    } else if (player && !isProfileComplete(player)) {
+      profileInitial = {
+        nickname: player.nickname,
+        firstNameHe: player.firstNameHe,
+        lastNameHe: player.lastNameHe,
+        firstNameEn: player.firstNameEn,
+        lastNameEn: player.lastNameEn,
+        birthdate: player.birthdate,
+        email: player.email,
+        nationalId: player.nationalId,
+      };
     }
   }
 
@@ -81,6 +106,9 @@ export default async function RootLayout({
               templateText={regulationsText}
               configValues={allConfigs}
             />
+          )}
+          {!needsRegulations && profileInitial && (
+            <ProfileCompletionOverlay initial={profileInitial} />
           )}
           {children}
         </ThemeProvider>

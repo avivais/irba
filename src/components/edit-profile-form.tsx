@@ -198,9 +198,12 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
                 maxLength={80}
                 value={firstNameHe}
                 onChange={(e) => setFirstNameHe(e.target.value)}
-                className={`${inputBase} ${inputNormal}`}
+                className={`${inputBase} ${errors.firstNameHe ? inputInvalid : inputNormal}`}
                 placeholder="שם פרטי"
               />
+              {errors.firstNameHe && (
+                <p className="text-xs text-red-600 dark:text-red-400">{errors.firstNameHe}</p>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <LabelText>שם משפחה (עברית)</LabelText>
@@ -210,9 +213,12 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
                 maxLength={80}
                 value={lastNameHe}
                 onChange={(e) => setLastNameHe(e.target.value)}
-                className={`${inputBase} ${inputNormal}`}
+                className={`${inputBase} ${errors.lastNameHe ? inputInvalid : inputNormal}`}
                 placeholder="שם משפחה"
               />
+              {errors.lastNameHe && (
+                <p className="text-xs text-red-600 dark:text-red-400">{errors.lastNameHe}</p>
+              )}
             </div>
           </div>
 
