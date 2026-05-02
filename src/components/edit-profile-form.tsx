@@ -2,11 +2,12 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   updatePlayerProfileAction,
   type ProfileActionState,
 } from "@/app/actions/player-profile";
+import { BirthdateInput } from "@/components/ui/birthdate-input";
 
 type PlayerProfile = {
   nickname: string | null;
@@ -30,13 +31,7 @@ const inputInvalid =
 
 function formatIsraeliDate(iso: string): string {
   const [year, month, day] = iso.split("-");
-  return `${parseInt(day)}.${parseInt(month)}.${year}`;
-}
-
-function parseIsraeliDate(text: string): string | null {
-  const m = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return null;
-  return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  return `${day}/${month}/${year}`;
 }
 
 function LabelText({ children }: { children: React.ReactNode }) {
@@ -80,11 +75,8 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
   const initialIso = player.birthdate
     ? new Date(player.birthdate).toISOString().slice(0, 10)
     : "";
-  const [birthdate, setBirthdate] = useState(initialIso);
-  const [birthdateDisplay, setBirthdateDisplay] = useState(
-    initialIso ? formatIsraeliDate(initialIso) : "",
-  );
-  const hiddenDateRef = useRef<HTMLInputElement>(null);
+  // Force-remount the birthdate input on cancel by bumping this key
+  const [birthdateKey, setBirthdateKey] = useState(0);
 
   // Detect save success
   const prevStateRef = useRef<ProfileActionState>(initialState);
@@ -110,11 +102,7 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
     setLastNameEn(player.lastNameEn ?? "");
     setEmail(player.email ?? "");
     setNationalId(player.nationalId ?? "");
-    const iso = player.birthdate
-      ? new Date(player.birthdate).toISOString().slice(0, 10)
-      : "";
-    setBirthdate(iso);
-    setBirthdateDisplay(iso ? formatIsraeliDate(iso) : "");
+    setBirthdateKey((k) => k + 1);
     setEditing(false);
   }
 
@@ -270,50 +258,15 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
           {/* Birthdate */}
           <div className="flex flex-col gap-1">
             <LabelText>תאריך לידה</LabelText>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={birthdateDisplay}
-                onChange={(e) => {
-                  const text = e.target.value;
-                  setBirthdateDisplay(text);
-                  const iso = parseIsraeliDate(text);
-                  if (iso) setBirthdate(iso);
-                  else if (!text) setBirthdate("");
-                }}
-                placeholder="d.m.yyyy"
-                className={`${inputBase} ${errors.birthdate ? inputInvalid : inputNormal} flex-1`}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  try { hiddenDateRef.current?.showPicker(); }
-                  catch { hiddenDateRef.current?.focus(); }
-                }}
-                className="flex h-[46px] w-[46px] flex-shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-500 shadow-sm transition hover:bg-zinc-50 hover:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                aria-label="פתח לוח שנה"
-              >
-                <Calendar className="h-5 w-5" aria-hidden />
-              </button>
-              <input
-                ref={hiddenDateRef}
-                name="birthdate"
-                type="date"
-                value={birthdate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setBirthdate(val);
-                  setBirthdateDisplay(val ? formatIsraeliDate(val) : "");
-                }}
-                className="sr-only"
-                tabIndex={-1}
-                aria-hidden="true"
-              />
-            </div>
-            {errors.birthdate && (
-              <p className="text-xs text-red-600 dark:text-red-400">{errors.birthdate}</p>
-            )}
+            <BirthdateInput
+              key={birthdateKey}
+              name="birthdate"
+              initialIso={initialIso}
+              serverError={errors.birthdate}
+              inputClassName={`${inputBase} ${inputNormal}`}
+              invalidClassName={inputInvalid}
+              buttonClassName="h-[46px] w-[46px] flex-shrink-0 rounded-lg border border-zinc-300 bg-white text-zinc-500 shadow-sm transition hover:bg-zinc-50 hover:text-zinc-700 focus-within:ring-2 focus-within:ring-zinc-600/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            />
           </div>
 
           {/* National ID */}

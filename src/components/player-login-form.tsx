@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
   requestOtpAction,
@@ -96,6 +97,7 @@ function SpinnerLabel({
 }
 
 export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("phone_entry");
   const [phone, setPhone] = useState("");
   const [usePassword, setUsePassword] = useState(false);
@@ -121,6 +123,9 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
       const result = await verifyOtpAction(prev, fd);
       if (result.ok && result.step === "set_profile") setMode("set_profile");
       if (result.ok && result.step === "set_name") setMode("set_name");
+      if (result.ok && result.step === "logged_in") {
+        router.push(result.redirectTo ?? "/profile");
+      }
       return result;
     },
     initialState,
@@ -133,6 +138,9 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
       if (result.ok && result.step === "otp_sent") {
         setMode("otp_sent");
         if (result.devOtp) setDevOtp(result.devOtp);
+      }
+      if (result.ok && result.step === "logged_in") {
+        router.push(result.redirectTo ?? "/profile");
       }
       return result;
     },

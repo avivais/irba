@@ -26,6 +26,8 @@ export type PlayerAuthState = {
   ok: boolean;
   message?: string;
   step?: "otp_sent" | "set_profile" | "set_name" | "logged_in";
+  /** Where to navigate when step === "logged_in" (client-side router.push). */
+  redirectTo?: string;
   /** Dev mode only — raw OTP for testing when WA is not enabled. */
   devOtp?: string;
 };
@@ -249,7 +251,7 @@ export async function verifyOtpAction(
   }
 
   const redirectTo = (formData.get("redirectTo") as string) || "/profile";
-  redirect(redirectTo);
+  return { ok: true, step: "logged_in", redirectTo };
 }
 
 // ── Password flow ─────────────────────────────────────────────────────────────
@@ -324,7 +326,7 @@ export async function playerPasswordLoginAction(
     after: { method: "password" },
   });
 
-  redirect("/profile");
+  return { ok: true, step: "logged_in", redirectTo: "/profile" };
 }
 
 // ── Profile completion (first login) ─────────────────────────────────────────

@@ -568,6 +568,7 @@ Player = User. Phone is the identity. Two registration paths, both on the public
 **Flows:**
 - **Phone + OTP:** enter phone → WhatsApp OTP sent → verify → set password on first login (email/nationalId now self-edited from `/profile`, not collected here)
 - **Phone + password:** enter phone + password; falls back to OTP if no password set
+- **Login redirect pattern:** `verifyOtpAction` and `playerPasswordLoginAction` set the session cookie then return `{ step: "logged_in", redirectTo }` instead of calling `redirect()`. The `useActionState` wrapper on `PlayerLoginForm` reads the step and triggers `router.push()` client-side. Required because `useActionState` action wrappers swallow the `NEXT_REDIRECT` rejection from the server action's `redirect()`, which previously left the form in an infinite pending state after a successful verify (cookie set but no nav).
 - **Remember me:** 10-year persistent cookie vs. session cookie (12h JWT)
 - **Password reset:** phone → WhatsApp OTP → set new password
 - **Change/set password:** available from `/profile` — "הגדרת סיסמה" if no password yet, "שינוי סיסמה" if one exists (requires current password); `changePasswordAction` server action + `ChangePasswordForm` client component (`src/components/change-password-form.tsx`)
@@ -583,7 +584,8 @@ All logged-in players (REGISTERED and DROP_IN) can edit their own details from t
 - Fields: `firstNameHe/He`, `firstNameEn/En`, `nickname`, `birthdate`, `nationalId`, `email`
 - Inline card with display mode (shows values with "—" for empty) and edit mode (form fields with save/cancel)
 - `updatePlayerProfileAction` server action (`src/app/actions/player-profile.ts`) — audited as `PLAYER_PROFILE_UPDATED`
-- `EditProfileForm` client component (`src/components/edit-profile-form.tsx`) — Israeli date picker, field-level validation, green flash on save
+- `EditProfileForm` client component (`src/components/edit-profile-form.tsx`) — uses shared `BirthdateInput` (`src/components/ui/birthdate-input.tsx`), field-level validation, green flash on save
+- **`BirthdateInput` shared component**: text input with `DD/MM/YYYY` Israeli placeholder; auto-formats digits as user types; accepts `/ . -` separators; live validation surfaces format/range errors after 8 digits or on blur (rejects impossible dates like 31/02); calendar icon overlays a transparent native `<input type="date">` so the OS picker opens reliably across browsers (replaces the prior `showPicker()` on `sr-only` pattern). Used on `EditProfileForm` and `ProfileCompletionOverlay`
 - Admin player form (`src/components/admin/player-form.tsx`) also gained `email` and `nationalId` fields
 
 **Israeli ID validation (`src/lib/israeli-id.ts`):**

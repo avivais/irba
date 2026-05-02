@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import { Calendar, Loader2, UserRoundPen } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Loader2, UserRoundPen } from "lucide-react";
 import {
   completeProfileDetailsAction,
   type ProfileActionState,
 } from "@/app/actions/player-profile";
+import { BirthdateInput } from "@/components/ui/birthdate-input";
 
 type Props = {
   initial: {
@@ -28,17 +29,6 @@ const inputNormal =
   "border-zinc-700 focus:border-zinc-500 focus:ring-zinc-500/30";
 const inputInvalid =
   "border-red-500 focus:border-red-500 focus:ring-red-500/35";
-
-function formatIsraeliDate(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  return `${parseInt(day)}.${parseInt(month)}.${year}`;
-}
-
-function parseIsraeliDate(text: string): string | null {
-  const m = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return null;
-  return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-}
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -63,11 +53,6 @@ export function ProfileCompletionOverlay({ initial }: Props) {
   const initialIso = initial.birthdate
     ? new Date(initial.birthdate).toISOString().slice(0, 10)
     : "";
-  const [birthdate, setBirthdate] = useState(initialIso);
-  const [birthdateDisplay, setBirthdateDisplay] = useState(
-    initialIso ? formatIsraeliDate(initialIso) : "",
-  );
-  const hiddenDateRef = useRef<HTMLInputElement>(null);
 
   const errors = state.errors ?? {};
 
@@ -134,50 +119,17 @@ export function ProfileCompletionOverlay({ initial }: Props) {
             {/* Birthdate */}
             <div className="flex flex-col gap-1">
               <FieldLabel>תאריך לידה*</FieldLabel>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={birthdateDisplay}
-                  onChange={(e) => {
-                    const text = e.target.value;
-                    setBirthdateDisplay(text);
-                    const iso = parseIsraeliDate(text);
-                    if (iso) setBirthdate(iso);
-                    else if (!text) setBirthdate("");
-                  }}
-                  placeholder="d.m.yyyy"
-                  className={`${inputBase} ${errors.birthdate ? inputInvalid : inputNormal} flex-1`}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { hiddenDateRef.current?.showPicker(); }
-                    catch { hiddenDateRef.current?.focus(); }
-                  }}
-                  className="flex h-[46px] w-[46px] flex-shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 shadow-sm transition hover:bg-zinc-800 hover:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-500/30"
-                  aria-label="פתח לוח שנה"
-                >
-                  <Calendar className="h-5 w-5" aria-hidden />
-                </button>
-                <input
-                  ref={hiddenDateRef}
-                  name="birthdate"
-                  type="date"
-                  value={birthdate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setBirthdate(val);
-                    setBirthdateDisplay(val ? formatIsraeliDate(val) : "");
-                  }}
-                  className="sr-only"
-                  tabIndex={-1}
-                  aria-hidden="true"
-                />
-              </div>
-              {errors.birthdate && (
-                <p className="text-xs text-red-400">{errors.birthdate}</p>
-              )}
+              <BirthdateInput
+                name="birthdate"
+                initialIso={initialIso}
+                serverError={errors.birthdate}
+                inputClassName={`${inputBase} ${inputNormal}`}
+                invalidClassName={inputInvalid}
+                buttonClassName="h-[46px] w-[46px] flex-shrink-0 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 shadow-sm transition hover:bg-zinc-800 hover:text-zinc-200 focus-within:ring-2 focus-within:ring-zinc-500/30"
+                renderError={(msg) => (
+                  <p className="text-xs text-red-400">{msg}</p>
+                )}
+              />
             </div>
 
             {/* National ID */}
