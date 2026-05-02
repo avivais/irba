@@ -4,7 +4,7 @@ import { CalendarDays, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getConfigInt, CONFIG } from "@/lib/config";
 import { SessionList } from "@/components/admin/session-list";
-import { DateFieldIL } from "@/components/admin/date-field-il";
+import { DateInputIL } from "@/components/ui/date-input-il";
 
 export const metadata: Metadata = { title: "מפגשים" };
 
@@ -74,21 +74,21 @@ export default async function AdminSessionsPage({
       >
         <div className="flex flex-col gap-1">
           <label htmlFor="sessions-filter-from" className="text-xs font-medium text-zinc-500 dark:text-zinc-400">מתאריך</label>
-          <DateFieldIL
+          <DateInputIL
             id="sessions-filter-from"
             name="from"
             defaultValue={sp.from ?? ""}
-            aria-label="מתאריך"
+            ariaLabel="מתאריך"
             className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="sessions-filter-to" className="text-xs font-medium text-zinc-500 dark:text-zinc-400">עד תאריך</label>
-          <DateFieldIL
+          <DateInputIL
             id="sessions-filter-to"
             name="to"
             defaultValue={sp.to ?? ""}
-            aria-label="עד תאריך"
+            ariaLabel="עד תאריך"
             className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>

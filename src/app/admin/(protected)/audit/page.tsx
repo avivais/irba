@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
-import { DateFieldIL } from "@/components/admin/date-field-il";
+import { DateInputIL } from "@/components/ui/date-input-il";
 import type { Prisma } from "@prisma/client";
 
 export const metadata: Metadata = { title: "לוג פעולות" };
@@ -244,19 +244,19 @@ export default async function AuditPage({
         {/* Date range */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">מתאריך</label>
-          <DateFieldIL
+          <DateInputIL
             name="from"
             defaultValue={sp.from ?? ""}
-            aria-label="מתאריך"
+            ariaLabel="מתאריך"
             className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">עד תאריך</label>
-          <DateFieldIL
+          <DateInputIL
             name="to"
             defaultValue={sp.to ?? ""}
-            aria-label="עד תאריך"
+            ariaLabel="עד תאריך"
             className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </div>

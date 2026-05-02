@@ -7,7 +7,7 @@ import {
   updatePlayerProfileAction,
   type ProfileActionState,
 } from "@/app/actions/player-profile";
-import { BirthdateInput } from "@/components/ui/birthdate-input";
+import { DateInputIL } from "@/components/ui/date-input-il";
 
 type PlayerProfile = {
   nickname: string | null;
@@ -29,7 +29,7 @@ const inputNormal =
 const inputInvalid =
   "border-red-500 focus:border-red-600 focus:ring-red-600/35 dark:border-red-500 dark:focus:border-red-500 dark:focus:ring-red-500/35";
 
-function formatIsraeliDate(iso: string): string {
+function formatIsraeliDateDisplay(iso: string): string {
   const [year, month, day] = iso.split("-");
   return `${day}/${month}/${year}`;
 }
@@ -157,7 +157,7 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
               label="תאריך לידה"
               value={
                 player.birthdate
-                  ? formatIsraeliDate(new Date(player.birthdate).toISOString().slice(0, 10))
+                  ? formatIsraeliDateDisplay(new Date(player.birthdate).toISOString().slice(0, 10))
                   : null
               }
             />
@@ -258,14 +258,16 @@ export function EditProfileForm({ player }: { player: PlayerProfile }) {
           {/* Birthdate */}
           <div className="flex flex-col gap-1">
             <LabelText>תאריך לידה</LabelText>
-            <BirthdateInput
+            <DateInputIL
               key={birthdateKey}
               name="birthdate"
-              initialIso={initialIso}
+              defaultValue={initialIso}
               serverError={errors.birthdate}
-              inputClassName={`${inputBase} ${inputNormal}`}
+              autoComplete="bday"
+              max="2100-12-31"
+              min="1900-01-01"
+              className={`${inputBase} ${inputNormal}`}
               invalidClassName={inputInvalid}
-              buttonClassName="h-[46px] w-[46px] flex-shrink-0 rounded-lg border border-zinc-300 bg-white text-zinc-500 shadow-sm transition hover:bg-zinc-50 hover:text-zinc-700 focus-within:ring-2 focus-within:ring-zinc-600/30 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             />
           </div>
 

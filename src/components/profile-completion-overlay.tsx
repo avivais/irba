@@ -6,7 +6,7 @@ import {
   completeProfileDetailsAction,
   type ProfileActionState,
 } from "@/app/actions/player-profile";
-import { BirthdateInput } from "@/components/ui/birthdate-input";
+import { DateInputIL } from "@/components/ui/date-input-il";
 
 type Props = {
   initial: {
@@ -119,16 +119,15 @@ export function ProfileCompletionOverlay({ initial }: Props) {
             {/* Birthdate */}
             <div className="flex flex-col gap-1">
               <FieldLabel>תאריך לידה*</FieldLabel>
-              <BirthdateInput
+              <DateInputIL
                 name="birthdate"
-                initialIso={initialIso}
+                defaultValue={initialIso}
                 serverError={errors.birthdate}
-                inputClassName={`${inputBase} ${inputNormal}`}
+                autoComplete="bday"
+                min="1900-01-01"
+                max="2100-12-31"
+                className={`${inputBase} ${inputNormal}`}
                 invalidClassName={inputInvalid}
-                buttonClassName="h-[46px] w-[46px] flex-shrink-0 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 shadow-sm transition hover:bg-zinc-800 hover:text-zinc-200 focus-within:ring-2 focus-within:ring-zinc-500/30"
-                renderError={(msg) => (
-                  <p className="text-xs text-red-400">{msg}</p>
-                )}
               />
             </div>
 

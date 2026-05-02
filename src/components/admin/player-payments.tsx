@@ -7,7 +7,7 @@ import {
   deletePaymentAction,
 } from "@/app/admin/(protected)/players/[id]/payments/actions";
 import type { PaymentActionState } from "@/app/admin/(protected)/players/[id]/payments/actions";
-import { DateFieldIL } from "@/components/admin/date-field-il";
+import { DateInputIL } from "@/components/ui/date-input-il";
 
 type Payment = {
   id: string;
@@ -173,10 +173,10 @@ export function PlayerPayments({ playerId, payments, balance }: Props) {
               <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
                 תאריך
               </label>
-              <DateFieldIL
+              <DateInputIL
                 name="date"
                 defaultValue={new Date().toISOString().split("T")[0]}
-                aria-label="תאריך"
+                ariaLabel="תאריך"
                 className={`${inputBase} ${inputNormal}`}
               />
             </div>
