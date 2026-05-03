@@ -11,6 +11,7 @@ import { AdjustmentDeleteButton } from "@/components/admin/adjustment-delete-but
 import { computePrecedenceScores } from "@/lib/precedence";
 import { computePlayerBalance } from "@/lib/balance";
 import { PlayerPayments } from "@/components/admin/player-payments";
+import { PlayerRetroButton } from "@/components/admin/player-retro-button";
 import { getPlayerRankBreakdown } from "@/lib/computed-rank";
 
 export const metadata: Metadata = { title: "עריכת שחקן" };
@@ -177,6 +178,17 @@ export default async function AdminPlayersEditPage({ params, searchParams }: Pro
         {/* 3 — Session charges */}
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">חיובי מפגשים</h2>
+          {(() => {
+            // Trailing consecutive DROP_IN streak — eligible only for REGISTERED-kind players
+            if (player.playerKind !== "REGISTERED") return null;
+            let streak = 0;
+            for (const c of playerCharges) {
+              if (c.chargeType === "DROP_IN") streak++;
+              else break;
+            }
+            if (streak === 0) return null;
+            return <PlayerRetroButton playerId={id} streakCount={streak} />;
+          })()}
           {playerCharges.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">אין חיובים עדיין.</p>
           ) : (

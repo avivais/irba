@@ -35,6 +35,7 @@ export async function updateConfigAction(
   raw[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_ENABLED] ??= "false";
   raw[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_ENABLED] ??= "false";
   raw[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_ENABLED] ??= "false";
+  raw[CONFIG.WA_NOTIFY_SESSION_ROSTER_ENABLED] ??= "false";
 
   const parsed = parseConfigForm(raw);
   if (!parsed.ok) {

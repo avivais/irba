@@ -66,6 +66,11 @@ const waTemplate = z
   .min(1, "תבנית לא יכולה להיות ריקה")
   .max(500, "תבנית ארוכה מדי (מקסימום 500 תווים)");
 
+const waTemplateLong = z
+  .string()
+  .min(1, "תבנית לא יכולה להיות ריקה")
+  .max(2000, "תבנית ארוכה מדי (מקסימום 2,000 תווים)");
+
 const waGroupJid = z
   .string()
   .max(50)
@@ -117,11 +122,13 @@ export const configSchema = z.object({
   wa_notify_session_close_enabled:       enabledFlag,
   wa_notify_session_close_template:      waTemplate,
   wa_notify_player_registered_enabled:   enabledFlag,
-  wa_notify_player_registered_template:  waTemplate,
+  wa_notify_player_registered_template:  waTemplateLong,
   wa_notify_player_cancelled_enabled:    enabledFlag,
-  wa_notify_player_cancelled_template:   waTemplate,
+  wa_notify_player_cancelled_template:   waTemplateLong,
   wa_notify_waitlist_promote_enabled:    enabledFlag,
-  wa_notify_waitlist_promote_template:   waTemplate,
+  wa_notify_waitlist_promote_template:   waTemplateLong,
+  wa_notify_session_roster_enabled:      enabledFlag,
+  wa_notify_session_roster_template:     waTemplateLong,
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

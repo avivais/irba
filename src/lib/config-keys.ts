@@ -60,6 +60,8 @@ export const CONFIG = {
   WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE:   "wa_notify_player_cancelled_template",
   WA_NOTIFY_WAITLIST_PROMOTE_ENABLED:    "wa_notify_waitlist_promote_enabled",    // "true" | "false"
   WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE:   "wa_notify_waitlist_promote_template",
+  WA_NOTIFY_SESSION_ROSTER_ENABLED:      "wa_notify_session_roster_enabled",      // "true" | "false" — manual broadcast button
+  WA_NOTIFY_SESSION_ROSTER_TEMPLATE:     "wa_notify_session_roster_template",     // vars: {date}, {registered_list}, {waitlist}
 } as const;
 
 export type ConfigKey = (typeof CONFIG)[keyof typeof CONFIG];
@@ -145,9 +147,35 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   wa_notify_session_close_enabled:       "false",
   wa_notify_session_close_template:      "ההרשמה למפגש ב{date} נסגרה",
   wa_notify_player_registered_enabled:   "false",
-  wa_notify_player_registered_template:  "{player_name} נרשם למפגש ב{date} ({status})",
+  wa_notify_player_registered_template:  `{player_name} נרשם למפגש ב{date} ({status})
+
+נרשמו עד כה:
+{registered_list}
+
+ברשימת המתנה:
+{waitlist}`,
   wa_notify_player_cancelled_enabled:    "false",
-  wa_notify_player_cancelled_template:   "{player_name} ביטל הרשמה למפגש ב{date}",
+  wa_notify_player_cancelled_template:   `{player_name} ביטל הרשמה למפגש ב{date}
+
+נרשמו עד כה:
+{registered_list}
+
+ברשימת המתנה:
+{waitlist}`,
   wa_notify_waitlist_promote_enabled:    "true",
-  wa_notify_waitlist_promote_template:   "עברת מרשימת ההמתנה לרשימת המשתתפים במפגש ב{date}!",
+  wa_notify_waitlist_promote_template:   `עברת מרשימת ההמתנה לרשימת המשתתפים במפגש ב{date}!
+
+נרשמו עד כה:
+{registered_list}
+
+ברשימת המתנה:
+{waitlist}`,
+  wa_notify_session_roster_enabled:      "true",
+  wa_notify_session_roster_template:     `מצב נוכחי למפגש {date}:
+
+נרשמו עד כה:
+{registered_list}
+
+ברשימת המתנה:
+{waitlist}`,
 };

@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePromoteTimestamp } from "@/lib/waitlist";
-import { notifyWaitlistPromote, sendWaGroupMessage, sendWaPoll } from "@/lib/wa-notify";
+import { notifySessionRoster, notifyWaitlistPromote, sendWaGroupMessage, sendWaPoll } from "@/lib/wa-notify";
+import { writeAuditLog } from "@/lib/audit";
 import { CONFIG } from "@/lib/config-keys";
 import { getAllConfigs } from "@/lib/config";
 
@@ -169,10 +170,91 @@ export async function promoteWaitlistAction(
     month: "long",
   });
   const playerName = getPlayerDisplayName(attendance.player);
-  const configs = await getAllConfigs();
-  void notifyWaitlistPromote(attendance.player.phone, dateStr, playerName, configs);
+  const [configs, postPromoteAttendances] = await Promise.all([
+    getAllConfigs(),
+    prisma.attendance.findMany({
+      where: { gameSessionId: sessionId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        player: {
+          select: {
+            firstNameHe: true,
+            lastNameHe: true,
+            firstNameEn: true,
+            lastNameEn: true,
+            nickname: true,
+            phone: true,
+          },
+        },
+      },
+    }),
+  ]);
+  const names = postPromoteAttendances.map((a) => getPlayerDisplayName(a.player));
+  const registeredList = names.slice(0, session.maxPlayers);
+  const waitlist = names.slice(session.maxPlayers);
+  void notifyWaitlistPromote(
+    attendance.player.phone,
+    dateStr,
+    playerName,
+    registeredList,
+    waitlist,
+    configs,
+  );
 
   return { ok: true, message: "השחקן קודם בהצלחה" };
+}
+
+export async function broadcastSessionRosterAction(
+  sessionId: string,
+): Promise<SessionAttendanceState> {
+  await requireAdmin();
+
+  const session = await prisma.gameSession.findUnique({
+    where: { id: sessionId },
+    select: {
+      date: true,
+      maxPlayers: true,
+      attendances: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          player: {
+            select: {
+              firstNameHe: true,
+              lastNameHe: true,
+              firstNameEn: true,
+              lastNameEn: true,
+              nickname: true,
+              phone: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!session) return { ok: false, message: "מפגש לא נמצא" };
+
+  const dateStr = session.date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const names = session.attendances.map((a) => getPlayerDisplayName(a.player));
+  const registeredList = names.slice(0, session.maxPlayers);
+  const waitlist = names.slice(session.maxPlayers);
+
+  const configs = await getAllConfigs();
+  await notifySessionRoster(dateStr, registeredList, waitlist, configs);
+
+  writeAuditLog({
+    actor: "admin",
+    action: "BROADCAST_SESSION_ROSTER",
+    entityType: "GameSession",
+    entityId: sessionId,
+    after: { confirmedCount: registeredList.length, waitlistCount: waitlist.length },
+  });
+
+  return { ok: true, message: "ההודעה נשלחה" };
 }
 
 export async function removePlayerAction(

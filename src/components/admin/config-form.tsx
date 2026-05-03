@@ -926,12 +926,12 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               id={CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE}
               name={CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE]}
-              rows={2}
-              maxLength={500}
+              rows={6}
+              maxLength={2000}
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{status}"}
+              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{status}"}, {"{registered_list}"}, {"{waitlist}"}
             </p>
           </Field>
         </div>
@@ -953,12 +953,12 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               id={CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE}
               name={CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE]}
-              rows={2}
-              maxLength={500}
+              rows={6}
+              maxLength={2000}
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{player_name}"}
+              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{registered_list}"}, {"{waitlist}"}
             </p>
           </Field>
         </div>
@@ -980,12 +980,39 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               id={CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE}
               name={CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE}
               defaultValue={values[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE]}
-              rows={2}
-              maxLength={500}
+              rows={6}
+              maxLength={2000}
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{player_name}"}
+              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{registered_list}"}, {"{waitlist}"}
+            </p>
+          </Field>
+        </div>
+
+        {/* Session roster (manual broadcast) */}
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              name={CONFIG.WA_NOTIFY_SESSION_ROSTER_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.WA_NOTIFY_SESSION_ROSTER_ENABLED] === "true"}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            שידור רשימת משתתפים (ידני, מדף המפגש)
+          </label>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE]}>
+            <textarea
+              id={CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE}
+              name={CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE}
+              defaultValue={values[CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE]}
+              rows={6}
+              maxLength={2000}
+              className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE] ? inputError : inputNormal}`}
+            />
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              משתנים זמינים: {"{date}"}, {"{registered_list}"}, {"{waitlist}"}
             </p>
           </Field>
         </div>

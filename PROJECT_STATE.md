@@ -355,6 +355,11 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 | Player registered (public RSVP) | WA group broadcast | ❌ |
 | Player cancelled (public RSVP) | WA group broadcast | ❌ |
 | Admin promotes waitlisted player | Individual DM to player | ✅ |
+| Admin manual roster broadcast (button on session admin page) | WA group broadcast | ✅ |
+
+**Roster macros** — `{registered_list}` and `{waitlist}` are available in the player-registered, player-cancelled, waitlist-promote, and session-roster templates. Each renders as a newline-joined list of confirmed / waitlisted player display names from the post-event session state. Default templates demonstrate the multi-line layout (`נרשמו עד כה:` / `ברשימת המתנה:`). Empty waitlist → empty string (the template controls how to format the empty case). Admin-form textareas for these four templates are 6 rows × 2,000 char max.
+
+**Manual roster broadcast** — `WA_NOTIFY_SESSION_ROSTER_*` config keys; "שלח עדכון רשימה" button in the attendance section header on `/admin/sessions/[id]`. Confirmation prompt → `broadcastSessionRosterAction` → `notifySessionRoster` dispatcher. Useful when WA was down at notification time, or admin wants to re-broadcast the current roster on demand. Audit action: `BROADCAST_SESSION_ROSTER`.
 
 **Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
 
@@ -821,4 +826,32 @@ See "Competitions / Challenges" section under "What exists today" for full imple
 
 ---
 
-*Last updated: Apr 2026 — All Phase 1 items (#1–#11) shipped. All Phase 2 items (#12–#14) ✅ DONE.*
+#### 15. Roster context in WA notifications + manual broadcast ✅ DONE
+
+Day-of-launch (May 2026) UX improvements to keep the WA group always synced with the live roster.
+
+**New macros** (`{registered_list}`, `{waitlist}`) added to the player-registered, player-cancelled, and waitlist-promote templates. Macros render as newline-joined display names from the post-event attendance state — so a single registration message can carry both the actor (`{player_name} registered`) and the resulting full roster, eliminating the need to open the app to see who's in.
+
+**Manual broadcast** — new `notifySessionRoster` dispatcher + `WA_NOTIFY_SESSION_ROSTER_ENABLED` / `_TEMPLATE` config keys (default-on). "שלח עדכון רשימה" button in the attendance section header on `/admin/sessions/[id]`; confirms → `broadcastSessionRosterAction` → group broadcast with the configured template. New audit action `BROADCAST_SESSION_ROSTER`.
+
+**Files:** `src/lib/wa-notify.ts` (3 dispatchers extended + new `notifySessionRoster`), `src/app/actions/rsvp.ts` (attend/auth-attend/cancel pass post-event rosters), `src/app/admin/(protected)/sessions/[id]/actions.ts` (`promoteWaitlistAction` + new `broadcastSessionRosterAction`), `src/components/admin/config-form.tsx` (new card; existing 3 templates bumped to 6 rows × 2,000 chars), `src/lib/config-keys.ts` (defaults), `src/lib/config-validation.ts` (`waTemplateLong` schema), `src/components/admin/session-broadcast-roster-button.tsx` (new client button).
+
+---
+
+#### 16. Retroactive debt closure ✅ DONE
+
+Player-by-player retroactive recharge that closes a trailing in-debt streak. Built for the Ronen-style pattern: a REGISTERED player who has been attending consistently but paying in lump sums, accumulating consecutive sessions charged at the higher DROP_IN rate (debt-threshold path). When he settles, admin clicks one button to retroactively re-bill those sessions as if he'd been a normal registered player.
+
+**Critical mechanic** — IRBA's charging engine redistributes the drop-in surplus as a discount to the other normal-registered teammates in the same session (`dropInAmount = ceil(totalCost / minPlayers)` is strictly higher than `totalCost / N`, so each in-debt player covers more than their share, shrinking `remainder` and lowering the per-registered split). Closing the debt retroactively must reverse that redistribution end-to-end: the focal player's charge drops to registered, AND every normal-registered teammate from those sessions loses their debt discount and is re-billed up at the new (higher) registered amount. Drop-in-by-kind players, other still-in-debt teammates, free-entry charges, and ADMIN_OVERRIDE charges are untouched.
+
+**Scope** — only the *trailing consecutive* DROP_IN charges (walk back from most recent, stop at first non-DROP_IN). Older history is left alone. Eligibility: `playerKind === "REGISTERED"` AND streak length > 0. UI is hidden otherwise.
+
+**Algorithm** — for each affected session, re-run `proposeSessionCharges` with the focal player's balance flipped to 0 (so he no longer triggers the debt path) and other in-debt-registered players' balances synthesized to remain in-debt. Diff per-charge against the existing rows; collect changes. Sessions containing any `ADMIN_OVERRIDE` charge are skipped and surfaced in the preview as "דולגו" so admin sees them.
+
+**UX** — new "סגירת חוב רטרואקטיבית" card embedded in the "חיובי מפגשים" section on `/admin/players/[id]/edit`. Modal with per-session expandable rows: focal player diff highlighted, every affected teammate listed below with old → new + diff. Totals card: "החזר לשחקן", "תוספת לשאר השחקנים", rounding residual, current → projected balance. Apply rewrites all changed `SessionCharge` rows in a single transaction with a `ChargeAuditEntry` per change (`reason: "retro_close_debt"`) plus one `RETRO_CLOSE_DEBT` audit log entry. Idempotent: post-apply the streak is empty, so the section disappears.
+
+**Files:** `src/app/admin/(protected)/players/[id]/retro/actions.ts` (preview + apply server actions), `src/components/admin/player-retro-button.tsx` (button + modal), `src/app/admin/(protected)/players/[id]/edit/page.tsx` (mounts the section conditionally on streak detection from existing `playerCharges`), `src/lib/audit.ts` (added `RETRO_CLOSE_DEBT` action).
+
+---
+
+*Last updated: May 2026 — IRBA went live in production. Items #15 (roster macros + manual broadcast) and #16 (retroactive debt closure) shipped post-launch.*

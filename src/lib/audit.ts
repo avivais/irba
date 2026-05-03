@@ -70,7 +70,9 @@ export type AuditAction =
   | "DELETE_CHALLENGE"
   | "CLOSE_CHALLENGE"
   | "CREATE_SHARED_EXPENSE"
-  | "REVERT_SHARED_EXPENSE";
+  | "REVERT_SHARED_EXPENSE"
+  | "RETRO_CLOSE_DEBT"
+  | "BROADCAST_SESSION_ROSTER";
 
 export type AuditParams = {
   actor: string;

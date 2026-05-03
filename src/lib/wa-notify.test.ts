@@ -36,4 +36,24 @@ describe("renderTemplate", () => {
       "ההרשמה למפגש יום שני פתוחה!",
     );
   });
+
+  it("substitutes a multi-line value into a single placeholder", () => {
+    const template = "נרשמו עד כה:\n{registered_list}\n\nברשימת המתנה:\n{waitlist}";
+    const result = renderTemplate(template, {
+      registered_list: ["אבי", "דניאל", "רונן"].join("\n"),
+      waitlist: ["זאב"].join("\n"),
+    });
+    expect(result).toBe(
+      "נרשמו עד כה:\nאבי\nדניאל\nרונן\n\nברשימת המתנה:\nזאב",
+    );
+  });
+
+  it("renders an empty waitlist as an empty string", () => {
+    const template = "נרשמו עד כה:\n{registered_list}\n\nברשימת המתנה:\n{waitlist}";
+    const result = renderTemplate(template, {
+      registered_list: ["אבי"].join("\n"),
+      waitlist: [].join("\n"),
+    });
+    expect(result).toBe("נרשמו עד כה:\nאבי\n\nברשימת המתנה:\n");
+  });
 });

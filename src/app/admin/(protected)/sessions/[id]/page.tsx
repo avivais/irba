@@ -15,6 +15,7 @@ import { SessionQuickDropInForm } from "@/components/admin/session-quick-dropin-
 import { SessionArchiveButton } from "@/components/admin/session-archive-button";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { SessionPromoteButton } from "@/components/admin/session-promote-button";
+import { SessionBroadcastRosterButton } from "@/components/admin/session-broadcast-roster-button";
 import { SessionMatchPanel } from "@/components/admin/session-match-panel";
 import { TeamBalancePanel } from "@/components/admin/team-balance-panel";
 
@@ -220,14 +221,19 @@ export default async function AdminSessionPage({ params }: Props) {
 
       {/* Attendance */}
       <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="mb-4 flex items-center gap-2">
-          <Users className="h-5 w-5 text-zinc-600 dark:text-zinc-400" aria-hidden />
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            משתתפים
-          </h2>
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            ({confirmed.length}/{session.maxPlayers})
-          </span>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-zinc-600 dark:text-zinc-400" aria-hidden />
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              משתתפים
+            </h2>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+              ({confirmed.length}/{session.maxPlayers})
+            </span>
+          </div>
+          {session.attendances.length > 0 && (
+            <SessionBroadcastRosterButton sessionId={id} />
+          )}
         </div>
 
         {confirmed.length === 0 ? (

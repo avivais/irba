@@ -129,11 +129,26 @@ export async function attendAction(
   await setRsvpSessionCookie(playerId);
 
   // Notify the WA group (best-effort, fire-and-forget)
-  const [configs, attendanceCount] = await Promise.all([
+  const [configs, attendances] = await Promise.all([
     getAllConfigs(),
-    prisma.attendance.count({ where: { gameSessionId: game.id } }),
+    prisma.attendance.findMany({
+      where: { gameSessionId: game.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        player: {
+          select: {
+            firstNameHe: true,
+            lastNameHe: true,
+            firstNameEn: true,
+            lastNameEn: true,
+            nickname: true,
+            phone: true,
+          },
+        },
+      },
+    }),
   ]);
-  const isConfirmed = attendanceCount <= game.maxPlayers;
+  const isConfirmed = attendances.length <= game.maxPlayers;
   const status = isConfirmed ? "מאושר" : "רשימת המתנה";
   const dateStr = game.date.toLocaleDateString("he-IL", {
     timeZone: "Asia/Jerusalem",
@@ -141,7 +156,10 @@ export async function attendAction(
     day: "numeric",
     month: "long",
   });
-  void notifyPlayerRegistered(dateStr, name, status, configs);
+  const names = attendances.map((a) => getPlayerDisplayName(a.player));
+  const registeredList = names.slice(0, game.maxPlayers);
+  const waitlist = names.slice(game.maxPlayers);
+  void notifyPlayerRegistered(dateStr, name, status, registeredList, waitlist, configs);
 
   writeAuditLog({
     actor: phone,
@@ -213,11 +231,26 @@ export async function rsvpAuthenticatedAction(
   });
   const name = player ? getPlayerDisplayName(player) : "שחקן";
 
-  const [configs, attendanceCount] = await Promise.all([
+  const [configs, attendances] = await Promise.all([
     getAllConfigs(),
-    prisma.attendance.count({ where: { gameSessionId: game.id } }),
+    prisma.attendance.findMany({
+      where: { gameSessionId: game.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        player: {
+          select: {
+            firstNameHe: true,
+            lastNameHe: true,
+            firstNameEn: true,
+            lastNameEn: true,
+            nickname: true,
+            phone: true,
+          },
+        },
+      },
+    }),
   ]);
-  const isConfirmed = attendanceCount <= game.maxPlayers;
+  const isConfirmed = attendances.length <= game.maxPlayers;
   const status = isConfirmed ? "מאושר" : "רשימת המתנה";
   const dateStr = game.date.toLocaleDateString("he-IL", {
     timeZone: "Asia/Jerusalem",
@@ -225,7 +258,10 @@ export async function rsvpAuthenticatedAction(
     day: "numeric",
     month: "long",
   });
-  void notifyPlayerRegistered(dateStr, name, status, configs);
+  const names = attendances.map((a) => getPlayerDisplayName(a.player));
+  const registeredList = names.slice(0, game.maxPlayers);
+  const waitlist = names.slice(game.maxPlayers);
+  void notifyPlayerRegistered(dateStr, name, status, registeredList, waitlist, configs);
 
   writeAuditLog({
     actor: player?.phone ?? playerId,
@@ -337,8 +373,29 @@ export async function cancelAttendanceAction(
     day: "numeric",
     month: "long",
   });
-  const configs = await getAllConfigs();
-  void notifyPlayerCancelled(dateStr, playerName, configs);
+  const [configs, postCancelAttendances] = await Promise.all([
+    getAllConfigs(),
+    prisma.attendance.findMany({
+      where: { gameSessionId: game.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        player: {
+          select: {
+            firstNameHe: true,
+            lastNameHe: true,
+            firstNameEn: true,
+            lastNameEn: true,
+            nickname: true,
+            phone: true,
+          },
+        },
+      },
+    }),
+  ]);
+  const names = postCancelAttendances.map((a) => getPlayerDisplayName(a.player));
+  const registeredList = names.slice(0, game.maxPlayers);
+  const waitlist = names.slice(game.maxPlayers);
+  void notifyPlayerCancelled(dateStr, playerName, registeredList, waitlist, configs);
 
   revalidatePath("/");
   return { ok: true, message: "ביטלת את ההרשמה" };
