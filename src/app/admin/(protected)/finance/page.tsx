@@ -4,6 +4,7 @@ import { Receipt } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePlayerBalances } from "@/lib/balance";
+import { DebtorsBroadcastButton } from "@/components/admin/debtors-broadcast-button";
 
 export const metadata: Metadata = { title: "פיננסים" };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ function formatDate(d: Date): string {
 }
 
 export default async function AdminFinancePage() {
-  const [players, recentPayments, recentCharges] =
+  const [players, recentPayments, recentCharges, lastDebtorsBroadcast] =
     await Promise.all([
       prisma.player.findMany({
         where: { isAdmin: false },
@@ -83,6 +84,11 @@ export default async function AdminFinancePage() {
             },
           },
         },
+      }),
+      prisma.auditLog.findFirst({
+        where: { action: "BROADCAST_DEBTORS" },
+        orderBy: { timestamp: "desc" },
+        select: { timestamp: true },
       }),
     ]);
 
@@ -167,10 +173,11 @@ export default async function AdminFinancePage() {
         {/* Debtors */}
         {debtors.length > 0 && (
           <section className="rounded-2xl border border-red-200 bg-white shadow-sm dark:border-red-900/40 dark:bg-zinc-900">
-            <div className="border-b border-red-100 px-5 py-4 dark:border-red-900/30">
+            <div className="flex items-start justify-between gap-3 border-b border-red-100 px-5 py-4 dark:border-red-900/30">
               <h2 className="font-semibold text-red-700 dark:text-red-400">
                 חייבים ({debtors.length})
               </h2>
+              <DebtorsBroadcastButton lastSentAt={lastDebtorsBroadcast?.timestamp ?? null} />
             </div>
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {debtors.map((p) => (

@@ -206,6 +206,23 @@ export async function notifyWaitlistPromote(
 }
 
 /**
+ * Manually broadcast a debt reminder to the configured WA group.
+ * Used by the "send debt reminder" admin button on the finance page.
+ * Vars: {debtors_list}, {count}
+ */
+export async function notifyDebtors(
+  debtorsList: string[],
+  configs: Record<ConfigKey, string>,
+): Promise<void> {
+  if (configs[CONFIG.WA_NOTIFY_DEBTORS_ENABLED] !== "true") return;
+  const message = renderTemplate(configs[CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE], {
+    debtors_list: debtorsList.join("\n"),
+    count: String(debtorsList.length),
+  });
+  await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);
+}
+
+/**
  * Manually broadcast the current session roster to the configured WA group.
  * Used by the "send roster update" admin button.
  * Vars: {date}, {registered_list}, {waitlist}

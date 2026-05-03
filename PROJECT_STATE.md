@@ -356,10 +356,13 @@ Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on 
 | Player cancelled (public RSVP) | WA group broadcast | ❌ |
 | Admin promotes waitlisted player | Individual DM to player | ✅ |
 | Admin manual roster broadcast (button on session admin page) | WA group broadcast | ✅ |
+| Admin manual debt reminder (button on finance page) | WA group broadcast | ✅ |
 
 **Roster macros** — `{registered_list}` and `{waitlist}` are available in the player-registered, player-cancelled, waitlist-promote, and session-roster templates. Each renders as a newline-joined list of confirmed / waitlisted player display names from the post-event session state. Default templates demonstrate the multi-line layout (`נרשמו עד כה:` / `ברשימת המתנה:`). Empty waitlist → empty string (the template controls how to format the empty case). Admin-form textareas for these four templates are 6 rows × 2,000 char max.
 
 **Manual roster broadcast** — `WA_NOTIFY_SESSION_ROSTER_*` config keys; "שלח עדכון רשימה" button in the attendance section header on `/admin/sessions/[id]`. Confirmation prompt → `broadcastSessionRosterAction` → `notifySessionRoster` dispatcher. Useful when WA was down at notification time, or admin wants to re-broadcast the current roster on demand. Audit action: `BROADCAST_SESSION_ROSTER`.
+
+**Manual debt reminder** — `WA_NOTIFY_DEBTORS_*` config keys (template macros: `{debtors_list}`, `{count}`); "שלח תזכורת" button in the debtors section header on `/admin/finance`. Confirmation prompt → `broadcastDebtorsAction` (in `src/app/admin/(protected)/finance/actions.ts`) → `notifyDebtors` dispatcher. Message body lists every debtor as `{name} — ₪{abs(balance)}` (sorted biggest debt first). The button displays "נשלח לאחרונה: {date+time}" derived live from the most recent `BROADCAST_DEBTORS` audit log entry. Audit action: `BROADCAST_DEBTORS`.
 
 **Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
 
@@ -834,7 +837,9 @@ Day-of-launch (May 2026) UX improvements to keep the WA group always synced with
 
 **Manual broadcast** — new `notifySessionRoster` dispatcher + `WA_NOTIFY_SESSION_ROSTER_ENABLED` / `_TEMPLATE` config keys (default-on). "שלח עדכון רשימה" button in the attendance section header on `/admin/sessions/[id]`; confirms → `broadcastSessionRosterAction` → group broadcast with the configured template. New audit action `BROADCAST_SESSION_ROSTER`.
 
-**Files:** `src/lib/wa-notify.ts` (3 dispatchers extended + new `notifySessionRoster`), `src/app/actions/rsvp.ts` (attend/auth-attend/cancel pass post-event rosters), `src/app/admin/(protected)/sessions/[id]/actions.ts` (`promoteWaitlistAction` + new `broadcastSessionRosterAction`), `src/components/admin/config-form.tsx` (new card; existing 3 templates bumped to 6 rows × 2,000 chars), `src/lib/config-keys.ts` (defaults), `src/lib/config-validation.ts` (`waTemplateLong` schema), `src/components/admin/session-broadcast-roster-button.tsx` (new client button).
+**Manual debt reminder** — new `notifyDebtors` dispatcher + `WA_NOTIFY_DEBTORS_ENABLED` / `_TEMPLATE` config keys (default-on). Template macros `{debtors_list}` (newline-joined `{name} — ₪{abs(balance)}` rows, biggest debt first) and `{count}`. "שלח תזכורת" button in the debtors section header on `/admin/finance`; confirms → `broadcastDebtorsAction` → group broadcast. Button shows "נשלח לאחרונה: {date+time}" derived from the latest `BROADCAST_DEBTORS` audit-log entry — no separate timestamp column needed. New audit action `BROADCAST_DEBTORS`.
+
+**Files:** `src/lib/wa-notify.ts` (3 dispatchers extended + new `notifySessionRoster` + new `notifyDebtors`), `src/app/actions/rsvp.ts` (attend/auth-attend/cancel pass post-event rosters), `src/app/admin/(protected)/sessions/[id]/actions.ts` (`promoteWaitlistAction` + new `broadcastSessionRosterAction`), `src/app/admin/(protected)/finance/actions.ts` (new `broadcastDebtorsAction`), `src/app/admin/(protected)/finance/page.tsx` (parallel-loads latest broadcast timestamp; mounts button in debtors section header), `src/components/admin/config-form.tsx` (new cards; existing 3 templates bumped to 6 rows × 2,000 chars), `src/lib/config-keys.ts` (defaults), `src/lib/config-validation.ts` (`waTemplateLong` schema), `src/components/admin/session-broadcast-roster-button.tsx` and `src/components/admin/debtors-broadcast-button.tsx` (new client buttons).
 
 ---
 

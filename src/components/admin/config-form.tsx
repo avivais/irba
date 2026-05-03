@@ -1016,6 +1016,33 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
             </p>
           </Field>
         </div>
+
+        {/* Debtors reminder (manual broadcast) */}
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              name={CONFIG.WA_NOTIFY_DEBTORS_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.WA_NOTIFY_DEBTORS_ENABLED] === "true"}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            תזכורת חוב (ידני, מדף הפיננסים)
+          </label>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE]}>
+            <textarea
+              id={CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE}
+              name={CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE}
+              defaultValue={values[CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE]}
+              rows={6}
+              maxLength={2000}
+              className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_DEBTORS_TEMPLATE] ? inputError : inputNormal}`}
+            />
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              משתנים זמינים: {"{debtors_list}"}, {"{count}"}
+            </p>
+          </Field>
+        </div>
       </section>
 
       {/* ── Low-Attendance Alerts ───────────────────────── */}

@@ -62,6 +62,8 @@ export const CONFIG = {
   WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE:   "wa_notify_waitlist_promote_template",
   WA_NOTIFY_SESSION_ROSTER_ENABLED:      "wa_notify_session_roster_enabled",      // "true" | "false" — manual broadcast button
   WA_NOTIFY_SESSION_ROSTER_TEMPLATE:     "wa_notify_session_roster_template",     // vars: {date}, {registered_list}, {waitlist}
+  WA_NOTIFY_DEBTORS_ENABLED:             "wa_notify_debtors_enabled",             // "true" | "false" — manual debt-reminder broadcast
+  WA_NOTIFY_DEBTORS_TEMPLATE:            "wa_notify_debtors_template",            // vars: {debtors_list}, {count}
 } as const;
 
 export type ConfigKey = (typeof CONFIG)[keyof typeof CONFIG];
@@ -178,4 +180,8 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
 
 ברשימת המתנה:
 {waitlist}`,
+  wa_notify_debtors_enabled:             "true",
+  wa_notify_debtors_template:            `תזכורת חוב — אנא הסדירו תשלום:
+
+{debtors_list}`,
 };
