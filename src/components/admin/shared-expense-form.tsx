@@ -388,9 +388,12 @@ export function SharedExpenseForm() {
                         className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400"
                         dir="ltr"
                       >
-                        {r.attendancePct !== null && r.sessionsTotal !== null ? (
+                        {r.attendancePct !== null &&
+                        r.sessionsTotal !== null &&
+                        r.sessionsAttended !== null ? (
                           <>
-                            {r.sessionsAttended}/{r.sessionsTotal} (
+                            {Math.round(r.sessionsAttended)}/
+                            {Math.round(r.sessionsTotal)} (
                             {formatPct(r.attendancePct)}) ·{" "}
                           </>
                         ) : (
