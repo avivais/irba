@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
-import { writeAuditLog } from "@/lib/audit";
 import { getAllConfigs } from "@/lib/config";
 import { computePlayerBalances } from "@/lib/balance";
 import { getPlayerDisplayName } from "@/lib/player-display";
@@ -45,12 +44,14 @@ export async function broadcastDebtorsAction(): Promise<FinanceActionState> {
   const configs = await getAllConfigs();
   await notifyDebtors(debtorsList, configs);
 
-  writeAuditLog({
-    actor: "admin",
-    action: "BROADCAST_DEBTORS",
-    after: {
-      count: debtors.length,
-      totalDebt: debtors.reduce((s, r) => s + r.balance, 0),
+  await prisma.auditLog.create({
+    data: {
+      actor: "admin",
+      action: "BROADCAST_DEBTORS",
+      after: {
+        count: debtors.length,
+        totalDebt: debtors.reduce((s, r) => s + r.balance, 0),
+      },
     },
   });
 

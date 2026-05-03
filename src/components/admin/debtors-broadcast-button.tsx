@@ -57,13 +57,14 @@ export function DebtorsBroadcastButton({
         >
           {state.message}
         </span>
-      ) : lastSentAt ? (
+      ) : null}
+      {lastSentAt ? (
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           נשלח לאחרונה: {formatLastSent(lastSentAt)}
         </span>
-      ) : (
+      ) : !state.message ? (
         <span className="text-xs text-zinc-400 dark:text-zinc-500">לא נשלחה תזכורת עדיין</span>
-      )}
+      ) : null}
     </form>
   );
 }
