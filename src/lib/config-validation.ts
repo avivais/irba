@@ -131,6 +131,7 @@ export const configSchema = z.object({
   wa_notify_session_roster_template:     waTemplateLong,
   wa_notify_debtors_enabled:             enabledFlag,
   wa_notify_debtors_template:            waTemplateLong,
+  wa_notify_debtors_tag_enabled:         enabledFlag,
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

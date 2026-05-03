@@ -240,14 +240,25 @@ app.post("/send", async (req: Request<object, object, SendBody>, res: Response) 
 interface SendGroupBody {
   groupId?: unknown;
   message?: unknown;
+  mentions?: unknown;
 }
 
 app.post("/send-group", async (req: Request<object, object, SendGroupBody>, res: Response) => {
-  const { groupId, message } = req.body;
+  const { groupId, message, mentions } = req.body;
 
   if (typeof groupId !== "string" || typeof message !== "string") {
     res.status(400).json({ error: "groupId and message are required strings" });
     return;
+  }
+
+  // Optional: array of full JIDs (e.g. "972501234567@s.whatsapp.net") for participant tagging
+  let mentionsClean: string[] | undefined;
+  if (mentions !== undefined) {
+    if (!Array.isArray(mentions) || mentions.some((m) => typeof m !== "string")) {
+      res.status(400).json({ error: "mentions must be an array of strings" });
+      return;
+    }
+    mentionsClean = mentions as string[];
   }
 
   if (!isReady || sock === null) {
@@ -256,10 +267,10 @@ app.post("/send-group", async (req: Request<object, object, SendGroupBody>, res:
     return;
   }
 
-  logger.info({ groupId }, "Sending WhatsApp group message");
+  logger.info({ groupId, mentionCount: mentionsClean?.length ?? 0 }, "Sending WhatsApp group message");
 
   try {
-    await sock.sendMessage(groupId, { text: message });
+    await sock.sendMessage(groupId, { text: message, mentions: mentionsClean });
     logger.info({ groupId }, "Group message sent successfully");
     res.status(200).json({ ok: true });
   } catch (err) {

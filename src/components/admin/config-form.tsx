@@ -1042,6 +1042,16 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               משתנים זמינים: {"{debtors_list}"}, {"{count}"}
             </p>
           </Field>
+          <label className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              name={CONFIG.WA_NOTIFY_DEBTORS_TAG_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.WA_NOTIFY_DEBTORS_TAG_ENABLED] === "true"}
+              className="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            <span>תייג כל חייב בהודעה (כל שחקן יקבל התראה אישית מוואטסאפ)</span>
+          </label>
         </div>
       </section>
 

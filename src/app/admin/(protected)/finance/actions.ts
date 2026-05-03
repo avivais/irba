@@ -37,12 +37,14 @@ export async function broadcastDebtorsAction(): Promise<FinanceActionState> {
     return { ok: false, message: "אין שחקנים בחוב" };
   }
 
-  const debtorsList = debtors.map(
-    (r) => `${getPlayerDisplayName(r.player)} — ₪${Math.abs(r.balance)}`,
-  );
+  const debtorEntries = debtors.map((r) => ({
+    name: getPlayerDisplayName(r.player),
+    phone: r.player.phone,
+    amount: Math.abs(r.balance),
+  }));
 
   const configs = await getAllConfigs();
-  await notifyDebtors(debtorsList, configs);
+  await notifyDebtors(debtorEntries, configs);
 
   await prisma.auditLog.create({
     data: {

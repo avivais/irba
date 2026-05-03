@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderTemplate } from "./wa-notify";
+import { phoneToWaMention, renderTemplate } from "./wa-notify";
 
 describe("renderTemplate", () => {
   it("replaces a single placeholder", () => {
@@ -55,5 +55,26 @@ describe("renderTemplate", () => {
       waitlist: [].join("\n"),
     });
     expect(result).toBe("נרשמו עד כה:\nאבי\n\nברשימת המתנה:\n");
+  });
+});
+
+describe("phoneToWaMention", () => {
+  it("converts a normalised Israeli mobile to digits + JID", () => {
+    expect(phoneToWaMention("0501234567")).toEqual({
+      digits: "972501234567",
+      jid: "972501234567@s.whatsapp.net",
+    });
+  });
+
+  it("returns null for malformed phones", () => {
+    expect(phoneToWaMention("123")).toBeNull();
+    expect(phoneToWaMention("0521234567abc")).toBeNull();
+    expect(phoneToWaMention("+972501234567")).toBeNull(); // non-normalised
+    expect(phoneToWaMention("")).toBeNull();
+  });
+
+  it("returns null for non-mobile prefixes", () => {
+    expect(phoneToWaMention("0312345678")).toBeNull(); // landline
+    expect(phoneToWaMention("0411234567")).toBeNull(); // not 05XX
   });
 });
