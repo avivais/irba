@@ -346,11 +346,16 @@ export function SharedExpenseForm() {
             </h2>
             <div className="text-sm tabular-nums text-zinc-600 dark:text-zinc-300" dir="ltr">
               {split ? (
-                <>
-                  ₪{split.share}
-                  {split.remainder > 0 ? `–₪${split.share + 1}` : ""} ×{" "}
-                  {rows.length} = ₪{totalAmountNum}
-                </>
+                split.remainder > 0 ? (
+                  <>
+                    {rows.length - split.remainder} × ₪{split.share} +{" "}
+                    {split.remainder} × ₪{split.share + 1} = ₪{totalAmountNum}
+                  </>
+                ) : (
+                  <>
+                    {rows.length} × ₪{split.share} = ₪{totalAmountNum}
+                  </>
+                )
               ) : (
                 "—"
               )}

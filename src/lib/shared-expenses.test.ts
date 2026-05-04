@@ -140,4 +140,16 @@ describe("computeEligible", () => {
     expect(r.find((p) => p.playerId === "p1")!.currentBalance).toBe(-200);
     expect(r.find((p) => p.playerId === "p2")!.currentBalance).toBe(50);
   });
+
+  it("always includes admin players at 100% even with zero attendance", () => {
+    const candidates = [
+      { ...makeCandidate({ playerId: "admin", sessionsAttended: 0 }), isAdmin: true },
+      makeCandidate({ playerId: "regular", sessionsAttended: 80 }),
+    ];
+    const r = computeEligible(candidates, 100, 0.5, "REGISTERED_ONLY");
+    const admin = r.find((p) => p.playerId === "admin")!;
+    expect(admin).toBeDefined();
+    expect(admin.attendancePct).toBe(1);
+    expect(admin.sessionsAttended).toBe(100);
+  });
 });

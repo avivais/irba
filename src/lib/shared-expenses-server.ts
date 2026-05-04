@@ -20,13 +20,17 @@ import {
  * Find players who meet the attendance threshold over the rolling window.
  *
  * Combines two attendance sources, matching the precedence list:
- *   - Live segment (currentYear ∩ window): GameSession + Attendance rows.
+ *   - Live segment (currentYear ∩ window): Attendance rows on GameSessions.
  *   - Historical segment (years < currentYear, intersected with window):
- *     PlayerYearAggregate counts. Per-year denominator = max aggregate count
- *     for that year (heuristic: most-attending player went to ~all sessions).
+ *     PlayerYearAggregate counts. The boundary year (cutoff's year)
+ *     contributes a fraction equal to its overlap with the window.
  *
- * The boundary year (cutoff's year) contributes a fraction equal to the share
- * of that year covered by the window.
+ * Denominator = max attendance count across all players in the window. By
+ * definition the most-active player hits 100%; everyone else's pct is their
+ * share relative to that top.
+ *
+ * Admin players are always included (treated as 100%) — they run every
+ * session, so the system doesn't capture their attendance via Attendance rows.
  */
 export async function findEligiblePlayers(
   input: FindEligibleInput,
@@ -52,10 +56,7 @@ export async function findEligiblePlayers(
     }
   }
 
-  const [liveSessionsTotal, liveAttendances, aggregates, players] = await Promise.all([
-    prisma.gameSession.count({
-      where: { date: { gte: liveStart, lte: now } },
-    }),
+  const [liveAttendances, aggregates, players] = await Promise.all([
     prisma.attendance.findMany({
       where: { gameSession: { date: { gte: liveStart, lte: now } } },
       select: { playerId: true },
@@ -72,6 +73,7 @@ export async function findEligiblePlayers(
       select: {
         id: true,
         playerKind: true,
+        isAdmin: true,
         firstNameHe: true,
         lastNameHe: true,
         firstNameEn: true,
@@ -84,11 +86,8 @@ export async function findEligiblePlayers(
 
   if (players.length === 0) return [];
 
-  const yearMaxCount = new Map<number, number>();
   const playerYearCounts = new Map<string, Map<number, number>>();
   for (const a of aggregates) {
-    const cur = yearMaxCount.get(a.year) ?? 0;
-    if (a.count > cur) yearMaxCount.set(a.year, a.count);
     let pmap = playerYearCounts.get(a.playerId);
     if (!pmap) {
       pmap = new Map();
@@ -96,13 +95,6 @@ export async function findEligiblePlayers(
     }
     pmap.set(a.year, a.count);
   }
-
-  let historicalSessionsTotal = 0;
-  for (const { year, fraction } of historicalYears) {
-    historicalSessionsTotal += (yearMaxCount.get(year) ?? 0) * fraction;
-  }
-  const sessionsTotal = liveSessionsTotal + historicalSessionsTotal;
-  if (sessionsTotal === 0) return [];
 
   const liveAttendedByPlayer = new Map<string, number>();
   for (const a of liveAttendances) {
@@ -114,7 +106,8 @@ export async function findEligiblePlayers(
 
   const balances = await computePlayerBalances(players.map((p) => p.id));
 
-  const candidates: EligibilityCandidate[] = players.map((p) => {
+  const playerAttended = new Map<string, number>();
+  for (const p of players) {
     const live = liveAttendedByPlayer.get(p.id) ?? 0;
     let historical = 0;
     const pmap = playerYearCounts.get(p.id);
@@ -123,14 +116,23 @@ export async function findEligiblePlayers(
         historical += (pmap.get(year) ?? 0) * fraction;
       }
     }
-    return {
-      playerId: p.id,
-      name: getPlayerDisplayName(p),
-      playerKind: p.playerKind,
-      currentBalance: balances.get(p.id)?.balance ?? 0,
-      sessionsAttended: live + historical,
-    };
-  });
+    playerAttended.set(p.id, live + historical);
+  }
+
+  let sessionsTotal = 0;
+  for (const v of playerAttended.values()) {
+    if (v > sessionsTotal) sessionsTotal = v;
+  }
+  if (sessionsTotal === 0) return [];
+
+  const candidates: EligibilityCandidate[] = players.map((p) => ({
+    playerId: p.id,
+    name: getPlayerDisplayName(p),
+    playerKind: p.playerKind,
+    currentBalance: balances.get(p.id)?.balance ?? 0,
+    sessionsAttended: playerAttended.get(p.id) ?? 0,
+    isAdmin: p.isAdmin,
+  }));
 
   return computeEligible(
     candidates,

@@ -77,11 +77,14 @@ export type EligibilityCandidate = {
   playerKind: PlayerKind;
   currentBalance: number;
   sessionsAttended: number;
+  /** Admin players are always included (treated as having full attendance). */
+  isAdmin?: boolean;
 };
 
 /**
  * Pure helper: filter candidates by attendance threshold and eligibility pool,
- * sort for stable display.
+ * sort for stable display. Admin candidates always pass — they run every
+ * session, so we treat them as having attended every session in the window.
  */
 export function computeEligible(
   candidates: EligibilityCandidate[],
@@ -96,13 +99,14 @@ export function computeEligible(
     if (eligibilityPool === "REGISTERED_ONLY" && c.playerKind !== "REGISTERED") {
       continue;
     }
-    const attendancePct = c.sessionsAttended / sessionsTotal;
-    if (attendancePct < minAttendancePct) continue;
+    const attended = c.isAdmin ? sessionsTotal : c.sessionsAttended;
+    const attendancePct = attended / sessionsTotal;
+    if (!c.isAdmin && attendancePct < minAttendancePct) continue;
     filtered.push({
       playerId: c.playerId,
       name: c.name,
       playerKind: c.playerKind,
-      sessionsAttended: c.sessionsAttended,
+      sessionsAttended: attended,
       sessionsTotal,
       attendancePct,
       currentBalance: c.currentBalance,
