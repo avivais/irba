@@ -20,7 +20,7 @@ export async function autoClosePastSessions(): Promise<AutoCloseResult> {
   const now = new Date();
 
   const openSessions = await prisma.gameSession.findMany({
-    where: { isClosed: false, isArchived: false },
+    where: { isClosed: false, isArchived: false, cancelledAt: null },
     select: { id: true, date: true, durationMinutes: true },
   });
 

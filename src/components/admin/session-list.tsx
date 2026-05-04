@@ -13,6 +13,7 @@ type Session = {
   maxPlayers: number;
   isClosed: boolean;
   isArchived: boolean;
+  cancelledAt: Date | null;
   _count: { attendances: number };
 };
 
@@ -48,14 +49,22 @@ export function SessionList({ sessions, minPlayers = 10 }: { sessions: Session[]
                 </span>
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-normal ${
-                    session.isArchived
+                    session.cancelledAt
+                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                      : session.isArchived
                       ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
                       : session.isClosed
                       ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                       : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                   }`}
                 >
-                  {session.isArchived ? "ארכיון" : session.isClosed ? "סגור" : "פתוח"}
+                  {session.cancelledAt
+                    ? "בוטל"
+                    : session.isArchived
+                    ? "ארכיון"
+                    : session.isClosed
+                    ? "סגור"
+                    : "פתוח"}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm">

@@ -93,6 +93,8 @@ model GameSession {
   isCharged            Boolean   @default(false)
   alertEarlyFiredAt    DateTime?
   alertCriticalFiredAt DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
   durationMinutes Int?
   locationName    String?
   locationLat     Float?

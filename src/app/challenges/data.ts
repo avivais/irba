@@ -36,7 +36,7 @@ export async function fetchChallengeLeaderboard(
 
   // Sessions from startDate, ordered by date asc, take first sessionCount
   const windowSessions = await prisma.gameSession.findMany({
-    where: { date: { gte: challenge.startDate } },
+    where: { date: { gte: challenge.startDate }, cancelledAt: null },
     orderBy: { date: "asc" },
     take: challenge.sessionCount,
     select: { id: true, isCharged: true, date: true },

@@ -186,6 +186,7 @@ export async function chargeSessionAction(
     },
   });
   if (!session) return { ok: false, message: "מפגש לא נמצא" };
+  if (session.cancelledAt) return { ok: false, message: "לא ניתן לחייב מפגש מבוטל" };
   if (session.isCharged) return { ok: false, message: "המפגש כבר חויב" };
 
   if (!session.durationMinutes || session.durationMinutes <= 0) {

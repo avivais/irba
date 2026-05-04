@@ -56,6 +56,7 @@ export async function checkLowAttendanceAlerts(
     where: {
       isClosed: false,
       isArchived: false,
+      cancelledAt: null,
       date: { gt: now },
     },
     select: {

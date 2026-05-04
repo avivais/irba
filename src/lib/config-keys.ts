@@ -54,6 +54,8 @@ export const CONFIG = {
   WA_NOTIFY_SESSION_OPEN_TEMPLATE:       "wa_notify_session_open_template",
   WA_NOTIFY_SESSION_CLOSE_ENABLED:       "wa_notify_session_close_enabled",       // "true" | "false"
   WA_NOTIFY_SESSION_CLOSE_TEMPLATE:      "wa_notify_session_close_template",
+  WA_NOTIFY_SESSION_CANCELLED_ENABLED:   "wa_notify_session_cancelled_enabled",   // "true" | "false"
+  WA_NOTIFY_SESSION_CANCELLED_TEMPLATE:  "wa_notify_session_cancelled_template",  // vars: {date}, {reason}
   WA_NOTIFY_PLAYER_REGISTERED_ENABLED:   "wa_notify_player_registered_enabled",   // "true" | "false"
   WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE:  "wa_notify_player_registered_template",
   WA_NOTIFY_PLAYER_CANCELLED_ENABLED:    "wa_notify_player_cancelled_enabled",    // "true" | "false"
@@ -149,6 +151,8 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   wa_notify_session_open_template:       "ההרשמה למפגש ב{date} פתוחה! כנסו ל-irba.club להירשם",
   wa_notify_session_close_enabled:       "false",
   wa_notify_session_close_template:      "ההרשמה למפגש ב{date} נסגרה",
+  wa_notify_session_cancelled_enabled:   "true",
+  wa_notify_session_cancelled_template:  "⚠️ המפגש ב-{date} בוטל.\n\nסיבה: {reason}",
   wa_notify_player_registered_enabled:   "false",
   wa_notify_player_registered_template:  `{player_name} נרשם למפגש ב{date} ({status})
 

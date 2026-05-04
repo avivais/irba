@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { parseSessionForm } from "@/lib/session-validation";
 import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
-import { notifySessionOpen, notifySessionClose } from "@/lib/wa-notify";
+import { notifySessionOpen, notifySessionClose, notifySessionCancelled } from "@/lib/wa-notify";
 import { writeAuditLog } from "@/lib/audit";
 import { addAdminAttendances } from "@/lib/admin-attendance";
 
@@ -38,6 +38,7 @@ async function hasActiveSession(excludeId?: string): Promise<boolean> {
   const candidates = await prisma.gameSession.findMany({
     where: {
       date: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      cancelledAt: null,
       ...(excludeId ? { NOT: { id: excludeId } } : {}),
     },
     select: { id: true, date: true, durationMinutes: true },
@@ -245,6 +246,101 @@ export async function deleteSessionAction(
   revalidatePath("/admin/sessions");
   revalidatePath("/");
   redirect("/admin/sessions");
+}
+
+export async function cancelSessionAction(
+  id: string,
+  _prev: SessionActionState,
+  formData: FormData,
+): Promise<SessionActionState> {
+  await requireAdmin();
+
+  const reason = formData.get("reason")?.toString().trim() || null;
+
+  const before = await prisma.gameSession.findUnique({
+    where: { id },
+    select: { date: true, isClosed: true, cancelledAt: true, cancellationReason: true },
+  });
+  if (!before) return { ok: false, message: "מפגש לא נמצא" };
+  if (before.cancelledAt) return { ok: false, message: "המפגש כבר מבוטל" };
+
+  const cancelledAt = new Date();
+  let attendancesCleared = 0;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const del = await tx.attendance.deleteMany({ where: { gameSessionId: id } });
+      await tx.gameSession.update({
+        where: { id },
+        data: { cancelledAt, cancellationReason: reason, isClosed: true },
+      });
+      return del.count;
+    });
+    attendancesCleared = result;
+  } catch (e) {
+    console.error("cancelSessionAction failed", e);
+    return { ok: false, message: GENERIC_ERROR };
+  }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "CANCEL_SESSION",
+    entityType: "GameSession",
+    entityId: id,
+    before: { ...before, date: before.date.toISOString() },
+    after: {
+      cancelledAt: cancelledAt.toISOString(),
+      cancellationReason: reason,
+      isClosed: true,
+      attendancesCleared,
+    },
+  });
+
+  const configs = await getAllConfigs();
+  const dateStr = before.date.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  void notifySessionCancelled(dateStr, reason ?? "", configs);
+
+  revalidatePath("/admin/sessions");
+  revalidatePath(`/admin/sessions/${id}`);
+  revalidatePath("/");
+  return { ok: true, message: "המפגש בוטל" };
+}
+
+export async function uncancelSessionAction(
+  id: string,
+  _prev: SessionActionState,
+  _formData: FormData,
+): Promise<SessionActionState> {
+  await requireAdmin();
+
+  try {
+    await prisma.gameSession.update({
+      where: { id },
+      data: { cancelledAt: null, cancellationReason: null },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+      return { ok: false, message: "מפגש לא נמצא" };
+    }
+    console.error("uncancelSessionAction failed", e);
+    return { ok: false, message: GENERIC_ERROR };
+  }
+
+  writeAuditLog({
+    actor: "admin",
+    action: "UNCANCEL_SESSION",
+    entityType: "GameSession",
+    entityId: id,
+  });
+
+  revalidatePath("/admin/sessions");
+  revalidatePath(`/admin/sessions/${id}`);
+  revalidatePath("/");
+  return { ok: true, message: "הביטול בוטל" };
 }
 
 export async function archiveSessionAction(

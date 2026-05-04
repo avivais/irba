@@ -146,6 +146,23 @@ export async function notifySessionClose(
 }
 
 /**
+ * Notify the configured WA group that a session has been cancelled.
+ * Vars: {date}, {reason}
+ */
+export async function notifySessionCancelled(
+  dateStr: string,
+  reason: string,
+  configs: Record<ConfigKey, string>,
+): Promise<void> {
+  if (configs[CONFIG.WA_NOTIFY_SESSION_CANCELLED_ENABLED] !== "true") return;
+  const message = renderTemplate(configs[CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE], {
+    date: dateStr,
+    reason: reason.trim() || "לא צוינה",
+  });
+  await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);
+}
+
+/**
  * Notify the configured WA group that a player has registered.
  * Vars: {date}, {player_name}, {status}, {registered_list}, {waitlist}
  */

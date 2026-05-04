@@ -14,6 +14,7 @@ import { SessionAddPlayerForm } from "@/components/admin/session-add-player-form
 import { SessionQuickDropInForm } from "@/components/admin/session-quick-dropin-form";
 import { SessionArchiveButton } from "@/components/admin/session-archive-button";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
+import { SessionCancelButton } from "@/components/admin/session-cancel-button";
 import { SessionPromoteButton } from "@/components/admin/session-promote-button";
 import { SessionBroadcastRosterButton } from "@/components/admin/session-broadcast-roster-button";
 import { SessionMatchPanel } from "@/components/admin/session-match-panel";
@@ -147,6 +148,7 @@ export default async function AdminSessionPage({ params }: Props) {
     locationName: session.locationName,
     locationLat: session.locationLat,
     locationLng: session.locationLng,
+    cancelledAt: session.cancelledAt,
   };
 
   const minPlayers = parseInt(config[CONFIG.SESSION_MIN_PLAYERS] ?? "10", 10);
@@ -193,10 +195,24 @@ export default async function AdminSessionPage({ params }: Props) {
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          <SessionCancelButton id={id} cancelledAt={session.cancelledAt} />
           <SessionArchiveButton id={id} isArchived={session.isArchived} />
           <SessionDeleteButton id={id} attendanceCount={session._count.attendances} />
         </div>
       </header>
+
+      {/* Cancellation banner */}
+      {session.cancelledAt && (
+        <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+          <div className="font-semibold">המפגש בוטל</div>
+          {session.cancellationReason && (
+            <div className="mt-1 whitespace-pre-wrap">{session.cancellationReason}</div>
+          )}
+          <div className="mt-1 text-xs opacity-75">
+            בוטל ב-{session.cancelledAt.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })}
+          </div>
+        </section>
+      )}
 
       {/* Session form */}
       <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
