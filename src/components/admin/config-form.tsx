@@ -909,6 +909,31 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           </Field>
         </div>
 
+        {/* Session cancelled */}
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              name={CONFIG.WA_NOTIFY_SESSION_CANCELLED_ENABLED}
+              value="true"
+              defaultChecked={values[CONFIG.WA_NOTIFY_SESSION_CANCELLED_ENABLED] === "true"}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            התראה על ביטול מפגש (לקבוצה)
+          </label>
+          <Field label="תבנית הודעה" htmlFor={CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE} error={errors[CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE]}>
+            <textarea
+              id={CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE}
+              name={CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE}
+              defaultValue={values[CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE]}
+              rows={3}
+              maxLength={2000}
+              className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_SESSION_CANCELLED_TEMPLATE] ? inputError : inputNormal}`}
+            />
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">משתנים זמינים: {"{date}"}, {"{reason}"}</p>
+          </Field>
+        </div>
+
         {/* Player registered */}
         <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
           <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">

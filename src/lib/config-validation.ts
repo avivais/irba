@@ -121,6 +121,8 @@ export const configSchema = z.object({
   wa_notify_session_open_template:       waTemplate,
   wa_notify_session_close_enabled:       enabledFlag,
   wa_notify_session_close_template:      waTemplate,
+  wa_notify_session_cancelled_enabled:   enabledFlag,
+  wa_notify_session_cancelled_template:  waTemplateLong,
   wa_notify_player_registered_enabled:   enabledFlag,
   wa_notify_player_registered_template:  waTemplateLong,
   wa_notify_player_cancelled_enabled:    enabledFlag,
