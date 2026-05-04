@@ -9,6 +9,7 @@ import { parseSessionForm } from "@/lib/session-validation";
 import { getAllConfigs, getConfigInt, CONFIG } from "@/lib/config";
 import { notifySessionOpen, notifySessionClose } from "@/lib/wa-notify";
 import { writeAuditLog } from "@/lib/audit";
+import { addAdminAttendances } from "@/lib/admin-attendance";
 
 /** Return the UTC start and end of the calendar day containing `date` in Israel timezone. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -104,20 +105,7 @@ export async function createSessionAction(
     after: { date: date.toISOString(), maxPlayers, durationMinutes, locationName },
   });
 
-  // Auto-register the admin player
-  const adminPlayer = await prisma.player.findFirst({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
-  if (adminPlayer) {
-    try {
-      await prisma.attendance.create({
-        data: { playerId: adminPlayer.id, gameSessionId: newSessionId },
-      });
-    } catch {
-      // If attendance already exists (shouldn't happen on create), ignore
-    }
-  }
+  await addAdminAttendances(newSessionId);
 
   // Notify WA group of new session (best-effort, fire-and-forget)
   // Per-session override: form may supply wa_override_session_open_enabled / wa_override_session_open_template

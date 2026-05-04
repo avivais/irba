@@ -861,4 +861,21 @@ Player-by-player retroactive recharge that closes a trailing in-debt streak. Bui
 
 ---
 
-*Last updated: May 2026 — IRBA went live in production. Items #15 (roster macros + manual broadcast) and #16 (retroactive debt closure) shipped post-launch.*
+#### 17. Admin auto-attendance + auto-offset payments ✅ DONE
+
+Admin (the organizer) is now treated as a regular registered player throughout the charging flow — the admin runs every session, pays the venue out-of-pocket, and the system records both sides so the admin's balance stays ~0.
+
+**Mechanics:**
+- New helper `addAdminAttendances(sessionId)` (`src/lib/admin-attendance.ts`) idempotently creates `Attendance` rows for every `isAdmin: true` player. Wired into `createSessionAction` AND `autoCreateNextSession` — previously only the manual create path auto-attended admin, so cron-created sessions silently lost admin attendance.
+- `chargeSessionAction` now creates a matching `Payment` row alongside each admin `SessionCharge` (same amount, `method: OTHER`, description `"קיזוז מנהל"`, `date: session.date`, `sessionId: session.id`). All inside the same `prisma.$transaction`, so charging and offsetting are atomic.
+- `unchargeSessionAction` deletes by `sessionId` so admin-offset payments come off cleanly when a session is uncharged.
+
+**Schema:** `Payment.sessionId` (nullable FK → `GameSession`, `onDelete: SetNull`). Indexed. Enables linking auto-offset payments to their source session for the uncharge cleanup and future reconciliation.
+
+**Backfill:** `scripts/backfill-admin-attendance.ts` — idempotent one-shot that adds Attendance for every session and (for charged sessions) `SessionCharge` + matching `Payment` for every admin. Charge amount mirrors a reference `REGISTERED` charge from the same session (no redistribution of other players' charges — admin's charge sits on top, and the offsetting payment makes it a wash).
+
+**Why no precedence change:** admin is already excluded from the precedence list and competition winners (`isAdmin: false` filters), so the new Attendance rows don't pollute leaderboards.
+
+---
+
+*Last updated: May 2026 — IRBA went live in production. Items #15 (roster macros + manual broadcast), #16 (retroactive debt closure), and #17 (admin auto-attendance + offset) shipped post-launch.*

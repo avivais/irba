@@ -180,7 +180,7 @@ export async function chargeSessionAction(
       attendances: {
         select: {
           playerId: true,
-          player: { select: { playerKind: true } },
+          player: { select: { playerKind: true, isAdmin: true } },
         },
       },
     },
@@ -243,6 +243,15 @@ export async function chargeSessionAction(
     };
   }
 
+  // Admin players auto-pay their session charges (they pay the venue out of
+  // pocket, so the system records a matching Payment to keep balance ~0).
+  const adminPlayerIds = new Set(
+    confirmedAttendances.filter((a) => a.player.isAdmin).map((a) => a.playerId),
+  );
+  const adminCharges = proposal.charges.filter(
+    (c) => adminPlayerIds.has(c.playerId) && c.calculatedAmount > 0,
+  );
+
   try {
     await prisma.$transaction([
       ...proposal.charges.map((c) =>
@@ -253,6 +262,18 @@ export async function chargeSessionAction(
             amount: c.calculatedAmount,
             calculatedAmount: c.calculatedAmount,
             chargeType: c.chargeType,
+          },
+        }),
+      ),
+      ...adminCharges.map((c) =>
+        prisma.payment.create({
+          data: {
+            playerId: c.playerId,
+            sessionId,
+            amount: c.calculatedAmount,
+            method: "OTHER",
+            description: "קיזוז מנהל",
+            date: session.date,
           },
         }),
       ),
@@ -316,6 +337,8 @@ export async function unchargeSessionAction(
         data: { usedAt: null, usedInSessionId: null },
       }),
       prisma.sessionCharge.deleteMany({ where: { sessionId } }),
+      // Remove admin auto-offset payments for this session
+      prisma.payment.deleteMany({ where: { sessionId } }),
       prisma.gameSession.update({
         where: { id: sessionId },
         data: { isCharged: false },

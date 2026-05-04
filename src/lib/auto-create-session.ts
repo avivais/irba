@@ -3,6 +3,7 @@ import { getAllConfigs, CONFIG } from "@/lib/config";
 import { nextScheduledSession } from "@/lib/schedule";
 import { notifySessionOpen } from "@/lib/wa-notify";
 import { writeAuditLog } from "@/lib/audit";
+import { addAdminAttendances } from "@/lib/admin-attendance";
 
 /** UTC start and end of the Israel calendar day containing `date`. */
 function israelDayBounds(date: Date): { gte: Date; lt: Date } {
@@ -64,6 +65,8 @@ export async function autoCreateNextSession(opts: { force?: boolean } = {}): Pro
   const session = await prisma.gameSession.create({
     data: { date: nextSession, maxPlayers, isClosed: false, durationMinutes, locationName, locationLat, locationLng },
   });
+
+  await addAdminAttendances(session.id);
 
   writeAuditLog({
     actor: "cron",
