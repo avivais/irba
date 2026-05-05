@@ -56,12 +56,19 @@ ssh -i "$SSH_KEY" "$HOST" bash <<REMOTE
   echo "Container status:"
   docker compose ps
 
-  # Trim old images: remove anything not currently in use AND older than 7
-  # days. Keeps recent tags (so we have rollback options) and the running
-  # images (always referenced). The 7-day window matters because plain
-  # `docker image prune -f` only removes dangling layers and let us
-  # accumulate ~7GB of stale tagged builds last time.
-  docker image prune -af --filter "until=168h" >/dev/null 2>&1 || true
+  # Trim old images: keep the 2 most recent tags per IRBA repo (current +
+  # previous, for rollback). Older tags get untagged; in-use images are
+  # protected by Docker itself (rmi on a running image fails harmlessly).
+  # An age filter alone (e.g. until=168h) is too lenient with rapid deploys —
+  # 14 deploys in a day pushed disk over 85% before the weekly cron ran.
+  for repo in ghcr.io/avivais/irba/app ghcr.io/avivais/irba/wa; do
+    docker images "\$repo" --format '{{.CreatedAt}}|{{.Repository}}:{{.Tag}}' \
+      | sort -r \
+      | tail -n +3 \
+      | cut -d'|' -f2 \
+      | xargs -r -n1 docker rmi 2>/dev/null || true
+  done
+  docker image prune -f >/dev/null 2>&1 || true
   docker builder prune -af --filter "until=168h" >/dev/null 2>&1 || true
 REMOTE
 
