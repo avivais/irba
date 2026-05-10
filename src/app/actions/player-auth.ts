@@ -25,7 +25,7 @@ const isDev = () => process.env.NODE_ENV === "development";
 export type PlayerAuthState = {
   ok: boolean;
   message?: string;
-  step?: "otp_sent" | "set_profile" | "set_name" | "logged_in";
+  step?: "otp_sent" | "logged_in";
   /** Where to navigate when step === "logged_in" (client-side router.push). */
   redirectTo?: string;
   /** Dev mode only — raw OTP for testing when WA is not enabled. */
@@ -152,8 +152,8 @@ export async function requestOtpAction(
 
 /**
  * Step 1b: Player enters 6-digit OTP → verify, issue session.
- * On first login (no passwordHash): returns step:"set_profile".
- * Otherwise: redirects to /profile.
+ * Returns step:"logged_in" with redirectTo; the layout overlays
+ * (regulations + profile completion) handle any first-login follow-up.
  */
 export async function verifyOtpAction(
   _prev: PlayerAuthState,
@@ -186,11 +186,8 @@ export async function verifyOtpAction(
     select: {
       id: true,
       isAdmin: true,
-      passwordHash: true,
       otpCode: true,
       otpExpiresAt: true,
-      playerKind: true,
-      firstNameHe: true,
     },
   });
 
@@ -240,15 +237,6 @@ export async function verifyOtpAction(
     entityId: player.id,
     after: { method: "otp" },
   });
-
-  if (!player.passwordHash) {
-    // New DROP_IN with no name → ask for name first (simplified onboarding)
-    if (player.playerKind === "DROP_IN" && !player.firstNameHe) {
-      return { ok: true, step: "set_name" };
-    }
-    // Other first-time players → full profile setup
-    return { ok: true, step: "set_profile" };
-  }
 
   const redirectTo = (formData.get("redirectTo") as string) || "/profile";
   return { ok: true, step: "logged_in", redirectTo };
@@ -327,48 +315,6 @@ export async function playerPasswordLoginAction(
   });
 
   return { ok: true, step: "logged_in", redirectTo: "/profile" };
-}
-
-// ── Profile completion (first login) ─────────────────────────────────────────
-
-/**
- * After first OTP verification: player sets a password for future logins.
- * Personal details (name, email, national ID, etc.) are editable from /profile.
- * Requires an active player session.
- */
-export async function completeProfileAction(
-  _prev: PlayerAuthState,
-  formData: FormData,
-): Promise<PlayerAuthState> {
-  const playerId = await getPlayerSessionPlayerId();
-  if (!playerId) {
-    return { ok: false, message: "לא מחובר. נא להתחבר שוב." };
-  }
-
-  const parsedPassword = passwordSchema.safeParse(formData.get("password"));
-  if (!parsedPassword.success) {
-    return { ok: false, message: parsedPassword.error.issues[0]?.message };
-  }
-
-  const confirmPassword = formData.get("confirmPassword");
-  if (parsedPassword.data !== confirmPassword) {
-    return { ok: false, message: "הסיסמאות אינן תואמות" };
-  }
-
-  const passwordHash = await hash(parsedPassword.data, 10);
-  await prisma.player.update({
-    where: { id: playerId },
-    data: { passwordHash },
-  });
-
-  writeAuditLog({
-    actor: playerId,
-    action: "PLAYER_PASSWORD_SET",
-    entityType: "Player",
-    entityId: playerId,
-  });
-
-  redirect("/profile");
 }
 
 // ── Password reset ────────────────────────────────────────────────────────────
@@ -574,36 +520,6 @@ export async function changePasswordAction(
   });
 
   return { ok: true, message: isFirstTime ? "הסיסמה הוגדרה בהצלחה" : "הסיסמה עודכנה בהצלחה" };
-}
-
-// ── Drop-in name setup ────────────────────────────────────────────────────────
-
-/**
- * After OTP verification for a new DROP_IN player: optionally set a display
- * name and redirect to the homepage to complete RSVP.
- */
-export async function setNameAction(
-  _prev: PlayerAuthState,
-  formData: FormData,
-): Promise<PlayerAuthState> {
-  const playerId = await getPlayerSessionPlayerId();
-  if (!playerId) return { ok: false, message: "לא מחובר. נא להתחבר שוב." };
-
-  const name = ((formData.get("name") as string | null) ?? "").trim();
-  if (name) {
-    await prisma.player.update({
-      where: { id: playerId },
-      data: { firstNameHe: name },
-    });
-    writeAuditLog({
-      actor: playerId,
-      action: "PLAYER_NAME_SET",
-      entityType: "Player",
-      entityId: playerId,
-    });
-  }
-
-  redirect("/");
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────

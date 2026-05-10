@@ -7,18 +7,14 @@ import {
   requestOtpAction,
   verifyOtpAction,
   playerPasswordLoginAction,
-  completeProfileAction,
   requestPasswordResetAction,
   confirmPasswordResetAction,
-  setNameAction,
   type PlayerAuthState,
 } from "@/app/actions/player-auth";
 
 type Mode =
   | "phone_entry"
   | "otp_sent"
-  | "set_profile"
-  | "set_name"
   | "reset_phone"
   | "reset_otp"
   | "reset_pw";
@@ -121,8 +117,6 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
   const [otpVerifyState, otpVerifyAction, otpVerifyPending] = useActionState(
     async (prev: PlayerAuthState, fd: FormData) => {
       const result = await verifyOtpAction(prev, fd);
-      if (result.ok && result.step === "set_profile") setMode("set_profile");
-      if (result.ok && result.step === "set_name") setMode("set_name");
       if (result.ok && result.step === "logged_in") {
         router.push(result.redirectTo ?? "/profile");
       }
@@ -144,18 +138,6 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
       }
       return result;
     },
-    initialState,
-  );
-
-  // Complete profile
-  const [profileState, profileAction, profilePending] = useActionState(
-    completeProfileAction,
-    initialState,
-  );
-
-  // Set name (drop-in onboarding)
-  const [nameState, nameAction, namePending] = useActionState(
-    setNameAction,
     initialState,
   );
 
@@ -356,103 +338,6 @@ export function PlayerLoginForm({ redirectTo }: { redirectTo?: string } = {}) {
           className="text-center text-sm text-zinc-500 underline-offset-2 hover:text-zinc-700 hover:underline dark:text-zinc-400"
         >
           חזרה
-        </button>
-      </form>
-    );
-  }
-
-  if (mode === "set_profile") {
-    const errorMsg =
-      !profilePending && !profileState.ok && profileState.message
-        ? profileState.message
-        : null;
-
-    return (
-      <form action={profileAction} className={`${card} gap-4`} noValidate>
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          ברוך הבא! הגדר סיסמה לכניסות הבאות.
-        </p>
-        <div className="flex flex-col gap-1">
-          <FieldLabel htmlFor="new-password">סיסמה חדשה</FieldLabel>
-          <input
-            id="new-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            maxLength={512}
-            aria-invalid={Boolean(errorMsg)}
-            className={`${inputBase} ${errorMsg ? inputInvalid : inputNormal}`}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <FieldLabel htmlFor="confirm-password">אמת סיסמה</FieldLabel>
-          <input
-            id="confirm-password"
-            name="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            maxLength={512}
-            aria-invalid={Boolean(errorMsg)}
-            className={`${inputBase} ${errorMsg ? inputInvalid : inputNormal}`}
-          />
-        </div>
-        {errorMsg && <ErrorBanner message={errorMsg} />}
-        <button
-          type="submit"
-          disabled={profilePending}
-          className={btnPrimary}
-        >
-          <SpinnerLabel
-            pending={profilePending}
-            label="שמור והמשך"
-            loadingLabel="שומר…"
-          />
-        </button>
-      </form>
-    );
-  }
-
-  if (mode === "set_name") {
-    const nameError =
-      !namePending && !nameState.ok && nameState.message
-        ? nameState.message
-        : null;
-
-    return (
-      <form action={nameAction} className={`${card} gap-4`} noValidate>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          ברוך הבא! איך לקרוא לך? (אופציונלי)
-        </p>
-        <div className="flex flex-col gap-1">
-          <FieldLabel htmlFor="player-name">שם</FieldLabel>
-          <input
-            id="player-name"
-            name="name"
-            type="text"
-            autoComplete="given-name"
-            maxLength={80}
-            placeholder="השם שלך"
-            className={`${inputBase} ${inputNormal}`}
-          />
-        </div>
-        {nameError && <ErrorBanner message={nameError} />}
-        <button type="submit" disabled={namePending} className={btnPrimary}>
-          <SpinnerLabel
-            pending={namePending}
-            label="שמור והמשך"
-            loadingLabel="שומר…"
-          />
-        </button>
-        <button
-          type="submit"
-          name="name"
-          value=""
-          disabled={namePending}
-          className={btnSecondary}
-        >
-          דלג — הירשם ללא שם
         </button>
       </form>
     );
