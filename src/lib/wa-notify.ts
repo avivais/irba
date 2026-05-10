@@ -109,6 +109,10 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
   return template.replace(/\{(\w+)\}/g, (match, key: string) => vars[key] ?? match);
 }
 
+export function formatRegisteredListWithTotal(registeredList: string[]): string {
+  return [...registeredList, "", `סה"כ *${registeredList.length} רשומים*`].join("\n");
+}
+
 // ── High-level notification dispatchers ─────────────────────────────────────
 
 export interface WaSessionOpenOverride {
@@ -303,7 +307,7 @@ export async function notifySessionRoster(
   if (configs[CONFIG.WA_NOTIFY_SESSION_ROSTER_ENABLED] !== "true") return;
   const message = renderTemplate(configs[CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE], {
     date: dateStr,
-    registered_list: registeredList.join("\n"),
+    registered_list: formatRegisteredListWithTotal(registeredList),
     waitlist: waitlist.join("\n"),
   });
   await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);

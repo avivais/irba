@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { phoneToWaMention, renderTemplate } from "./wa-notify";
+import { formatRegisteredListWithTotal, phoneToWaMention, renderTemplate } from "./wa-notify";
 
 describe("renderTemplate", () => {
   it("replaces a single placeholder", () => {
@@ -76,5 +76,17 @@ describe("phoneToWaMention", () => {
   it("returns null for non-mobile prefixes", () => {
     expect(phoneToWaMention("0312345678")).toBeNull(); // landline
     expect(phoneToWaMention("0411234567")).toBeNull(); // not 05XX
+  });
+});
+
+describe("formatRegisteredListWithTotal", () => {
+  it("appends the confirmed player total after the registered list", () => {
+    expect(formatRegisteredListWithTotal(["אבי", "דניאל", "רונן"])).toBe(
+      "אבי\nדניאל\nרונן\n\nסה\"כ *3 רשומים*",
+    );
+  });
+
+  it("renders zero when the registered list is empty", () => {
+    expect(formatRegisteredListWithTotal([])).toBe("\nסה\"כ *0 רשומים*");
   });
 });
