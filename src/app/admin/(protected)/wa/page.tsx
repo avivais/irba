@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin-guard";
 import { getAllConfigs, CONFIG } from "@/lib/config";
+import { WaAdminOtpForm } from "@/components/admin/wa-admin-otp-form";
 import { WaBotStatus } from "@/components/admin/wa-bot-status";
 import { WaSendForm } from "@/components/admin/wa-send-form";
 
@@ -33,6 +34,14 @@ export default async function WaPage() {
           {/* Bot status */}
           <section>
             <WaBotStatus />
+          </section>
+
+          {/* Admin OTP forwarding */}
+          <section className="flex flex-col gap-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              OTP לבדיקה
+            </h2>
+            <WaAdminOtpForm />
           </section>
 
           {/* Manual send */}

@@ -1,8 +1,12 @@
 "use server";
 
+import { hash } from "bcryptjs";
+import { randomInt } from "crypto";
 import { requireAdmin } from "@/lib/admin-guard";
 import { getAllConfigs, CONFIG } from "@/lib/config";
-import { sendWaGroupMessage } from "@/lib/wa-notify";
+import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/phone";
+import { sendWaGroupMessage, sendWaMessage } from "@/lib/wa-notify";
 import { writeAuditLog } from "@/lib/audit";
 
 export type WaStatusResult = { ready: boolean; qr: string | null };
@@ -56,4 +60,65 @@ export async function sendWaGroupMessageAction(
     after: { message: text, groupJid },
   });
   return { ok: true, message: "נשלח ✓" };
+}
+
+export async function sendAdminTestOtpAction(
+  _prev: SendWaActionState,
+  formData: FormData,
+): Promise<SendWaActionState> {
+  await requireAdmin();
+
+  const rawPhone = (formData.get("phone") as string | null)?.trim() ?? "";
+  if (!rawPhone) return { ok: false, message: "נא להזין מספר טלפון" };
+
+  let phone: string;
+  try {
+    phone = normalizePhone(rawPhone);
+  } catch {
+    return { ok: false, message: "מספר טלפון לא תקין (דוגמה: 0501234567)" };
+  }
+
+  const admin = await prisma.player.findFirst({
+    where: { isAdmin: true, phone: { not: "" } },
+    orderBy: { createdAt: "asc" },
+    select: { phone: true },
+  });
+  if (!admin?.phone) return { ok: false, message: "לא נמצא אדמין עם טלפון לשליחה" };
+
+  if (process.env.WA_NOTIFY_ENABLED !== "true") {
+    return { ok: false, message: "שליחת WhatsApp כבויה בסביבה הזו" };
+  }
+
+  const player = await prisma.player.findUnique({
+    where: { phone },
+    select: { id: true },
+  });
+  if (!player) {
+    return { ok: false, message: "שחקן לא נמצא — בקש ממנו להזין את הטלפון במסך הכניסה תחילה" };
+  }
+
+  const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const hashed = await hash(otp, 8);
+  await prisma.player.update({
+    where: { id: player.id },
+    data: {
+      otpCode: hashed,
+      otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+  });
+
+  await sendWaMessage(
+    admin.phone,
+    `קוד בדיקה ל-IRBA עבור ${phone}: ${otp}\nהקוד תקף ל-10 דקות.`,
+  );
+
+  writeAuditLog({
+    actor: "admin",
+    action: "SEND_ADMIN_TEST_OTP",
+    entityType: "Player",
+    entityId: player.id,
+    after: { targetPhone: phone, adminPhone: admin.phone },
+  });
+
+  return { ok: true, message: "קוד נוצר ונשלח לוואטסאפ של האדמין" };
 }

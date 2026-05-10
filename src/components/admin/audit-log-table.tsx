@@ -81,6 +81,7 @@ const ACTION_LABELS: Record<string, string> = {
   IMPORT_AGGREGATES: "ייבוא נתונים היסטוריים",
   // System / WA
   SEND_WA_MESSAGE: "הודעת וואטסאפ נשלחה",
+  SEND_ADMIN_TEST_OTP: "OTP בדיקה נשלח לאדמין",
   WA_LOGOUT: "התנתקות וואטסאפ",
   RUN_AUTO_CREATE: "הרצת יצירה אוטומטית",
   AUTO_CREATE_SESSION: "מפגש נוצר אוטומטית",
@@ -163,6 +164,7 @@ const ACTION_COLORS: Record<string, string> = {
   IMPORT_AGGREGATES: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
   // System / WA — zinc
   SEND_WA_MESSAGE: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
+  SEND_ADMIN_TEST_OTP: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
   WA_LOGOUT: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
   RUN_AUTO_CREATE: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
 };
