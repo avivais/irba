@@ -23,6 +23,12 @@ export async function updatePlayerProfileAction(
   const playerId = await getPlayerSessionPlayerId();
   if (!playerId) redirect("/");
 
+  const current = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { playerKind: true, nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, birthdate: true, email: true, nationalId: true },
+  });
+  if (!current) redirect("/");
+
   const raw: Record<string, string | undefined> = {
     nickname: (formData.get("nickname") as string | null) ?? undefined,
     firstNameHe: (formData.get("firstNameHe") as string | null) ?? undefined,
@@ -34,7 +40,7 @@ export async function updatePlayerProfileAction(
     nationalId: (formData.get("nationalId") as string | null) ?? undefined,
   };
 
-  const validation = parseProfileForm(raw);
+  const validation = parseProfileForm(raw, { playerKind: current.playerKind });
   if (!validation.ok) {
     return { ok: false, errors: validation.errors };
   }
@@ -42,15 +48,12 @@ export async function updatePlayerProfileAction(
   const { nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId } =
     validation.data;
 
-  const before = await prisma.player.findUnique({
-    where: { id: playerId },
-    select: { nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, birthdate: true, email: true, nationalId: true },
-  });
-
   await prisma.player.update({
     where: { id: playerId },
     data: { nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId },
   });
+
+  const { playerKind: _kind, ...before } = current;
 
   writeAuditLog({
     actor: playerId,
@@ -71,6 +74,12 @@ export async function completeProfileDetailsAction(
   const playerId = await getPlayerSessionPlayerId();
   if (!playerId) redirect("/");
 
+  const current = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { playerKind: true, nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, birthdate: true, email: true, nationalId: true },
+  });
+  if (!current) redirect("/");
+
   const raw: Record<string, string | undefined> = {
     nickname: (formData.get("nickname") as string | null) ?? undefined,
     firstNameHe: (formData.get("firstNameHe") as string | null) ?? undefined,
@@ -82,7 +91,7 @@ export async function completeProfileDetailsAction(
     nationalId: (formData.get("nationalId") as string | null) ?? undefined,
   };
 
-  const validation = parseProfileForm(raw);
+  const validation = parseProfileForm(raw, { playerKind: current.playerKind });
   if (!validation.ok) {
     return { ok: false, errors: validation.errors };
   }
@@ -90,15 +99,12 @@ export async function completeProfileDetailsAction(
   const { nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId } =
     validation.data;
 
-  const before = await prisma.player.findUnique({
-    where: { id: playerId },
-    select: { nickname: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, birthdate: true, email: true, nationalId: true },
-  });
-
   await prisma.player.update({
     where: { id: playerId },
     data: { nickname, firstNameHe, lastNameHe, firstNameEn, lastNameEn, birthdate, email, nationalId },
   });
+
+  const { playerKind: _kind, ...before } = current;
 
   writeAuditLog({
     actor: playerId,

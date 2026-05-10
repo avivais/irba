@@ -42,7 +42,10 @@ export default async function RootLayout({
   let needsRegulations = false;
   let regulationsText = "";
   let allConfigs: Record<string, string> = {};
-  let profileInitial: React.ComponentProps<typeof ProfileCompletionOverlay>["initial"] | null = null;
+  let profileGate: Pick<
+    React.ComponentProps<typeof ProfileCompletionOverlay>,
+    "playerKind" | "initial"
+  > | null = null;
 
   if (playerId) {
     const [player, version, configs] = await Promise.all([
@@ -73,15 +76,18 @@ export default async function RootLayout({
       regulationsText = configs[CONFIG.REGULATIONS_TEXT];
       allConfigs = configs;
     } else if (player && !isProfileComplete(player)) {
-      profileInitial = {
-        nickname: player.nickname,
-        firstNameHe: player.firstNameHe,
-        lastNameHe: player.lastNameHe,
-        firstNameEn: player.firstNameEn,
-        lastNameEn: player.lastNameEn,
-        birthdate: player.birthdate,
-        email: player.email,
-        nationalId: player.nationalId,
+      profileGate = {
+        playerKind: player.playerKind,
+        initial: {
+          nickname: player.nickname,
+          firstNameHe: player.firstNameHe,
+          lastNameHe: player.lastNameHe,
+          firstNameEn: player.firstNameEn,
+          lastNameEn: player.lastNameEn,
+          birthdate: player.birthdate,
+          email: player.email,
+          nationalId: player.nationalId,
+        },
       };
     }
   }
@@ -107,8 +113,11 @@ export default async function RootLayout({
               configValues={allConfigs}
             />
           )}
-          {!needsRegulations && profileInitial && (
-            <ProfileCompletionOverlay initial={profileInitial} />
+          {!needsRegulations && profileGate && (
+            <ProfileCompletionOverlay
+              playerKind={profileGate.playerKind}
+              initial={profileGate.initial}
+            />
           )}
           {children}
         </ThemeProvider>

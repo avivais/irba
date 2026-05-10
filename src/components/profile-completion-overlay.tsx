@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import type { PlayerKind } from "@prisma/client";
 import { Loader2, UserRoundPen } from "lucide-react";
 import {
   completeProfileDetailsAction,
@@ -9,6 +10,7 @@ import {
 import { DateInputIL } from "@/components/ui/date-input-il";
 
 type Props = {
+  playerKind: PlayerKind;
   initial: {
     nickname: string | null;
     firstNameHe: string | null;
@@ -36,11 +38,13 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function ProfileCompletionOverlay({ initial }: Props) {
+export function ProfileCompletionOverlay({ playerKind, initial }: Props) {
   const [state, formAction, pending] = useActionState(
     completeProfileDetailsAction,
     initialState,
   );
+
+  const isRegistered = playerKind === "REGISTERED";
 
   const [nickname, setNickname] = useState(initial.nickname ?? "");
   const [firstNameHe, setFirstNameHe] = useState(initial.firstNameHe ?? "");
@@ -116,102 +120,106 @@ export function ProfileCompletionOverlay({ initial }: Props) {
               </div>
             </div>
 
-            {/* Birthdate */}
-            <div className="flex flex-col gap-1">
-              <FieldLabel>תאריך לידה*</FieldLabel>
-              <DateInputIL
-                name="birthdate"
-                defaultValue={initialIso}
-                serverError={errors.birthdate}
-                autoComplete="bday"
-                min="1900-01-01"
-                max="2100-12-31"
-                className={`${inputBase} ${inputNormal}`}
-                invalidClassName={inputInvalid}
-              />
-            </div>
+            {isRegistered && (
+              <>
+                {/* Birthdate */}
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>תאריך לידה*</FieldLabel>
+                  <DateInputIL
+                    name="birthdate"
+                    defaultValue={initialIso}
+                    serverError={errors.birthdate}
+                    autoComplete="bday"
+                    min="1900-01-01"
+                    max="2100-12-31"
+                    className={`${inputBase} ${inputNormal}`}
+                    invalidClassName={inputInvalid}
+                  />
+                </div>
 
-            {/* National ID */}
-            <div className="flex flex-col gap-1">
-              <FieldLabel>תעודת זהות*</FieldLabel>
-              <input
-                name="nationalId"
-                type="text"
-                inputMode="numeric"
-                maxLength={11}
-                dir="ltr"
-                value={nationalId}
-                onChange={(e) => setNationalId(e.target.value)}
-                className={`${inputBase} ${errors.nationalId ? inputInvalid : inputNormal}`}
-                placeholder="9 ספרות"
-              />
-              {errors.nationalId && (
-                <p className="text-xs text-red-400">{errors.nationalId}</p>
-              )}
-            </div>
+                {/* National ID */}
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>תעודת זהות*</FieldLabel>
+                  <input
+                    name="nationalId"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={11}
+                    dir="ltr"
+                    value={nationalId}
+                    onChange={(e) => setNationalId(e.target.value)}
+                    className={`${inputBase} ${errors.nationalId ? inputInvalid : inputNormal}`}
+                    placeholder="9 ספרות"
+                  />
+                  {errors.nationalId && (
+                    <p className="text-xs text-red-400">{errors.nationalId}</p>
+                  )}
+                </div>
 
-            {/* Email */}
-            <div className="flex flex-col gap-1">
-              <FieldLabel>מייל*</FieldLabel>
-              <input
-                name="email"
-                type="email"
-                autoComplete="email"
-                dir="ltr"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`${inputBase} ${errors.email ? inputInvalid : inputNormal}`}
-                placeholder="כתובת מייל"
-              />
-              {errors.email && (
-                <p className="text-xs text-red-400">{errors.email}</p>
-              )}
-            </div>
+                {/* Email */}
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>מייל*</FieldLabel>
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    dir="ltr"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`${inputBase} ${errors.email ? inputInvalid : inputNormal}`}
+                    placeholder="כתובת מייל"
+                  />
+                  {errors.email && (
+                    <p className="text-xs text-red-400">{errors.email}</p>
+                  )}
+                </div>
 
-            {/* English names — optional */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <FieldLabel>First name (English)</FieldLabel>
-                <input
-                  name="firstNameEn"
-                  type="text"
-                  maxLength={80}
-                  value={firstNameEn}
-                  onChange={(e) => setFirstNameEn(e.target.value)}
-                  className={`${inputBase} ${inputNormal}`}
-                  placeholder="First name"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <FieldLabel>Last name (English)</FieldLabel>
-                <input
-                  name="lastNameEn"
-                  type="text"
-                  maxLength={80}
-                  value={lastNameEn}
-                  onChange={(e) => setLastNameEn(e.target.value)}
-                  className={`${inputBase} ${inputNormal}`}
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
+                {/* English names — optional */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1">
+                    <FieldLabel>First name (English)</FieldLabel>
+                    <input
+                      name="firstNameEn"
+                      type="text"
+                      maxLength={80}
+                      value={firstNameEn}
+                      onChange={(e) => setFirstNameEn(e.target.value)}
+                      className={`${inputBase} ${inputNormal}`}
+                      placeholder="First name"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <FieldLabel>Last name (English)</FieldLabel>
+                    <input
+                      name="lastNameEn"
+                      type="text"
+                      maxLength={80}
+                      value={lastNameEn}
+                      onChange={(e) => setLastNameEn(e.target.value)}
+                      className={`${inputBase} ${inputNormal}`}
+                      placeholder="Last name"
+                    />
+                  </div>
+                </div>
 
-            {/* Nickname — optional */}
-            <div className="flex flex-col gap-1">
-              <FieldLabel>כינוי</FieldLabel>
-              <input
-                name="nickname"
-                type="text"
-                maxLength={50}
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                className={`${inputBase} ${errors.nickname ? inputInvalid : inputNormal}`}
-                placeholder="כינוי קצר (אופציונלי)"
-              />
-              {errors.nickname && (
-                <p className="text-xs text-red-400">{errors.nickname}</p>
-              )}
-            </div>
+                {/* Nickname — optional */}
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>כינוי</FieldLabel>
+                  <input
+                    name="nickname"
+                    type="text"
+                    maxLength={50}
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    className={`${inputBase} ${errors.nickname ? inputInvalid : inputNormal}`}
+                    placeholder="כינוי קצר (אופציונלי)"
+                  />
+                  {errors.nickname && (
+                    <p className="text-xs text-red-400">{errors.nickname}</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

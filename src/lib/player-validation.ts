@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PlayerKind } from "@prisma/client";
 import { normalizePhone, PhoneValidationError } from "./phone";
 import { isValidIsraeliId, normalizeIsraeliId } from "./israeli-id";
 
@@ -199,6 +200,7 @@ export function parsePlayerForm(
 
 export function parseProfileForm(
   raw: Record<string, string | undefined>,
+  opts: { playerKind: PlayerKind },
 ): ProfileFormValidation {
   const parsed = profileFormSchema.safeParse(raw);
   if (!parsed.success) {
@@ -213,24 +215,31 @@ export function parseProfileForm(
   }
 
   const errors: ProfileFieldErrors = {};
+  const isRegistered = opts.playerKind === "REGISTERED";
 
   const nickname = parsed.data.nickname?.trim() || null;
   const firstNameEn = parsed.data.firstNameEn?.trim() || null;
   const lastNameEn = parsed.data.lastNameEn?.trim() || null;
 
+  // Required for both REGISTERED and DROP_IN
   const firstNameHe = parsed.data.firstNameHe?.trim() || null;
   if (!firstNameHe) errors.firstNameHe = "נא להזין שם פרטי";
 
   const lastNameHe = parsed.data.lastNameHe?.trim() || null;
   if (!lastNameHe) errors.lastNameHe = "נא להזין שם משפחה";
 
+  // Required only for REGISTERED
   const emailTrimmed = parsed.data.email?.trim() || null;
-  if (!emailTrimmed) errors.email = "נא להזין כתובת מייל";
+  if (isRegistered && !emailTrimmed) {
+    errors.email = "נא להזין כתובת מייל";
+  }
 
   let nationalId: string | null = null;
   const nationalIdRaw = parsed.data.nationalId?.trim() ?? "";
-  if (nationalIdRaw === "" || nationalIdRaw.replace(/\D/g, "").length === 0) {
-    errors.nationalId = "נא להזין תעודת זהות";
+  const nationalIdEmpty =
+    nationalIdRaw === "" || nationalIdRaw.replace(/\D/g, "").length === 0;
+  if (nationalIdEmpty) {
+    if (isRegistered) errors.nationalId = "נא להזין תעודת זהות";
   } else if (!isValidIsraeliId(nationalIdRaw)) {
     errors.nationalId = "תעודת זהות לא תקינה";
   } else {
@@ -240,7 +249,7 @@ export function parseProfileForm(
   let birthdate: Date | null = null;
   const birthdateRaw = parsed.data.birthdate?.trim() ?? "";
   if (birthdateRaw === "") {
-    errors.birthdate = "נא להזין תאריך לידה";
+    if (isRegistered) errors.birthdate = "נא להזין תאריך לידה";
   } else {
     const d = new Date(birthdateRaw);
     if (isNaN(d.getTime())) {
