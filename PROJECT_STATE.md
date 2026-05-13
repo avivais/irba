@@ -7,27 +7,44 @@ Use this file to onboard or resume work in a new chat. For setup commands, see [
 - [Purpose](#purpose)
 - [Stack](#stack)
 - [Repository](#repository)
-- [What exists today](#what-exists-today)
+- [Current features and decisions](#current-features-and-decisions)
   - [Data model (Prisma)](#data-model-prisma)
-  - [RSVP flow (public)](#rsvp-flow-public)
-  - [Admin](#admin-authenticated--full-crud)
-  - [Dynamic ranking](#dynamic-ranking-adminranking)
-  - [Competitions / Challenges](#competitions--challenges)
+  - [Identity & auth](#identity--auth)
+  - [Public RSVP flow](#public-rsvp-flow)
+  - [Admin area](#admin-area)
+    - [Players](#players-adminplayers--unified-with-precedence)
+    - [Sessions](#sessions-adminsessions)
+    - [Hourly rates](#hourly-rates-inline-on-adminconfig)
+    - [Config system](#config-system-adminconfig)
+    - [Precedence](#precedence--רשימת-קדימות)
+    - [Dynamic ranking](#dynamic-ranking-adminranking)
+    - [Competitions / Challenges](#competitions--challenges-adminchallenges-and-challenges)
+    - [Match results](#match-results)
+    - [Charging](#charging)
+    - [Shared expenses](#shared-expenses)
+    - [Finance dashboard](#finance-dashboard-adminfinance)
+    - [Audit log](#audit-log-adminaudit)
+    - [Import pipeline](#import-pipeline-adminimport)
+    - [QA testing system](#qa-testing-system-admintesting)
+    - [WhatsApp admin](#whatsapp-admin-adminwa)
   - [WhatsApp sidecar](#whatsapp-sidecar-wa)
-  - [Auto-create cron](#auto-create-cron-get-apicronauto-create)
-  - [Auto-close cron](#auto-close-cron-get-apicronauto-close)
+  - [Cron jobs](#cron-jobs)
+  - [Regulations acceptance gate](#regulations-acceptance-gate)
+  - [Profile completion gate](#profile-completion-gate)
+  - [Balanced team selection](#balanced-team-selection)
+  - [Player-facing pages](#player-facing-pages)
   - [Tests](#tests)
-  - [Security / abuse](#security--abuse-mvp)
+  - [Security / abuse](#security--abuse)
   - [Ops / DX](#ops--dx)
+  - [Accessibility](#accessibility)
 - [Decisions & Constraints](#decisions--constraints)
-- [Feature history — Phase 1 (all shipped)](#feature-history--phase-1-all-shipped)
-- [Phase 2 Roadmap — post-MVP features](#phase-2-roadmap--post-mvp-features)
+- [Future suggestions](#future-suggestions)
 
 ---
 
 ## Purpose
 
-Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving off Google Sheets / WhatsApp. **MVP focus:** practice **RSVP** with Hebrew / RTL UI, PostgreSQL persistence, Docker-friendly deployment.
+Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — replacement for a Google Sheets / WhatsApp workflow. Live in production at **[https://irba.club](https://irba.club)**. Hebrew / RTL UI, PostgreSQL persistence, Docker-based deployment to a single EC2 host.
 
 ## Stack
 
@@ -35,457 +52,261 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — moving 
 |--------|--------|
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Theming | `next-themes`: system (default), light, dark; `class` on `<html>`; `storageKey` `irba-theme` |
-| Page titles | Root layout uses `title.template: "\u200EIRBA · %s"` (LTR mark + middle dot separator) with `default: "IRBA"`; LTR mark forces correct display in narrow RTL browser tabs. |
+| Page titles | Root layout uses `title.template: "‎IRBA · %s"` (LTR mark + middle dot) with `default: "IRBA"`; LTR mark forces correct display in narrow RTL browser tabs |
 | DB | PostgreSQL, Prisma ORM 7 (driver adapter `@prisma/adapter-pg`) |
-| Auth (MVP) | Signed HTTP-only cookie (`jose`), `RSVP_SESSION_SECRET` (min 32 chars), JWT `iss`/`aud`, optional `RSVP_COOKIE_SECURE` |
+| Auth | Signed HTTP-only cookie (`jose`), single identity model — `Player` IS the user; admin is the `Player.isAdmin` flag. `RSVP_SESSION_SECRET` (min 32 chars), JWT `iss`/`aud`, optional `RSVP_COOKIE_SECURE` |
 | Icons | `lucide-react` |
-| Tests | Vitest (`npm test`) |
+| DnD | `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` (peer rating UI) |
+| Tests | Vitest (`npm test`) — pure unit tests, no Postgres required |
 | Package manager | **npm** (lockfile: `package-lock.json`) |
-| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); job `env` sets placeholder `DATABASE_URL`, `RSVP_SESSION_SECRET`, `PLAYER_SESSION_SECRET`, and `ADMIN_SESSION_SECRET` so Prisma / Next build load without Postgres in CI. |
-| Admin auth | **Single identity model** — admin access is determined by `player.isAdmin` flag in DB, not a separate session. Players log in normally (phone + OTP or password); the player session cookie (`irba_player_session`) is the sole identity. Admin guard: `requireAdmin()` in `src/lib/admin-guard.ts` checks player session → DB `isAdmin`. The legacy `admin-session.ts` and shared admin password login are no longer used at runtime. |
-| PWA | Deferred indefinitely — app is fully server-dependent, offline adds no value, player base is small. |
+| CI | GitHub Actions — `lint`, `test`, `build` on `push` / `pull_request` to `main` ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); placeholder DB / session secrets in job `env` so Prisma + Next build load without Postgres |
 
 ## Repository
 
-- Remote (as of last setup): `https://github.com/avivais/irba` — confirm with `git remote -v`.
+- Remote: `https://github.com/avivais/irba`
+- Production host: EC2 `t4g.large` (Graviton ARM, 8 GB RAM + 2 GB swap, 50 GB gp3 EBS) → Apache TLS → `localhost:3004` → Docker
 
-## What exists today
+---
+
+## Current features and decisions
 
 ### Data model (Prisma)
 
-- **`Player`**: name, unique `phone` (normalized Israeli mobile `05xxxxxxxx`), `playerKind` (`REGISTERED` | `DROP_IN`, UI labels **קבוע** / **מזדמן**), `positions` (`Position[]`, multi-value array, default `[]`), optional `rank`, `computedRank Float?` (blended 0–100 score, recalculated on rank/config/peer changes), `isAdmin`. No stored `balance` — balance is always computed: `Σ(payments.amount) - Σ(sessionCharges.amount)`.
-- **`PeerRatingSession`**: `id`, `year Int @unique`, `openedAt`, `closedAt DateTime?`, `openedBy String` (playerId of admin). Admin-triggered annual survey; one open session at a time.
-- **`PeerRating`**: `id`, `ratingSessionId`, `raterId`, `ratedPlayerId`, `position Int` (1 = best), `submittedAt`. Unique on `(ratingSessionId, raterId, ratedPlayerId)`; cascades on session delete.
-- **`GameSession`**: `date`, `maxPlayers` (default 15), `isClosed`, `isCharged Boolean @default(false)`, `durationMinutes Int?` (null = use config default), `locationName String?`, `locationLat Float?`, `locationLng Float?`. Alert flags: `alertEarlyFiredAt DateTime?`, `alertCriticalFiredAt DateTime?`. Cancellation: `cancelledAt DateTime?` (null = not cancelled — acts as flag) + `cancellationReason String?` free-text.
-- **`Attendance`**: links player ↔ session, `createdAt` for RSVP order (confirmed = first `maxPlayers` by time; rest = waiting list).
-- **`AppConfig`**: `key String PK`, `value String`, `updatedAt`. Stores all admin-editable settings; fetched via `getAllConfigs()` (single round-trip, merged with `CONFIG_DEFAULTS`).
-- **`HourlyRate`**: `id`, `effectiveFrom DateTime @db.Date`, `pricePerHour Float`. Multiple rows; newest `effectiveFrom ≤ today` is the active rate. List managed inline on `/admin/config`; add/edit on `/admin/config/rates/new` and `/admin/config/rates/[id]/edit`.
-- **`Payment`**: `playerId`, `date`, `amount Int` (ILS), `method PaymentMethod @default(BIT)` (enum: `CASH | PAYBOX | BIT | BANK_TRANSFER | OTHER`), `description String?`.
-- **`SessionCharge`**: `sessionId`, `playerId`, `amount Int`, `calculatedAmount Int`, `chargeType ChargeType` (enum: `REGISTERED | DROP_IN | ADMIN_OVERRIDE`), unique on `(sessionId, playerId)`. Has `auditEntries ChargeAuditEntry[]`.
-- **`ChargeAuditEntry`**: `sessionChargeId`, `changedAt`, `changedBy String`, `previousAmount Int`, `newAmount Int`, `reason String?`. Tracks every per-charge override.
-- **`AuditLog`**: `id Int PK autoincrement`, `timestamp DateTime`, `actor String` ("admin" | player phone | "cron"), `actorIp String?`, `action String` (enum-like constant e.g. `CREATE_PLAYER`), `entityType String?`, `entityId String?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`. Written fire-and-forget via `src/lib/audit.ts`.
-- **`Match`**: `id`, `sessionId`, `teamAPlayerIds String[]`, `teamBPlayerIds String[]`, `scoreA Int`, `scoreB Int`, `createdAt`, `updatedAt`. Indexed on `(sessionId, createdAt)`. Cascades on session delete.
-- **`Player` regulations fields**: `regulationsAcceptedAt DateTime?`, `regulationsAcceptedVersion Int?`. Null = not yet accepted. Version compared against `regulations_version` config to gate access.
-- **`Challenge`**: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesPct Int` (0–100, % of max-player), `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy String`. Relations: `winner Player?`, `freeEntry FreeEntry[]`. No leaderboard model — computed passively from Match data.
-- **`FreeEntry`**: `id`, `playerId`, `challengeId`, `usedInSessionId String?`, `usedAt DateTime?`, `createdAt`. Prize for competition winner — consumed when winner attends next charged session.
+- **`Player`**: `name`, unique `phone` (normalized Israeli mobile `05xxxxxxxx`), `playerKind` (`REGISTERED` | `DROP_IN`, UI labels **קבוע** / **מזדמן**), `positions` (`Position[]`, multi-value array, default `[]`), optional manual `rank`, `computedRank Float?` (blended 0–100 score, recalculated on rank/config/peer changes), `isAdmin`. Auth fields: `email`, `nationalId`, `passwordHash`, `otpCode`, `otpExpiresAt`, `emailVerified`, name components (`nickname`, `firstNameHe/En`, `lastNameHe/En`), `birthdate`. Regulations: `regulationsAcceptedAt`, `regulationsAcceptedVersion`. **No stored `balance`** — balance is always computed: `Σ(payments.amount) − Σ(sessionCharges.amount) − Σ(sharedExpenseCharges.amount)`.
+- **`GameSession`**: `date`, `maxPlayers` (default 15), `isClosed`, `isCharged`, `isArchived`, `durationMinutes Int?` (null = use config default), `locationName/Lat/Lng`, alert flags `alertEarlyFiredAt` / `alertCriticalFiredAt`, cancellation `cancelledAt DateTime?` (null = active — acts as flag) + `cancellationReason String?`.
+- **`Attendance`**: links player ↔ session; `createdAt` for RSVP order (confirmed = first `maxPlayers` by precedence-then-FIFO; rest = waitlist).
+- **`AppConfig`**: `key` PK + `value` + `updatedAt`. Single source for all admin-editable settings.
+- **`HourlyRate`**: `effectiveFrom Date` + `pricePerHour Float`. Newest row with `effectiveFrom ≤ today` is the active rate.
+- **`Payment`**: `playerId`, `date`, `amount Int` (ILS, signed), `method PaymentMethod` (enum: `CASH | PAYBOX | BIT | BANK_TRANSFER | OTHER`, default `BIT`), `description?`, `sessionId?` (FK → `GameSession`, `onDelete: SetNull`, indexed — links admin auto-offset payments to their source session).
+- **`SessionCharge`**: `sessionId`, `playerId`, `amount`, `calculatedAmount`, `chargeType` (`REGISTERED | DROP_IN | ADMIN_OVERRIDE | FREE_ENTRY`), unique on `(sessionId, playerId)`. Has `auditEntries ChargeAuditEntry[]`.
+- **`ChargeAuditEntry`**: per-charge override audit (`changedBy`, `previousAmount`, `newAmount`, `reason?`, `changedAt`).
+- **`SharedExpense`**: `title`, `totalAmount`, `lookbackYears`, `minAttendancePct`, `eligibilityPool` (enum `REGISTERED_ONLY | ALL_PLAYERS`), `createdBy`, `revertedAt?`. Children: `SharedExpenseCharge(playerId, amount, manuallyAdded)`.
+- **`PeerRatingSession`**: `id`, `year @unique`, `openedAt`, `closedAt?`, `openedBy` (admin playerId).
+- **`PeerRating`**: `ratingSessionId`, `raterId`, `ratedPlayerId`, `position Int` (1 = best), `submittedAt`. Unique on `(ratingSessionId, raterId, ratedPlayerId)`.
+- **`Match`**: `sessionId`, `teamAPlayerIds String[]`, `teamBPlayerIds String[]`, `scoreA`, `scoreB`. Cascades on session delete; indexed on `(sessionId, createdAt)`.
+- **`Challenge`**: `number @unique` (auto-sequenced), `startDate Date`, `sessionCount`, `minMatchesPct`, `isActive`, `isClosed`, `winnerId?`, `createdBy`. Relations: `winner Player?`, `freeEntry FreeEntry[]`. No leaderboard model — computed passively from Match data.
+- **`FreeEntry`**: `playerId`, `challengeId`, `usedInSessionId?`, `usedAt?`. Created when a competition closes; consumed when winner attends next charged session.
+- **`YearWeight`**: PK `year` → `weight Float`. Controls how much each past year counts in precedence.
+- **`PlayerYearAggregate`**: `(playerId, year)` unique — historical attendance count for years before live tracking; not created for the current year (counted from live `Attendance` rows).
+- **`PlayerAdjustment`**: `playerId`, `date`, `points` (Float, signed), `description`. Bonuses (+) and fines (−).
+- **`AuditLog`**: append-only log of every mutation. `id Int PK`, `timestamp`, `actor` (`"admin"` | player phone | `"cron"`), `actorIp?`, `action` (constant string), `entityType?`, `entityId?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`.
 
-### RSVP flow (public)
+### Identity & auth
 
-- Home page (`/`): **dynamic** server render — next open game, Hebrew copy. Shows **location card** with name + Waze + Google Maps buttons + OpenStreetMap iframe minimap when lat/lng are set. Responsive width: `max-w-lg` on mobile, `max-w-2xl` on `md+`.
-- **RSVP flow**:
-  - **Logged-in + already registered**: only cancel option shown (no form). Fixed: `userAttendance` now checks both the RSVP session cookie AND the player session cookie, so players who registered via admin (no RSVP cookie) are correctly detected.
-  - **Logged-in + not yet registered**: shows player's name as a header + single “אני מגיע” button (`AuthenticatedRsvpForm` component, calls `rsvpAuthenticatedAction` — no name/phone inputs, uses player session directly).
-  - **Not logged in**: shows `PlayerLoginForm` (which now auto-provisions unknown phones as DROP_IN players). After OTP verification for a new unnamed DROP_IN, shows a “set_name” step (enter name or skip). After login/name-step, page reloads showing the authenticated RSVP form above. Login form is suppressed (`!authenticatedPlayer && !userIsAttending`) — if the player is identified as attending via either cookie, the login form is never shown even without a player session.
-- **Drop-in self-registration**: `requestOtpAction` now uses `upsert` — unknown phones auto-create a DROP_IN player before issuing OTP (no more “לא קיים במערכת” error). `verifyOtpAction` redirects to `redirectTo` param (homepage passes `”/”`) so login stays on the homepage. `setNameAction` saves optional name and redirects to `/`.
-- **Theme**: `ThemeProvider` in `layout.tsx`; `ThemeToggle` (popup button) still exists but is no longer in the nav. Theme is changed via `ThemeSelector` (`src/components/theme-selector.tsx`) — an inline 3-button row (כהה / מערכת / בהיר) in the profile page "מראה" section.
-- **`normalizePhone`** in `src/lib/phone.ts` — strips non-digits, strict `/^05\d{8}$/` (no `972` rewrite).
-- **RSVP window**: registration open until `session.date` (not the close window). `isRsvpOpen = !isClosed && now < session.date`. Close window (`rsvp_close_hours`) only affects cancellation for confirmed players.
-- **Cancellation rules**: waitlisted players can always cancel; confirmed players cannot cancel within the close window (`now >= session.date - closeHours * 3_600_000`). Amber notice shown when cancellation is blocked ("ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל").
-- Server actions: attend (find-or-create player, transactional RSVP), cancel (session-bound `playerId`, checks player index vs maxPlayers + close window); per-IP sliding-window rate limits (`src/lib/rate-limit.ts`, tunable `IRBA_RL_*`).
-- **Cancel RSVP**: inline two-step confirmation (“האם לבטל את ההגעה?” + “כן, בטל” / “לא”) — no `window.confirm`. Success banner auto-dismisses after 3 s (tracked by state reference, not a boolean flag).
-- **RSVP success banner**: auto-dismisses after 3 s.
-- **Waitlist handling**: when a player is added to the waiting list, the server action calls `redirect(“/?waitlisted=1”)` instead of returning. The homepage shows a persistent server-rendered amber notice (“אתה ברשימת ההמתנה — ההרשמה תאושר אם יפנה מקום”) whenever `userIsWaitlisted` is true. On first registration (`?waitlisted=1`), an `AutoScroll` client component (`src/components/auto-scroll.tsx`) scrolls the page to `#waiting-list`. This is reliable because the notice is rendered AFTER the page re-renders with the new attendance (unlike a useEffect on a form component that unmounts).
-- **Registration timestamp**: attending users see “נרשמת למפגש זה ב-{date}” below the cancel section (`userAttendance.createdAt` via `formatGameDate`).
-- **Attendance sorting**: `src/lib/sort-attendances.ts` — REGISTERED players sorted by precedence score (desc) before DROP_IN players (FIFO by `createdAt`). Slice at `maxPlayers` determines confirmed vs waitlist. Admin (`isAdmin=true`) always sorts first regardless of score.
-- **Cancel RSVP**: `cancelAttendanceAction` checks both the RSVP session cookie and the player session cookie — covers players added by admin (who have no RSVP cookie).
-- Lists: confirmed + waiting list (waiting list section has `id=”waiting-list”` for scroll targeting); phones **masked** in UI; optional **”מזדמן”** badge for drop-ins.
+- **Single identity model**: `Player` IS the user. Phone is the identity key. There is no separate User model and no separate admin login — admin access is just the `Player.isAdmin` flag in DB.
+- **One session cookie**: `irba_player_session` (JWT in HTTP-only cookie). Legacy `admin-session.ts` / `ADMIN_PASSWORD_HASH` files are kept for reference but no longer used at runtime.
+- **Admin guard**: `requireAdmin()` in `src/lib/admin-guard.ts` reads the player session and verifies `isAdmin` against the DB; used by the `/admin/(protected)/` layout and every admin server action.
+- **Login flows**:
+  - **Phone + OTP** — WA-delivered OTP. Unknown phones are auto-provisioned as DROP_IN by `requestOtpAction` so drop-ins can self-register. After OTP verify, the player is sent straight to `/profile` — there is no forced password setup and no in-flow `set_name` step. Any first-login follow-up (Hebrew names, regulations acceptance) is collected by the layout overlays (see [Regulations acceptance gate](#regulations-acceptance-gate) and [Profile completion gate](#profile-completion-gate)).
+  - **Phone + password** — falls back to OTP if no password set.
+  - **Password reset** — phone → WA OTP → set new password.
+  - **Set / change password** — opt-in from `/profile` (`changePasswordAction` + `ChangePasswordForm`); `changePasswordAction` handles the no-existing-hash case so phone+password login continues to work for anyone who sets one later.
+- **Login redirect pattern**: `verifyOtpAction` and `playerPasswordLoginAction` set the cookie then return `{ step: "logged_in", redirectTo }` — `useActionState` reads the step and triggers `router.push()` client-side. (A bare `redirect()` from the server action is swallowed by the action wrapper, which previously left the form spinning.)
+- **Remember me**: 30-day persistent cookie vs. 12 h session cookie.
+- **Login location**: `/login` and `/admin/login` both redirect to `/`. `PlayerLoginForm` is embedded inline on the homepage when not authenticated. All logout paths redirect to `/`.
+- **Israeli ID validation** (`src/lib/israeli-id.ts`): Luhn-like check digit; tested.
 
-### Admin (authenticated — full CRUD)
+### Public RSVP flow
 
-- **`/admin/login`** — redirects to `/` (admin users log in via normal player login; `isAdmin` flag in DB grants admin access).
-- **Auth guard**: `requireAdmin()` in [`src/lib/admin-guard.ts`](src/lib/admin-guard.ts) — checks player session → DB `isAdmin`. Used by the protected layout and all admin server actions. Single identity: one session cookie (`irba_player_session`), admin is just a DB role.
-- **Legacy**: `admin-session.ts`, `ADMIN_SESSION_SECRET`, `ADMIN_PASSWORD_HASH` and the shared admin password login are no longer used at runtime. Files kept for reference but not imported by any active code.
+- Home page (`/`): server-rendered, shows next non-archived non-cancelled open game, location card (name + Waze + Google Maps + OpenStreetMap iframe minimap when lat/lng set). Responsive `max-w-lg` mobile / `max-w-2xl` md+.
+- **RSVP form variants**:
+  - **Logged in + already attending**: only cancel option (no form). `userAttendance` checks both the RSVP cookie and the player session — admin-added players (no RSVP cookie) are still detected.
+  - **Logged in + not attending**: name header + single "אני מגיע" button (`AuthenticatedRsvpForm` → `rsvpAuthenticatedAction`).
+  - **Not logged in + not identified**: `PlayerLoginForm` (also auto-provisions unknown phones as DROP_IN). Login form is suppressed when the player is identified as attending via either cookie.
+- **Phone normalization** (`src/lib/phone.ts`): strict `/^05\d{8}$/`, no `972` rewrite.
+- **RSVP window**: registration open until `session.date`. Close window (`rsvp_close_hours`) only restricts cancellation for confirmed players (waitlisted can always cancel). Amber notice shown when cancellation blocked: "ביטול הרשמה אינו אפשרי בשלב זה — פנה למנהל".
+- **Cancel RSVP**: inline two-step confirmation (no `window.confirm`). Success banners auto-dismiss after 3 s (tracked by reference, not bool flag).
+- **Waitlist**: server action `redirect("/?waitlisted=1")` after waitlisting; homepage shows a persistent server-rendered amber notice whenever `userIsWaitlisted` is true. `AutoScroll` client component scrolls to `#waiting-list` on first registration.
+- **Registration timestamp**: attending users see "נרשמת למפגש זה ב-{date}" below the cancel section.
+- **Attendance sorting** (`src/lib/sort-attendances.ts`): admin first, then REGISTERED by precedence score desc, then DROP_IN by `createdAt` asc. Slice at `maxPlayers` separates confirmed from waitlist.
+- Per-IP sliding-window rate limits on attend/cancel; phones masked in UI; **"מזדמן"** badge for drop-ins.
 
-#### Navigation
+### Admin area
 
-All back links in admin pages display "→ חזרה" with no destination suffix (previously had suffixes like "לרשימה", "לניהול", "לשחקנים", etc.).
+#### Navigation & shell
 
-#### Admin home (`/admin`)
+- **Top nav** (`PlayerNav` server component, `src/components/player-nav.tsx`) renders on all pages — homepage, profile, all admin pages. Shows IRBA brand (sole home link), Profile icon, Admin icon (if `isAdmin`), Logout. Active page highlighted via `NavLinks` client component (`usePathname()`). No ThemeToggle in nav.
+- **Admin home (`/admin`)**: nav cards to שחקנים, מפגשים, ייבוא נתונים, הגדרות, **לוג פעולות**, **דירוג שחקנים** (`/admin/ranking`), **תחרויות** (`/admin/challenges`); logout button. All cards have `active:` press states.
+- **Back links**: all admin pages display "→ חזרה" with no destination suffix.
+- **Sticky bottom save bar** on the config page: slides in only when the form is dirty.
+- **WaStatusDot** (`src/components/admin/wa-status-dot.tsx`) — green/red badge on the MessageCircle icon in the admin nav, polls `fetchWaStatusAction` every 15 s.
 
-Navigation cards to שחקנים, מפגשים, ייבוא נתונים, הגדרות, **לוג פעולות**, **דירוג שחקנים** (`/admin/ranking`, `BarChart2` icon), and **תחרויות** (`/admin/challenges`, `Trophy` icon) sections (קדימות card removed — merged into שחקנים); logout button. All nav cards and the logout button have `active:` press states.
+#### Players (`/admin/players`) — unified with Precedence
 
-#### Players CRUD (`/admin/players`) — unified with Precedence
+- **List**: all players sorted by precedence score desc, ranked #1…N. Shows kind badge (קבוע / מזדמן), positions, phone (clickable `wa.me` link → opens WA DM), balance (color-coded `dir="ltr"`), current-year attendance with fraction, total precedence inline in subscript, **computed rank** (blue, e.g. "72.4") with "(ידני: X)" muted subscript when set. Edit + delete buttons; full-row click navigates. **משקלות** button → `/admin/precedence/weights`. **Add player** button is a circular `+` (icon-only — saves space on mobile). Loading state: spinner + freeze overlay.
+- **Add** (`/admin/players/new`): phone, playerKind, positions (multi-select PG/SG/SF/PF/C), rank, balance (text + `inputMode="numeric"` so the browser doesn't drop intermediate `-`), isAdmin, nickname, name fields (He/En), birthdate. Cancel + back triggers dirty-guard confirm. Popstate guard active.
+- **Edit** (`/admin/players/[id]/edit`): header shows `מקום N · ניקוד X`. Phone disabled. Dual save buttons (**שמור שינויים** stay / **שמור וחזור לרשימה**). Cancel + back with dirty-guard confirm. **Section order**: (1) form, (2) תשלומים, (3) חיובי מפגשים (with retroactive-debt-closure card when applicable), (4) דירוג מחושב + win/loss stats, (5) נוכחות (current year + historical merged), (6) בונוסים/קנסות.
+- **Computed rank card**: labeled grid showing `value × weight = contribution` per component; inactive components grayed out with Hebrew reason; formula summary `סכום ÷ N = X`. Win/loss row shows total · wins · losses · win% bar · threshold badge ("מעל הסף" / "מתחת לסף", with "חסרים X משחקים" when below).
+- **Delete**: blocked if any attendance records (count shown in tooltip); `window.confirm` for empty players. Server action double-checks before deleting.
+- **Validation**: `src/lib/player-validation.ts` (Zod + phone normalization) — 25 unit tests.
 
-- **List** (`/admin/players`): all players **sorted by precedence score descending**; ranked #1…N on the left. Shows kind badge (**קבוע** / **מזדמן**), positions, phone (clickable `wa.me` link — opens WA DM in new tab), balance (coloured; formatted `₪N` / `-₪N` with `dir="ltr"` so minus/₪ always on correct side), current-year attendance with fraction `(attended/total sessions)`, total precedence score inline in subscript, and **computed rank** (blue, e.g. "72.4") with "(ידני: X)" muted subscript when set. Edit button + delete button; full-row click navigates to edit. **משקלות** button in header links to `/admin/precedence/weights`. **Add player** button is a circular `+` icon (no label) — saves space on mobile. Same circular `+` pattern used across sessions and weights list pages. Loading state: spinner + freeze overlay (`PlayerList` client component, `src/components/admin/player-list.tsx`).
-- **Add** (`/admin/players/new`): form with phone, playerKind, positions (multi-select checkboxes — PG / SG / SF / PF / C, English-only), rank, balance, isAdmin, nickname, name fields (He/En), birthdate. Balance field uses `type="text"` + `inputMode="numeric"` (not `type="number"`) — browsers drop intermediate `-` in number inputs. **Birthdate** uses the shared `DateInputIL` component (see "Date / datetime input system" below). **Cancel button** (red, outside form) + **back button** (→ חזרה לרשימה) at top of form — both trigger dirty-guard confirm dialog when any field has been touched. Popstate guard active for create mode.
-- **Edit** (`/admin/players/[id]/edit`): player name + precedence rank/score shown in header (`מקום N · ניקוד X`). Same player form; phone disabled. Dual save buttons: **שמור שינויים** (stay) + **שמור וחזור לרשימה**. Cancel button + back button with dirty-guard confirm. Popstate guard active. **Section order**: (1) player form, (2) תשלומים, (3) חיובי מפגשים, (4) דירוג מחושב + win/loss stats, (5) נוכחות (current year + historical merged into one card), (6) בונוסים/קנסות. **Computed rank card**: labeled grid showing `value × weight = contribution` per component; inactive components (no peer data, below threshold) grayed out with Hebrew reason instead of a misleading ×weight; formula summary line `סכום ÷ N = X` makes the math self-evident; win/loss row (total · wins · losses · win% bar · threshold badge "מעל הסף"/"מתחת לסף"). `getPlayerRankBreakdown` fetched server-side (`.catch(() => null)`). `RankBreakdown` type includes `matchStats` and `meetsThreshold`.
-- **Delete**: guarded — blocked if player has any attendance records (count shown in tooltip); `window.confirm` for players with 0 attendances. Server action (`deletePlayerAction`) double-checks count before deleting.
-- **Back button**: inner `→ חזרה` in `PlayerForm` only renders in create mode; edit mode uses the page header back link (which respects the `?from=finance` param) to avoid duplicate buttons.
-- **Server actions**: `createPlayerAction`, `updatePlayerAction`, `deletePlayerAction` in `src/app/admin/(protected)/players/actions.ts`. All call `requireAdmin()` (session guard) before any DB access.
-- **Validation**: `src/lib/player-validation.ts` — `parsePlayerForm` with per-field Zod + phone normalization; tested in `src/lib/player-validation.test.ts`.
+#### Sessions (`/admin/sessions`)
 
-#### Sessions CRUD (`/admin/sessions`)
-
-- **List** (`/admin/sessions`): client component (`SessionList`); full-row invisible Link with loading spinner; row hover/active highlight. Shows date, attendance count / maxPlayers (`dir="ltr"`, color-coded: green when ≥ maxPlayers, red when < session_min_players, zinc otherwise), status badge (**בוטל** red / **ארכיון** / **סגור** / **פתוח** — cancelled wins). Row actions: archive/unarchive button + delete button. Filter bar: date range pickers (`from`/`to` URL params), "הצג ארכיון" checkbox, search/clear. Archived and cancelled sessions excluded from `getNextGame()`.
-- **Archive**: `GameSession.isArchived Boolean @default(false)` (migration `20260329113136_add_session_archived`). `archiveSessionAction(id, archive)` in `sessions/actions.ts`. `SessionArchiveButton` component (`session-archive-button.tsx`) with Archive / ArchiveRestore icon.
-- **Add** (`/admin/sessions/new`): form with date (pre-filled to next occurrence of config default day/time), maxPlayers (default 15), durationMinutes (pre-filled from config), locationName/locationLat/locationLng (pre-filled from config). `nextDefaultSessionDateISO` in `session-validation.ts` computes the correct next slot (same-day only if session time is still upcoming, else next week). On create, redirects to `/admin/sessions/${newSessionId}`.
-- **Edit / detail** (`/admin/sessions/[id]`): **unified page** — replaces separate `/[id]/edit`. Header: back link only (date removed — it's the first field in the form below, no need to repeat it). Session form card (always visible, success message shown inline). Attendance card: confirmed list + precedence-sorted waitlist + add-player form + quick drop-in form. Old `/[id]/edit` redirects here.
-- **Session form dirty guard**: "שמור שינויים" button is inactive until the form is dirty. After successful save, `lastSavedRef` resets so button goes inactive again. `beforeunload` guard fires on tab close/refresh; `popstate` guard shows custom confirm dialog ("יש שינויים שלא נשמרו" / עזוב / המשך עריכה) on browser back. Mirrors the pattern from `PlayerForm`.
-- **`isClosed` toggle**: `toggleSessionAction` — blocks re-opening if `Date.now() >= session.date - rsvp_close_hours * 3_600_000 && Date.now() < session.date`. isClosed is a checkbox in the SessionForm.
-- **Delete**: guarded — blocked if session has any attendance records. `window.confirm` for empty sessions.
-- **Overlap guard**: `createSessionAction` rejects if any session started in the last 24 h is still running (`session.date + (durationMinutes ?? configDefault) > now`). Message: `"לא ניתן לפתוח מפגש חדש לפני שהמפגש הנוכחי הסתיים"`.
-- **Auto-register admin**: on session create, the player with `isAdmin=true` is automatically added as an attendee (if found).
-- **Server actions**: `createSessionAction`, `updateSessionAction`, `deleteSessionAction`, `toggleSessionAction`, `archiveSessionAction`, `cancelSessionAction`, `uncancelSessionAction` in `src/app/admin/(protected)/sessions/actions.ts`.
-- **Cancel session**: `SessionCancelButton` (`src/components/admin/session-cancel-button.tsx`) on the detail page header. "בטל מפגש" opens an inline form with an optional `reason` textarea + confirm dialog. `cancelSessionAction` runs in a transaction: clears all `Attendance` rows, sets `cancelledAt = now()`, `cancellationReason`, `isClosed = true`. Notifies the WA group via `notifySessionCancelled` ({date}, {reason} — empty reason renders "לא צוינה"). Audit `CANCEL_SESSION` carries `attendancesCleared` count. Cancelled sessions show a red "המפגש בוטל" banner with reason + Asia/Jerusalem timestamp above the form; the form's submit is disabled with a "המפגש בוטל — שחזר כדי לערוך" note. `uncancelSessionAction` ("שחזר ביטול") clears `cancelledAt`/`cancellationReason` (does NOT auto-reopen registration; cleared attendances do not return). Cancelled records act as tombstones — auto-create cron's same-day check still sees them, blocking recreation. Charging is blocked (`chargeSessionAction` returns "לא ניתן לחייב מפגש מבוטל"). Excluded from `getNextGame`, auto-close, low-attendance alerts, `hasActiveSession`, and challenge windows. Migration `20260504120000_add_session_cancelled`.
-- **Validation**: `src/lib/session-validation.ts` — `parseSessionForm` + `parseIsraelLocalDate` + `nextDefaultSessionDateISO`; tested in `src/lib/session-validation.test.ts`.
-- **Duplicate guard**: `createSessionAction` and `updateSessionAction` reject a session if another already exists on the same Israel calendar day; edit excludes the session being updated.
-- **Attendance management** (on `/admin/sessions/[id]`):
-  - Confirmed list + precedence-sorted waitlist (registered by score desc, drop-ins by createdAt asc).
-  - **Add registered player**: `SessionAddPlayerForm` — searchable dropdown from all players not yet attending. Submit button is icon-only circular (no text label) to prevent overflow on mobile.
-  - **Quick drop-in**: `SessionQuickDropInForm` — name + phone fields. Submit button is icon-only circular. On valid phone, calls `lookupPlayerByPhoneAction` (via `useTransition`) and shows inline status: **already_registered** (red, button disabled) / **existing_not_registered** (blue "שחקן קיים: [name]", name field hidden) / **new** (name field required). `quickAddDropInAction` uses `findUnique` + `create` — never modifies existing player data.
-  - **Remove player**: `SessionRemoveButton` with confirmation.
-- **Match results panel** (`SessionMatchPanel`, `src/components/admin/session-match-panel.tsx`): last section on the session detail page (below attendance). Records multiple matches per session. UI is mobile-first (designed for iPhone on-court use):
-  - **Team selection**: 2-column grid (קבוצה א׳ | קבוצה ב׳); each player appears as a named toggle button in both columns. Tapping a button assigns the player to that team (atomic move from the other). Column header shows live count `(n/5)` in green when full. Toggle buttons are `min-h-11` (44px tap target) with `py-3 text-sm` to prevent mis-tapping on mobile.
-  - **Team size enforcement**: each team must have exactly 5 players. Buttons in a full team are disabled for non-members; submit disabled until both teams have 5. Server action also validates `!== 5`.
-  - **Score entry**: per-team labelled rows with `−` / `+` steppers (44px) + direct numeric input simultaneously; `−` disabled at 0; no upper bound.
-  - **Match list**: 2-column layout — players string on the left (truncated), score on the right; entire row is clickable to edit; trash button stop-propagates. Score uses `–` separator; winner highlighted green.
-  - Auto-selects winner + sitting-out team when opening new match (3-team rotation). Server actions: `createMatchAction`, `updateMatchAction`, `deleteMatchAction` in `src/app/admin/(protected)/sessions/[id]/matches/actions.ts`.
-- **Delete redirect**: `deleteSessionAction` now calls `redirect("/admin/sessions")` on success — prevents landing on a 404 for the just-deleted session.
+- **List**: `SessionList` client component; full-row link with loading spinner; row hover/active highlight. Shows date, attendance count / maxPlayers (`dir="ltr"`, color-coded), status badge (**בוטל** red / **ארכיון** / **סגור** / **פתוח** — cancelled wins). Row actions: archive/unarchive + delete. Filter bar: date range pickers, "הצג ארכיון" checkbox, search/clear.
+- **Add** (`/admin/sessions/new`): date pre-filled to next occurrence of config schedule day/time (`nextDefaultSessionDateISO`); maxPlayers (default 15), durationMinutes (from config), location fields (from config). Per-session WA override section (collapsible, pre-filled from global). On create, redirects to `/admin/sessions/${id}`.
+- **Detail / edit unified** (`/admin/sessions/[id]`): header (back link only), session form card (always visible, success message inline), attendance card (confirmed + precedence-sorted waitlist + add-player form + quick drop-in form), team balance panel, match panel. Old `/[id]/edit` redirects here. Dirty guard on form (button inactive until dirty; `beforeunload` + custom popstate confirm).
+- **`isClosed` toggle**: `toggleSessionAction` blocks re-opening when within the close window (`now ≥ session.date − rsvp_close_hours`).
+- **Overlap guard**: `createSessionAction` rejects if any session in the last 24 h is still running (`session.date + duration > now`).
+- **Auto-register admin**: every `isAdmin: true` player auto-attended on session create (via `addAdminAttendances` helper, `src/lib/admin-attendance.ts`) — wired into both `createSessionAction` and `autoCreateNextSession`.
+- **Cancel**: `SessionCancelButton` in detail header; inline form with optional reason + confirm dialog. `cancelSessionAction` runs in a transaction — clears all `Attendance`, sets `cancelledAt`/`cancellationReason`/`isClosed = true`, fires `notifySessionCancelled` (template macros `{date}`, `{reason}` — empty → "לא צוינה"). Cancelled sessions render a red "המפגש בוטל" banner with reason + Asia/Jerusalem timestamp; submit disabled with "שחזר כדי לערוך" note. `uncancelSessionAction` clears the flags but does NOT auto-restore attendances or reopen registration. Cancelled records act as tombstones — auto-create cron's same-day check still sees them, blocking recreation. Charging blocked. Excluded from `getNextGame`, auto-close, low-attendance alerts, `hasActiveSession`, challenge windows.
+- **Archive**: `archiveSessionAction(id, archive)`; archived excluded from `getNextGame()`.
+- **Delete**: blocked if any attendance; `window.confirm` for empty. `deleteSessionAction` redirects to `/admin/sessions` on success.
+- **Duplicate guard**: `createSessionAction` and `updateSessionAction` reject another session on the same Israel calendar day; edit excludes the session being updated.
+- **Attendance management** (on the detail page):
+  - **Add registered player**: `SessionAddPlayerForm` — searchable dropdown (icon-only circular submit).
+  - **Quick drop-in**: `SessionQuickDropInForm` — name + phone. On valid phone calls `lookupPlayerByPhoneAction` and shows inline status: already_registered (red, disabled) / existing_not_registered (blue "שחקן קיים: [name]", name field hidden) / new (name required). `quickAddDropInAction` uses `findUnique + create` — never modifies existing player data.
+  - **Promote waitlist**: `promoteWaitlistAction` re-timestamps the attendance to the last confirmed slot; "קדם" button per waitlisted row; WA notification to the player.
+  - **Remove**: `SessionRemoveButton` with confirmation.
+- **Manual roster broadcast**: "שלח עדכון רשימה" in the attendance section header → `broadcastSessionRosterAction` → `notifySessionRoster` (group). Useful when WA was down at notification time.
+- **Validation**: `src/lib/session-validation.ts` — 16 unit tests covering DST conversion, bounds, etc.
 
 #### Hourly rates (inline on `/admin/config`)
 
-- Rates list rendered inline at the top of the config page card — same page, no separate nav.
-- Current rate (newest `effectiveFrom ≤ today`) highlighted in green with "נוכחי" badge; all historical rates shown below.
-- Add → `/admin/config/rates/new`; Edit → `/admin/config/rates/[id]/edit`; Delete inline with `window.confirm`.
-- Duplicate-date guard on create and update.
-- Components: `HourlyRateForm` (client, shared by new/edit), `HourlyRateDeleteButton` (client).
-- Server actions in `src/app/admin/(protected)/config/rates/actions.ts`; redirects back to `/admin/config`.
+- Rates list rendered inline at the top of the config page card. Current rate (newest `effectiveFrom ≤ today`) highlighted green with "נוכחי" badge.
+- Add → `/admin/config/rates/new`; edit → `/.../[id]/edit`; delete inline. Duplicate-date guard on create + update.
 
 #### Config system (`/admin/config`)
 
-- **`src/lib/config-keys.ts`** — client-safe constants: `CONFIG` key map, `ConfigKey` type, `CONFIG_DEFAULTS`. No Prisma/Node.js imports; safe to import from client components.
-- **`src/lib/config.ts`** — server-side: re-exports from `config-keys.ts` + `getConfigValue`, `getAllConfigs`, `getConfigInt`, `getConfigFloat`, `setConfigs`, `googleMapsUrl`, `wazeUrl`.
-- **`src/lib/config-validation.ts`** — Zod schema for all config keys with Hebrew error messages; `parseConfigForm`. Includes `nonNegativeFloat` and `pctField` validators for the rank weight keys.
-- **Admin UI** (`/admin/config`): grouped settings form — מפגשים, לוח זמנים, מיקום, שחקנים, משחקים, **דירוג שחקנים** (3 weight inputs + 1 min-games-pct input), תעריף שעתי (past rates collapsed), חיוב, וואטסאפ, **התראות נוכחות נמוכה**. Server action `updateConfigAction` upserts all keys in a transaction; if any of the 4 rank keys changed it calls `recalculateAllComputedRanks`. The "התראות נוכחות נמוכה" section exposes the 7 `alert_*` keys: master toggle, early-alert card (enabled checkbox + hours-before input + template textarea), critical-alert card (same structure). Template variable hints shown inline: `{date}`, `{confirmed}`, `{min_players}`. Save button lives in a **sticky bottom bar** that slides in whenever the form is dirty — no need to scroll all the way to the bottom after editing a section halfway down the page.
+- **`src/lib/config-keys.ts`** — client-safe constants: `CONFIG` key map, `ConfigKey` type, `CONFIG_DEFAULTS`. No Prisma/Node imports.
+- **`src/lib/config.ts`** — server: re-exports `config-keys.ts` + `getConfigValue`, `getAllConfigs`, `getConfigInt`, `getConfigFloat`, `setConfigs`, `googleMapsUrl`, `wazeUrl`.
+- **`src/lib/config-validation.ts`** — Zod with Hebrew errors; `parseConfigForm`. Includes `nonNegativeFloat` and `pctField` for rank weights.
+- **Admin UI**: grouped form — מפגשים, לוח זמנים, מיקום, שחקנים, משחקים, **דירוג שחקנים** (3 weight inputs + 1 min-games-pct), תעריף שעתי (past rates collapsed), חיוב, וואטסאפ, **התראות נוכחות נמוכה**, **תקנון** (with macro reference + live preview toggle). Save = single transaction; if any rank key changed, calls `recalculateAllComputedRanks`.
 
 **Config keys:**
+
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `session_schedule_day` | `1` (Monday) | Day-of-week — used for both manual session pre-fill and auto-create |
-| `session_schedule_time` | `21:00` | Time HH:MM — used for both manual session pre-fill and auto-create |
-| `session_default_duration_min` | `120` | Session duration (minutes) |
+| `session_schedule_day` | `1` (Mon) | Day-of-week for both manual session pre-fill and auto-create |
+| `session_schedule_time` | `21:00` | Time HH:MM |
+| `session_default_duration_min` | `120` | Session duration (min) |
 | `rsvp_close_hours` | `13` | Hours before start that RSVP auto-closes |
-| `location_name` | Ilan Ramon school court | Default location display name |
-| `location_lat` / `location_lng` | `""` | GPS coordinates for map links |
-| `session_min_players` | `10` | Minimum confirmed players required to charge a session; also sets the denominator for rate calculation |
-| `debt_threshold` | `10` | Debt ILS: if player balance ≤ -threshold they are charged at drop-in rate |
-| `alert_low_attendance_enabled` | `false` | Master toggle for low-attendance alerts |
-| `alert_early_enabled` | `false` | Enable early-warning alert tier |
-| `alert_early_hours_before` | `48` | Hours before session for early alert |
-| `alert_early_template` | (Hebrew template) | WA group message template; vars: `{date}` `{confirmed}` `{min_players}` |
-| `alert_critical_enabled` | `false` | Enable critical-warning alert tier |
-| `alert_critical_hours_before` | `2` | Hours before session for critical alert |
-| `alert_critical_template` | (Hebrew template) | WA group message template; same vars |
-| `default_player_rank` | `50` | Rank for players with no rank set |
+| `location_name` / `location_lat` / `location_lng` | … | Default location for new sessions |
+| `session_min_players` | `10` | Charge minimum + denominator for rate calculation |
+| `debt_threshold` | `10` | Debt ILS threshold; below → drop-in tariff |
+| `default_player_rank` | `50` | Rank for players with no manual rank |
 | `match_win_score` | `12` | Points to win a match |
-| `match_duration_min` | `7` | Per-match time limit (minutes) — first of score or time wins |
-| `session_schedule_enabled` | `"false"` | Enable auto-create cron |
-| `session_auto_create_hours_before` | `"48"` | Hours before session that RSVP opens (auto-create fires) |
-| `regulations_version` | `1` | Increment to force all players to re-accept regulations |
-| `regulations_text` | (full Hebrew template) | Admin-editable regulations body; supports `## heading`, `**bold**`, `{variable}` substitution |
-| `fine_no_show` | `3` | Precedence points deducted for no-show after RSVP |
-| `fine_kick_ball` | `2` | Precedence points deducted for kicking the ball |
-| `fine_early_leave` | `1` | Precedence points deducted for leaving early without notice |
-| `rank_weight_admin` | `1` | Weight for admin manual rank in blended `computedRank` |
-| `rank_weight_peer` | `1` | Weight for peer-rating component (REGISTERED only) |
-| `rank_weight_winloss` | `1` | Weight for win/loss ratio component (REGISTERED, threshold met) |
-| `rank_winloss_min_games_pct` | `50` | % of max-games-played a player must reach to include win score |
-| `round_size` | `5` | Number of sessions per round (used by match analytics + challenge windows) |
+| `match_duration_min` | `7` | Per-match time limit |
+| `session_schedule_enabled` | `false` | Enable auto-create cron |
+| `session_auto_create_hours_before` | `48` | Hours before session that RSVP opens |
+| `regulations_version` | `1` | Increment to force re-acceptance |
+| `regulations_text` | (Hebrew template) | Editable body; supports `## heading`, `**bold**`, `{variable}` |
+| `fine_no_show` / `fine_kick_ball` / `fine_early_leave` | `3` / `2` / `1` | Precedence point deductions |
+| `rank_weight_admin` / `_peer` / `_winloss` | `1` / `1` / `1` | Computed-rank component weights |
+| `rank_winloss_min_games_pct` | `50` | % of max-games-played threshold |
+| `round_size` | `5` | Sessions per round (analytics + challenge windows) |
+| `alert_low_attendance_enabled` | `false` | Master toggle for alerts |
+| `alert_early_enabled` / `alert_early_hours_before` / `alert_early_template` | `false` / `48` / (Heb) | Early tier |
+| `alert_critical_enabled` / `alert_critical_hours_before` / `alert_critical_template` | `false` / `2` / (Heb) | Critical tier |
+| `wa_group_jid` | `""` | Group JID `XXXXXXXXXX@g.us` |
+| `wa_notify_*_enabled` / `_template` | … | Per-event toggles + Hebrew templates (session open/close/cancelled, player registered/cancelled, waitlist promote, session roster, debtors, competition winner) |
+| `competition_session_count` / `_min_matches_pct` | `6` / `10` | Competition defaults |
 
-> `session_default_day` and `session_default_time` were removed — `session_schedule_day/time` are now the single source of truth for both UI pre-fill and auto-create.
+#### Precedence — רשימת קדימות
 
-#### Precedence — רשימת קדימות (unified into `/admin/players`)
-
-**Data model** (migration `20260323180203_precedence`):
-- **`YearWeight`**: calendar `year` (Int, PK) → `weight` (Float). Controls how much each past year counts.
-- **`PlayerYearAggregate`**: `(playerId, year)` unique — stores historical attendance count for years before live tracking. Not created for the current year (counted from live `Attendance` rows).
-- **`PlayerAdjustment`**: `id`, `playerId`, `date`, `points` (Float, signed), `description` (String). Covers bonuses (+) and fines (−).
-
-**Score formula** (`src/lib/precedence.ts`):
-```
-score = Σ(aggregate.count × yearWeight) + liveCurrentYearCount × currentYearWeight + Σ(adjustment.points)
-```
-Current year is auto-counted from live `Attendance` records; no `PlayerYearAggregate` row needed for it.
-
-**Admin UI (merged into players):**
-- **`/admin/players`** — players list sorted by precedence score; `/admin/precedence` redirects here.
-- **`/admin/players/[id]/edit`** — player edit page includes full precedence editing (aggregates + adjustments); `/admin/precedence/[playerId]` redirects here.
-- **`/admin/precedence/weights`** — year weights CRUD (list with row-click/hover like players list, new, edit, delete). Back link → `/admin/players`. Component: `YearWeightList` (`src/components/admin/year-weight-list.tsx`).
-- **`/admin/precedence/[playerId]/adjustments/new`** and **`.../[adjId]/edit`** — adjustment forms (date, points, description); back link → `/admin/players/[id]/edit`.
-- **Server actions**: in `src/app/admin/(protected)/precedence/[playerId]/actions.ts` (aggregate upsert/delete, adjustment create/update/delete — all revalidate and redirect to `/admin/players/[id]/edit`) and `weights/actions.ts`.
-- **Validation**: `src/lib/adjustment-validation.ts`, `src/lib/year-weight-validation.ts`; tested in `src/lib/precedence.test.ts` (10 cases).
+- **Score formula** (`src/lib/precedence.ts`):
+  ```
+  score = Σ(aggregate.count × yearWeight) + liveCurrentYearCount × currentYearWeight + Σ(adjustment.points)
+  ```
+- **Admin UI**:
+  - `/admin/players` is the precedence list. `/admin/precedence` redirects here.
+  - `/admin/players/[id]/edit` includes full precedence editing (aggregates + adjustments). `/admin/precedence/[playerId]` redirects here.
+  - `/admin/precedence/weights` — year weights CRUD.
+  - `/admin/precedence/[playerId]/adjustments/{new,[adjId]/edit}` — adjustment forms (date, points, description).
+- **Validation + tests**: `src/lib/adjustment-validation.ts`, `src/lib/year-weight-validation.ts`; `src/lib/precedence.test.ts` (10 cases).
 
 #### Dynamic ranking (`/admin/ranking`)
 
-Admin-managed peer rating sessions + computed rank blending.
-
-**Blending formula:**
+Computed rank blends three components:
 ```
-peerScore    = (1 − (avgPosition − 1) / (N − 1)) × 100    [position 1 = best]
-winScore     = winRatio × 100
-effectivePeerW = peerWeight   if REGISTERED && hasPeerData
-effectiveWinW  = winWeight    if REGISTERED && gamesPlayed >= ceil(minPct/100 × maxGames)
-computedRank = (adminW×adminRank + peerW×peerScore + winW×winScore) / totalW
+peerScore     = (1 − (avgPosition − 1) / (N − 1)) × 100   [position 1 = best]
+winScore      = winRatio × 100
+effectivePeerW  = peerWeight  if REGISTERED && hasPeerData
+effectiveWinW   = winWeight   if REGISTERED && gamesPlayed ≥ ceil(minPct/100 × maxGames)
+computedRank  = (adminW×adminRank + peerW×peerScore + winW×winScore) / totalW
 ```
-DROP_IN players: only admin rank component applies.
+DROP_IN players use only the admin component.
 
-**Pure computation layer** (`src/lib/computed-rank-pure.ts`): `computeBlendedRank`, `normalizePeerScore`, `normalizeWinScore` — no DB imports, safe for tests and client components.
-**DB orchestrator** (`src/lib/computed-rank.ts`): `recalculateAllComputedRanks(actor)` + `getPlayerRankBreakdown(playerId)` (exposes `matchStats`, `meetsThreshold`, and `winThreshold` for admin display). `winThreshold` = `Math.ceil((minGamesPct/100) × maxGamesPlayed)` — the minimum games count for win/loss to apply; shown in admin player page as "חסרים X משחקים" when below threshold, and "מתחת לסף (played/needed)" badge.
+- **Pure layer** (`src/lib/computed-rank-pure.ts`): `computeBlendedRank`, `normalizePeerScore`, `normalizeWinScore` — no DB.
+- **DB layer** (`src/lib/computed-rank.ts`): `recalculateAllComputedRanks(actor)`, `getPlayerRankBreakdown(playerId)` (returns `matchStats`, `meetsThreshold`, `winThreshold` for admin display).
+- **UI** lists peer rating sessions; open session shows submission count + Close button; closed sessions show a sortable table; "פתח שאלון חדש" auto-fills the year (current); "חשב מחדש" button.
+- **Player-facing peer rating** (`/ranking/submit`): auth-gated; DROP_IN sees a notice; sortable list (`@dnd-kit/*` with `DragOverlay` so the dragged row becomes an invisible placeholder while a floating blue copy follows the pointer); two ↑/↓ buttons per row (44 px tap targets) for keyboard / no-DnD use. `submitPeerRatingAction` validates the ordering is a permutation of all REGISTERED players except self → `$transaction(delete + createMany) → recalculateAllComputedRanks`.
+- **`PeerRatingBanner`** on `/profile`: amber dismissible when an open session has no submission from the player.
+- **Tests**: `src/lib/computed-rank.test.ts` (18 cases).
 
-**Admin UI** (`/admin/ranking`):
-- Lists all `PeerRatingSession` rows ordered by year desc
-- Open session: shows submission count / total REGISTERED players; Close button (which triggers recalc)
-- Closed sessions: expandable table (player → avgPosition → peerScore, sorted desc)
-- "פתח שאלון חדש" form: year auto-filled as current year (hidden input, not editable); button disabled with muted hint when current year session already exists; error message rendered outside the flex row so it never wraps the button
-- "חשב מחדש את כל הדירוגים" button
-- Client component `RankingSessionPanel` (`src/components/admin/ranking-session-panel.tsx`)
+#### Competitions / Challenges (`/admin/challenges` and `/challenges`)
 
-**Server actions** (`src/app/admin/(protected)/ranking/actions.ts`):
-- `openPeerRatingSessionAction` / `closePeerRatingSessionAction` / `deletePeerRatingSessionAction` / `recalculateRanksAction`
-- `fetchRankingSessionsAction` (returns session summaries with results for closed sessions)
-- `checkPendingPeerRatingAction` (called from profile to check if player has a pending submission)
+One active competition at a time. Win-% only metric. Prize = free entry for winner. Auto-numbered (סיבוב 1, 2…). Live leaderboards computed passively from Match data.
 
-**Player-facing peer rating** (`/ranking/submit`):
-- Auth-gated page: not-logged-in → redirect `/`; DROP_IN → show notice; no open session → show notice
-- `<PeerRatingForm>` (`src/components/peer-rating-form.tsx`): sortable list using `@dnd-kit/core` + `@dnd-kit/sortable` + `DragOverlay`; dragged row becomes an invisible `opacity-0` placeholder while a floating blue-bordered copy follows the pointer — eliminates gaps, ghost duplicates, and out-of-screen artifacts; TouchSensor (delay:200, tolerance:5) + PointerSensor (distance:8) + KeyboardSensor; two full 44px ↑/↓ buttons per row (excluded from overlay)
-- `submitPeerRatingAction` validates the submitted ordering is a permutation of all REGISTERED players except self → `$transaction` (delete existing + `createMany`) → `recalculateAllComputedRanks`
-- `<PeerRatingBanner>` (`src/components/peer-rating-banner.tsx`): amber dismissible banner on `/profile` when a session is open and player hasn't submitted
+- **Time window**: sessions with `date ≥ challenge.startDate`, sorted ASC, take first `sessionCount`. Completes when the Nth session is charged.
+- **Eligibility**: only `REGISTERED` players compete. Must have played ≥ `effectiveThreshold = round(minMatchesPct/100 × maxMatchesPlayed)` matches in the window. `minMatchesPct = 0` → everyone qualifies.
+- **Pure layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames, registeredPlayerIds })` → `{ leaderboard, ineligible, effectiveThreshold }`. Each entry has `wins`, `losses`, and `sessionStats` (per-session W/L/total). Eligible sorted by win ratio desc, matchesPlayed desc, name. Ineligible sorted by matchesPlayed desc with `gamesNeeded`. Tested in `src/lib/challenge-analytics.test.ts`.
+- **Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` filter to REGISTERED players, return `{ leaderboard, ineligible, effectiveThreshold, completedSessions, sessions }`.
+- **Winner flow** (`chargeSessionAction`): Nth session charged → compute final leaderboard → create `FreeEntry` for rank-1 → set `isClosed=true`, `winnerId` → WA group message → return `competitionResult` to UI. UI shows banner with winner + link to open new competition.
+- **Free entry at charge time**: before proposing charges, `chargeSessionAction` finds attendees with unused `FreeEntry` records and passes them as `freeEntryPlayerIds`. They are excluded from the billable pool and receive `FREE_ENTRY` charges of ₪0; `FreeEntry.usedAt` set in the same transaction.
+- **Admin CRUD**: List page (active at top, history below sorted by number desc); "פתח תחרות חדשה" only when no active. New/edit `ChallengeForm` (`startDate`, `sessionCount`, `minMatchesPct`); edit disabled when closed.
+- **Player-facing** (`/challenges`): login-gated; active at top with live leaderboard; history below as collapsed `ChallengeCard` per past competition. Each row: name + W/L count + red-green `WinLossBar` + win%. Rows with ≥1 match expand a `SessionBreakdown` (per-session W/L). Top-3 visible; rest behind "הצג הכל"; current player pinned above the toggle when collapsed. Ineligible section collapsed by default with "לא עומדים בסף עדיין" + "חסרים X משחקים".
 
-**Team balance integration:** Session detail page (`/admin/sessions/[id]`) now passes `computedRank ?? rank` to the team balance algorithm.
+#### Match results
 
-**New dependency:** `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`
+- **Schema**: `Match(sessionId, teamAPlayerIds, teamBPlayerIds, scoreA, scoreB)` — cascades on session delete. Multiple matches per session; teams editable after recording.
+- **`SessionMatchPanel`** (`src/components/admin/session-match-panel.tsx`) — last section on the session detail page (mobile-first, designed for iPhone on-court use):
+  - **Team selection**: 2-column grid (קבוצה א׳ | קבוצה ב׳); each player appears as a named toggle button in both columns; tapping atomically moves. Column header shows live count `(n/5)` (green when full). Buttons `min-h-11`, `py-3 text-sm`.
+  - **Team size enforcement**: exactly 5 per team; non-members disabled when a team is full; submit disabled until both have 5.
+  - **Score entry**: per-team labeled rows with `−` / `+` steppers (44 px) + direct numeric input. `−` disabled at 0; no upper bound.
+  - **Match list**: 2-column — players on left (truncated), score on right; row clickable to edit; trash button stop-propagates. Score uses `–` separator; winner highlighted green.
+  - **Auto-select on new match**: `computeNextMatchDefaults` inspects the last recorded match — winner → Team A, sitting-out players → Team B (3-team rotation). Tied → no pre-fill.
+  - **Nickname display**: confirmed attendees prefer `nickname → firstNameHe → firstNameEn → name`.
+- Server actions: `createMatchAction`, `updateMatchAction`, `deleteMatchAction` in `sessions/[id]/matches/actions.ts`.
 
----
+#### Charging
 
-### Competitions / Challenges
+- **Models**: `SessionCharge` + `ChargeAuditEntry`.
+- **Engine** (`src/lib/charging.ts`):
+  - `proposeSessionCharges(input)` returns null if attendee count < `session_min_players`; else: drop-ins + registered-in-debt each pay `ceil(totalCost / minPlayers)`; remainder after subtracting those payments is split equally among normal registered players with `Math.ceil`.
+  - `computeSingleCharge(opts)` delegates to `proposeSessionCharges` with the full `allPlayers` list so the registered remainder is correct in cascade context.
+- **Balance engine** (`src/lib/balance.ts`): `computePlayerBalance`, `computePlayerBalances` (bulk), `computeBalanceFromTotals` (pure). Subtracts `SessionCharge` totals AND `SharedExpenseCharge` totals; `BalanceBreakdown` exposes `sessionChargesTotal` / `sharedExpenseChargesTotal` breakouts.
+- **Cascade recalc** (`src/lib/cascade-recalc.ts`): preserves admin delta (`newAmount = newCalculated + savedDelta`); `summarizeRecalc` for change preview.
+- **Admin flow**: "חייב מפגש" button on the session detail page → `chargeSessionAction` writes charges + sets `isCharged=true`. "בטל חיוב" → `unchargeSessionAction`. Per-charge override with reason → `updateSessionChargeAction` + `ChargeAuditEntry`. UI: `SessionChargePanel` client component with clock-icon expand to view audit history.
+- **Cascade UI**: after saving an override, `previewCascadeAction` runs automatically — if downstream session charges would change, an amber banner shows a per-player diff. Admin confirms → `applyCascadeAction` rewrites in one transaction with `reason: "cascade_recalc"` audit entries. No downstream → silent.
+- **Per-player charge history** on `/admin/players/[id]/edit` — חיובי מפגשים section below תשלומים; read-only; clock icon links each row to its session.
+- **Retroactive debt closure**: "סגירת חוב רטרואקטיבית" card embedded in the charging section, visible only when the focal player is REGISTERED with a trailing streak of consecutive DROP_IN charges (debt-threshold path). Modal with per-session expandable rows showing focal-player diff + every affected teammate (old → new, diff). Re-runs `proposeSessionCharges` with focal balance flipped to 0 and other in-debt-registered balances synthesized to remain in debt; sessions containing any `ADMIN_OVERRIDE` charge are skipped and surfaced as "דולגו". Apply rewrites in one transaction with `reason: "retro_close_debt"` audit entries + one `RETRO_CLOSE_DEBT` audit log. Idempotent — post-apply the streak is empty so the section disappears. **Critical mechanic**: closing the debt retroactively must reverse the redistribution end-to-end. The focal player's charge drops to registered AND every normal-registered teammate from those sessions loses their debt discount and is re-billed up at the new (higher) registered amount. Drop-in-by-kind, other still-in-debt teammates, free-entry, and ADMIN_OVERRIDE charges are untouched.
+- **Admin auto-attendance + auto-offset**: `chargeSessionAction` creates a matching `Payment` row alongside each admin `SessionCharge` (same amount, `method: OTHER`, description `"קיזוז מנהל"`, `date: session.date`, `sessionId: session.id`) — both sides written in the same `$transaction` so charging and offsetting are atomic. `unchargeSessionAction` deletes by `sessionId` so admin-offset payments come off cleanly. `Payment.sessionId` (nullable FK) links offsets to source. Backfill: `scripts/backfill-admin-attendance.ts` — idempotent one-shot for historical sessions, uses Prisma 7 driver adapter.
+- **Low-attendance alerts** (`src/lib/low-attendance-alert.ts`): `checkLowAttendanceAlerts` runs on every auto-close cron tick; two tiers (early / critical) with configurable hours + WA template; fire-once via `alertEarlyFiredAt` / `alertCriticalFiredAt` on `GameSession`; master toggle `alert_low_attendance_enabled`.
+- **Tests**: `balance.test.ts` (6+ regression cases for shared expense), `charging.test.ts`, `cascade-recalc.test.ts` (11). All pure.
 
-One active competition at a time. Win-% only metric. Prize = free entry for winner. Auto-numbered ("סיבוב 1", "סיבוב 2", …). System computes live leaderboards passively from Match data.
+#### Shared expenses
 
-**Data model:**
-- `Challenge`: `id`, `number Int @unique` (auto-sequenced), `startDate DateTime @db.Date`, `sessionCount Int`, `minMatchesPct Int`, `isActive Boolean`, `isClosed Boolean`, `winnerId String?`, `createdAt`, `createdBy`. Relations: `winner Player?`, `freeEntry FreeEntry[]`.
-- `FreeEntry`: `id`, `playerId`, `challengeId`, `usedInSessionId?`, `usedAt?`, `createdAt`. Created when competition closes; consumed when winner attends next charged session.
-- `ChargeType` enum includes `FREE_ENTRY` — winner charged ₪0, cost absorbed by other attendees.
+- **Schema**: `SharedExpense(title, totalAmount, lookbackYears, minAttendancePct, eligibilityPool, createdBy, revertedAt?)` + `SharedExpenseCharge(sharedExpenseId, playerId, amount, manuallyAdded)`. Enum `EligibilityPool { REGISTERED_ONLY, ALL_PLAYERS }`.
+- **Engine** (`src/lib/shared-expenses.ts` pure + `shared-expenses-server.ts` DB): `computeSharedExpenseShares(total, count)` floors with deterministic remainder distribution so the per-player sum equals `totalAmount` exactly. `computeEligible(candidates, sessionsTotal, minPct, pool)` is a pure threshold + pool filter; admin candidates always pass and report 100% (they run every session, so the system doesn't capture their attendance via Attendance rows). `findEligiblePlayers({lookbackYears, minAttendancePct, eligibilityPool})` is the DB orchestrator and uses **precedence-style attendance sources** — live segment (current year ∩ window) from `Attendance` rows; historical segment from `PlayerYearAggregate` with the boundary year fraction-scaled by its overlap with the window. **Denominator = max attendance count across all players in the window** (top attendee = 100% by definition; everyone else's pct is their share relative to the top). `listAllPlayersForManualAdd()` powers the manual-add dropdown.
+- **Admin flow** (`/admin/finance/shared-expenses`): index lists past expenses with active/reverted status. `/new` → `SharedExpenseForm`: title, amount, lookback years, min attendance %, eligibility radio (REGISTERED_ONLY default vs ALL_PLAYERS). "טען תצוגה מקדימה" populates eligible table + full roster; admin can remove rows or use the searchable add-player dropdown to manually include any player from the pool (flagged with a manual badge). Share recomputes locally on every change. Submit → `createSharedExpenseAction` re-runs eligibility server-side (rejects stale lists), validates manual IDs exist, writes parent + N children in one `$transaction`. Detail page shows criteria + per-charge rows + revert button. `revertSharedExpenseAction` soft-marks parent (`revertedAt = now()`) and deletes children — balances restore automatically.
+- **Tests**: `shared-expenses.test.ts` (14 cases) — share split (clean / remainder / total < count / zero count / zero total), rolling cutoff (whole + fractional years), eligibility filter.
 
-**Time window:** Sessions with `date >= challenge.startDate`, ordered by date ASC, take first `sessionCount`. Competition completes when the Nth session in that ordered list is charged.
+#### Finance dashboard (`/admin/finance`)
 
-**Eligibility:** Only `REGISTERED` players compete — drop-ins are excluded entirely. Registered players must have played ≥ `effectiveThreshold` matches in the window, where `effectiveThreshold = Math.round(minMatchesPct / 100 × maxMatchesPlayed)`. `minMatchesPct = 0` → everyone qualifies.
-
-**Pure computation layer** (`src/lib/challenge-analytics.ts`): `computeLeaderboard({ minMatchesPct, windowSessionIds, matches, playerNames, registeredPlayerIds })` — no DB imports, safe for tests. Returns `{ leaderboard: LeaderboardEntry[], ineligible: IneligibleEntry[], effectiveThreshold: number }`. Each entry includes `wins`, `losses`, and `sessionStats: SessionStat[]` (per-session W/L/total breakdown, one entry per window session). Eligible: sorted by `winRatio` desc, `matchesPlayed` desc, name. Ineligible: sorted by `matchesPlayed` desc (closest to qualifying first). `IneligibleEntry` has `gamesNeeded` field. Tested in `src/lib/challenge-analytics.test.ts`.
-
-**Validation** (`src/lib/challenge-validation.ts`): `parseChallengeForm` with Zod — `startDate`, `sessionCount`, `minMatchesPct` only.
-
-**Server fetcher** (`src/app/challenges/data.ts`): `fetchChallengeLeaderboard(id)` + `fetchAllChallengeLeaderboards()` — filters players to `REGISTERED` only, returns `{ leaderboard, ineligible, effectiveThreshold, completedSessions, sessions: ChallengeSession[] }`. Sessions (`id + date`) are passed through to the card for per-session breakdown labels.
-
-**Config keys:** `COMPETITION_SESSION_COUNT` (default "6"), `COMPETITION_MIN_MATCHES_PCT` (default "10"), `WA_NOTIFY_COMPETITION_WINNER_ENABLED`, `WA_NOTIFY_COMPETITION_WINNER_TEMPLATE` (vars: `{player_name}`, `{round_number}`).
-
-**Winner flow** (triggered in `chargeSessionAction`): When the Nth session is charged → compute final leaderboard → create `FreeEntry` for rank-1 player → set `isClosed=true`, `winnerId` → send WA group message → return `competitionResult` to UI. UI shows banner with winner name + link to open new competition.
-
-**Free entry at charge time:** Before proposing charges, `chargeSessionAction` finds attendees with unused `FreeEntry` records and passes their IDs as `freeEntryPlayerIds` to the charging engine. They are excluded from the billable pool (cost redistributed among others) and receive a `FREE_ENTRY` charge of ₪0. The `FreeEntry` record is marked used in the same transaction.
-
-**Admin CRUD** (`/admin/challenges`):
-- List page: active competition at top (if any), history (closed, sorted by number desc) below. "פתח תחרות חדשה" button visible only when no active competition exists. Winner name shown on closed rows. Header has `→ חזרה` back link to `/admin`.
-- New/edit pages: `ChallengeForm` — `startDate` (date picker, default today), `sessionCount` (pre-filled from config), `minMatchesPct` (pre-filled from config). Edit disabled when `isClosed`.
-- Server actions: `createChallengeAction` (enforces one active), `updateChallengeAction`, `deleteChallengeAction` (blocked when closed). Audit logs: `CREATE_CHALLENGE`, `UPDATE_CHALLENGE`, `DELETE_CHALLENGE`, `CLOSE_CHALLENGE`.
-
-**Player-facing** (`/challenges`):
-- Login-gated; active competition at top with live leaderboard (rank, player, win%, matches played); history section below (collapsed `ChallengeCard` per past competition with winner badge).
-- `ChallengeCard` subtitle: compact one-row format "{N} מפגשים מ-{date} · סף זכאות {X} משחקים". Eligibility threshold shown as nominal game count (e.g. "5 משחקים"), not percentage.
-- Ranked eligible players (ties share rank; first gets medal, rest "–"). Greyed "לא עומדים בסף עדיין" section below for ineligible REGISTERED players, **collapsed by default**, showing their win% + "חסרים X משחקים" incentive text.
-- Drop-in players fully excluded from all leaderboard sections. `registeredPlayerIds: Set<string>` param gates computation.
-- **`ChallengeCard` UX**: Each player row shows name + W/L count + red-green win/loss bar (`WinLossBar`) + win%. Rows with ≥1 match are clickable to expand a `SessionBreakdown` (per-session date, W/L counts, mini bar). Top-3 always visible; rest (rank 4+) behind a "הצג הכל" toggle button. Current player's row (rank 4+) pinned above the toggle when list is collapsed. Ineligible section collapses by default behind a header button showing the count.
-- `Trophy` icon in nav (`NavLinks`) for all logged-in players.
-
----
-
-### Security / abuse (MVP)
-
-- **Cookies**: HTTP-only, `Secure` in production or when `RSVP_COOKIE_SECURE` is set; admin cookie uses `sameSite=strict` (no cross-origin admin flows), player + RSVP use `sameSite=lax` (compatible with WA-link / deep-link redirects); JWT verifies `iss` / `aud` (defaults `irba` / `irba-rsvp`).
-- **Rate limits**: in-memory per process for attend vs cancel, **admin login**, **player login** (shared across OTP-send/verify and password login), and a stricter **OTP-send** bucket (per-phone + per-IP, both must pass) applied at the WA-message-issuing step so an attacker can't spam a victim's phone or burn the WA budget; client IP from `CF-Connecting-IP`, `X-Real-IP`, or first `X-Forwarded-For` hop (configure your reverse proxy).
-- **Response headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and full **CSP** (`default-src 'self'`, `script-src 'self' 'unsafe-inline'`, `style-src 'self' 'unsafe-inline'`, `img-src 'self' data:`, `frame-ancestors 'none'`) via `next.config.ts`.
-- **Mobile zoom**: `viewport` export in `src/app/layout.tsx` sets `maximumScale: 1` to prevent iOS auto-zoom on input focus (which otherwise leaves the page in a horizontally-scrolled state); pinch-zoom still works.
-
-### Ops / DX
-
-- **`GET /api/health`** — JSON; 200 if DB answers `SELECT 1`, else 503 (generic body, no secrets). Response includes `version` field (git commit hash injected at build time via `NEXT_PUBLIC_COMMIT_HASH`).
-- **Favicon / icons**: `src/app/icon.svg` (desktop SVG favicon), `src/app/icon.png` (48×48 PNG fallback), `src/app/apple-icon.png` (180×180 PNG, served as `apple-touch-icon` for iOS Safari / Add to Home Screen). PNGs generated from icon.svg via sharp.
-- **Docker**: `docker-compose.yml` with 3 services: `db` (Postgres 16-alpine), `app` (Next.js on `127.0.0.1:3004`), `wa` (Baileys/Express sidecar on internal port 3100). All three services run with `restart: unless-stopped` so a crash auto-recovers; `wa` adds a 30s healthcheck against its `/status` endpoint so a hung-but-not-crashed sidecar gets restarted by Docker. `app` and `wa` reference prebuilt images via `image: ghcr.io/avivais/irba/{app,wa}:${IRBA_*_IMAGE:-:latest}` with `pull_policy: always` — the images are produced by GitHub Actions, not on EC2. `Dockerfile` uses `output: standalone` — runner stage copies `.next/standalone` to WORKDIR so `server.js` sits at `/app/server.js` alongside `public/` and `.next/static/`. The runner stage installs only the three packages the entrypoint needs at startup (`prisma`, `@prisma/client`, `dotenv`) instead of dragging the full deps tree, cutting the image from ~3 GB to ~250 MB. `docker-entrypoint.sh` runs `prisma migrate deploy` then `exec node server.js`. `init: true` on the `app` and `wa` services uses Docker's built-in tini as PID 1 to reap zombie processes.
-- **Build pipeline**: `.github/workflows/build-image.yml` runs on every push to `main` (matrix: `app` + `wa`), builds with `docker/build-push-action`, pushes both `:latest` and `:<short-sha>` tags to GHCR (public, anonymous-pullable), and reuses a `:buildcache` registry layer for fast incremental rebuilds. Builds happen on GitHub-hosted runners — never on the EC2 box, so deploys can no longer OOM the 4 GB host. `NODE_OPTIONS=--max-old-space-size=1024` is also set in the builder stage as a belt-and-braces cap.
-- **Deploy**: `./scripts/deploy.sh` — local entry point: waits for the GHCR image tagged with the current commit SHA to exist (polls up to 5 min), runs a pre-deploy DB backup, then SSHes to EC2: `git pull → docker compose pull → docker compose up -d → trim images`. Both services are pinned to the SHA via `IRBA_APP_IMAGE` / `IRBA_WA_IMAGE` env vars exported just before the compose call so a concurrent push of `:latest` can't race the restart. Image trim keeps the **2 most recent tags per IRBA repo** (current + previous, for rollback) and removes older ones — Docker refuses to remove an in-use image, so the running container is protected automatically. A simple age filter (`until=168h`) was insufficient: 14 same-day deploys pushed disk over 85% before the weekly cron caught up. `.github/workflows/deploy.yml` does the same thing as a manual `workflow_dispatch` trigger from the Actions tab. See `RUNBOOK.md` for full ops guide.
-- **Versioning**: `COMMIT_HASH` build arg passed through `docker-compose.yml` → `Dockerfile` → baked as `NEXT_PUBLIC_COMMIT_HASH` at `next build` time. `COMMIT_DATE` is set via `git log -1 --format='%cI'` (strict ISO 8601 with full timezone offset, e.g. `2026-04-08T18:46:43+00:00`) — the full offset is required so `new Date()` on the client correctly parses UTC and `Intl.DateTimeFormat` converts to the user's local timezone. Displayed as a subtle footer on all admin pages (`src/app/admin/(protected)/layout.tsx`) and in the `/api/health` response. Footer uses `CommitInfo` client component (`src/components/admin/commit-info.tsx`) to show local-timezone date and a Hebrew relative time ("לפני X שעות") — avoids showing UTC server time to the user.
-- **Production**: live at `https://irba.club` — EC2 `t4g.large` (Graviton ARM, 8 GB RAM + 2 GB swap, 50 GB gp3 EBS) → Apache TLS → localhost:3004. Instance is on a 1-year reserved instance (No Upfront, ~$30.73/mo compute) purchased 2026-04-28 — total monthly bill ~$44.50 including storage, public IPv4, tax. Renews / expires 2027-04-28; revisit whether to renew or convert to Savings Plan before then.
-- **Monitoring**: CloudWatch Agent runs on the EC2 instance under namespace `IRBA/EC2`, pushing `mem_used_percent`, `swap_used_percent`, `disk_used_percent` every 60 s. Four alarms (`irba-ec2-{cpu,memory,disk,status-check}-*`): CPU > 90% / 5 min, memory > 90% / 5 min, disk > 85% / 15 min route to SNS topic `irba-alarms-info` (email to `avivais@gmail.com`); `StatusCheckFailed` ≥ 1 / 2 min routes to `irba-alarms-critical` (email + SMS to `+972507666550`). Disk-high alarm has full dimensions (`InstanceId`, `path=/`, `device=nvme0n1p1`, `fstype=ext4`) — partial dimensions silently won't match the metric. Instance has `IrbaEC2CloudWatchAgent` IAM role (with `CloudWatchAgentServerPolicy`) attached so it can publish without static credentials.
-- **Billing**: AWS Budgets has a `"My Monthly Cost Budget"` set to $60/month with notifications at 85% actual, 100% actual, and 100% forecast — all email to `avivais@gmail.com`.
-- **Custom 404**: `src/app/not-found.tsx` — Hebrew page ("הדף לא נמצא") with back-to-home link; fixes RTL layout issue with the default Next.js 404 page.
-- **Session date field**: `session-form.tsx` uses a custom text input (`d.m.yyyy HH:mm`, e.g. `24.4.2026 20:26`) for the session datetime — native `datetime-local` rendering differed across platforms (desktop Chrome `24/04/2026, 20:09` vs. iOS Safari `24 Apr 2026 at 20:09`). Native `datetime-local` is overlaid transparently on a calendar icon so the picker still opens on tap; canonical state stays in `YYYY-MM-DDTHH:mm` so server validation is unchanged.
-- **Consistent `d.m.yyyy` date fields**: reusable `DateFieldIL` (`src/components/admin/date-field-il.tsx`) — `d.m.yyyy` text input + hidden `YYYY-MM-DD` form value + overlaid native `type="date"` picker; supports optional `onChange(iso)` and `invalid` props for forms that need client-side validation. Used everywhere a date-only field appears in admin: sessions list filter, competition creation, hourly rate, precedence adjustments, player payments, and the audit log filter — giving every visible admin date field the same Israeli format across platforms.
-- **Backup**: `scripts/backup.sh` — `pg_dump | gzip`, 30-day retention. Runs daily at 03:00 via EC2 cron.
-- **Logging**: cron auto-create/auto-close both run via wrapper scripts (`/opt/irba/scripts/cron-auto-create.sh`, `cron-auto-close.sh`) that add `[YYYY-MM-DD HH:MM:SS]` prefix + newline per entry → `/opt/irba/cron.log`. Both `cron.log` and `backups/backup.log` are rotated daily, 30-day retention, via `/etc/logrotate.d/irba`. Docker container logs rotate automatically via global `/etc/docker/daemon.json` (10 MB max, 3 files).
-- **Process management**: `npm start` writes PID to `.next.pid`; `npm run web` / `npm run startweb` / `npm run buildandstartweb` write cloudflared's PID to `.cloudflared.pid`; `npm stop` kills both by PID file (project-scoped).
-- **Seeds**: deterministic `prisma/seed.ts` (`npm run db:seed`); random QA script `scripts/seed-random.ts` (`npm run db:seed:random`) with env guards — see README.
-- **CI**: GitHub Actions workflow above; confirm runs in the repo **Actions** tab after push.
-
-### WhatsApp sidecar (`wa/`)
-
-Separate Docker service (`wa` in `docker-compose.yml`) — Baileys + Express on internal port 3100. Next.js POSTs to sidecar endpoints; if `wa` is down, calls are best-effort (logs, doesn't throw).
-
-- `GET /status` → `{ ready: boolean }` — health probe
-- `GET /qr` → `{ qr: string | null }` — current pairing QR as a data URL (null when connected or not yet emitted)
-- `POST /send` → `{ to: "05xxxxxxxx", message: "text" }` — individual DM
-- `POST /send-group` → `{ groupId: "XXXXXXXXXX@g.us", message: "text" }` — group broadcast
-- `POST /send-poll` → `{ groupId, question, options[] }` — single-choice poll
-- `POST /logout` → wipes session dir + reconnects to emit a fresh QR
-- `GET /groups` → `[{ id, subject }]` — list groups the bot is in; used by admin group-search UI
-- Phone normalization: `05xxxxxxxx → 972xxxxxxxx@s.whatsapp.net`
-- Session persisted to `/opt/irba/wa-session/` (bind-mounted volume); survives deploys
-- **Auto-recovery on `loggedOut`**: when WhatsApp invalidates the bot session, the disconnect handler now wipes `SESSION_PATH` and reconnects automatically (shared `resetSession()` helper used by both `/logout` and the `DisconnectReason.loggedOut` branch). Previously the bot stayed disconnected with no QR until an operator SSHed in to delete the session dir.
-- First run / re-pair: QR appears in the `/admin/wa` UI; admin scans with dedicated WA account
-- Controlled by `WA_NOTIFY_ENABLED=true` env var (default off; set `true` on EC2)
-
-**`src/lib/wa-notify.ts`** — typed notification dispatcher; `renderTemplate` for `{placeholder}` substitution; per-type high-level functions route to group or individual DM.
-
-**Notification config** — all settings in `AppConfig` (admin-editable at `/admin/config` → "וואטסאפ" section):
-- `wa_group_jid` — group JID for broadcasts (format `XXXXXXXXXX@g.us`; leave empty to disable group notifications). **"חפש קבוצה"** button in the config form fetches the group list from the sidecar (`/groups`), shows a filterable inline picker, and fills the JID field on click — no manual JID extraction needed.
-- Per event: `wa_notify_{type}_enabled` + `wa_notify_{type}_template`
-- Master kill switch: `WA_NOTIFY_ENABLED` env var
-
-**Notification triggers:**
-| Trigger | Recipient | Default on |
-|---------|-----------|-----------|
-| Session open (auto-create cron or manual create) | WA group broadcast | ✅ |
-| Session closed (admin toggle) | WA group broadcast | ❌ |
-| Player registered (public RSVP) | WA group broadcast | ❌ |
-| Player cancelled (public RSVP) | WA group broadcast | ❌ |
-| Admin promotes waitlisted player | Individual DM to player | ✅ |
-| Admin manual roster broadcast (button on session admin page) | WA group broadcast | ✅ |
-| Admin manual debt reminder (button on finance page) | WA group broadcast | ✅ |
-
-**Roster macros** — `{registered_list}` and `{waitlist}` are available in the player-registered, player-cancelled, waitlist-promote, and session-roster templates. Each renders as a newline-joined list of confirmed / waitlisted player display names from the post-event session state. For manual session-roster broadcasts, `{registered_list}` also appends a summary line after the confirmed players, e.g. `סה"כ *8 רשומים*`, so existing admin-stored templates show the count before the waitlist. Default templates demonstrate the multi-line layout (`נרשמו עד כה:` / `ברשימת המתנה:`). Empty waitlist → empty string (the template controls how to format the empty case). Admin-form textareas for these four templates are 6 rows × 2,000 char max.
-
-**Manual roster broadcast** — `WA_NOTIFY_SESSION_ROSTER_*` config keys; "שלח עדכון רשימה" button in the attendance section header on `/admin/sessions/[id]`. Confirmation prompt → `broadcastSessionRosterAction` → `notifySessionRoster` dispatcher. Useful when WA was down at notification time, or admin wants to re-broadcast the current roster on demand. Audit action: `BROADCAST_SESSION_ROSTER`.
-
-**Manual debt reminder** — `WA_NOTIFY_DEBTORS_*` config keys (template macros: `{debtors_list}`, `{count}`); "שלח תזכורת" button in the debtors section header on `/admin/finance`. Confirmation prompt → `broadcastDebtorsAction` (in `src/app/admin/(protected)/finance/actions.ts`) → `notifyDebtors` dispatcher. Message body lists every debtor as `{name} @{972…} — ₪{abs(balance)}` (sorted biggest debt first). The button displays "נשלח לאחרונה: {date+time}" derived live from the most recent `BROADCAST_DEBTORS` audit log entry — note the audit-log row is committed via `await prisma.auditLog.create` (not fire-and-forget) before `revalidatePath` so the next page render reflects it without a race. Audit action: `BROADCAST_DEBTORS`.
-
-**Participant tagging in WA group messages** — generic plumbing now in place. Sidecar `/send-group` accepts an optional `mentions: string[]` (full Baileys JIDs, e.g. `972501234567@s.whatsapp.net`); `sendWaGroupMessage(groupJid, message, mentions?)` forwards them. `phoneToWaMention(phone)` in `src/lib/wa-notify.ts` converts a normalised Israeli mobile (`05XXXXXXXX`) into both the inline `@972…` digits and the `…@s.whatsapp.net` JID. Wired into the debt-reminder dispatcher today (gated by `wa_notify_debtors_tag_enabled`, default on); other dispatchers can opt in by calling `phoneToWaMention` and passing the JIDs to `sendWaGroupMessage`. Phones that don't match `05XXXXXXXX` (landlines, malformed) are silently skipped — that line shows name+amount only, no tag.
-
-**Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
-
-**Bot status & re-link** — dedicated `/admin/wa` page (`src/app/admin/(protected)/wa/page.tsx`). Shows `WaBotStatus` widget (green/red dot, QR code when disconnected, action button; polls every 15s when ready, every 4s when disconnected so a fresh QR appears quickly). Action button is context-aware: **"התנתק"** when ready (sends `POST /logout` → wipes session); **"אפס וצור QR חדש"** when disconnected (same call, but framed as the manual recovery path when the bot is stuck without a QR). Bot status actions (`fetchWaStatusAction`, `logoutWaAction`) live in `src/app/admin/(protected)/wa/actions.ts`. Combined with the sidecar's auto-recovery on `loggedOut`, an admin no longer needs to SSH to the EC2 box to re-pair the WA bot.
-
-**Global status indicator** — `WaStatusDot` (`src/components/admin/wa-status-dot.tsx`) renders a green/red `h-2 w-2` dot in the admin nav (via `NavLinks`), positioned as a badge on the MessageCircle icon. Polls `fetchWaStatusAction` every 15s; shows nothing until first response. Admins see connection state on every page without visiting `/admin/wa`.
-
-**Manual group send** — also on `/admin/wa` (`WaSendForm` component, `src/components/admin/wa-send-form.tsx`). Shows read-only group JID + resolved group name (fetched from sidecar on mount if bot is connected). Textarea + green "שלח לקבוצה" button. If `wa_group_jid` is not configured, a hint links to `/admin/config`. `/admin/config` WA section now only has JID field + notification toggles — no bot status, no send form.
-
-### Auto-create cron (`GET /api/cron/auto-create`)
-
-Idempotent endpoint called hourly by EC2 cron. Bearer-token auth (`CRON_SECRET`). Logic:
-1. Check `SESSION_SCHEDULE_ENABLED=true` in AppConfig
-2. Compute next scheduled session datetime (`src/lib/schedule.ts` — DST-safe via `Intl.DateTimeFormat`)
-3. If `now >= sessionTime - autoCreateHours` and no session exists for that Israel day (any status, including cancelled — cancelled records are tombstones) → create session + notify WA group (if `wa_notify_session_open_enabled` and `wa_group_jid` set)
-4. Otherwise → `{ created: false, reason }` (idempotent)
-
-EC2 cron: `0 * * * * curl -s -H "Authorization: Bearer ..." https://irba.club/api/cron/auto-create`
-
-Core logic extracted to `src/lib/auto-create-session.ts` (`autoCreateNextSession({ force? })`). The cron route calls it normally; the admin config page has a **"הרץ עכשיו"** button (in the "לוח זמנים" section) that calls `runAutoCreateAction` with `force: true` to bypass the lead-time window check. Result shown as a toast.
-
-### Auto-close cron (`GET /api/cron/auto-close`)
-
-Idempotent endpoint called **every minute** by EC2 cron. Bearer-token auth (`CRON_SECRET`). Logic:
-1. Fetch `session_default_duration_min` from AppConfig
-2. Find all sessions where `isClosed = false AND isArchived = false`
-3. For each, compute `endTime = date + (durationMinutes ?? defaultDuration) minutes`
-4. If `endTime <= now` → set `isClosed = true`, write `CLOSE_SESSION` audit log (actor: "cron", after: `{ reason: "auto_close" }`), notify WA group
-5. Runs `checkLowAttendanceAlerts` — fires WA group message if any upcoming open session is below `session_min_players` and the alert hasn't fired yet for that session/tier
-6. Returns `{ closed: string[], skipped: number, alerts: { earlyFired, criticalFired } }`
-
-EC2 cron: `* * * * * /opt/irba/scripts/cron-auto-close.sh`
-
-Core logic in `src/lib/auto-close-sessions.ts` (`autoClosePastSessions()`); alert logic in `src/lib/low-attendance-alert.ts` (`checkLowAttendanceAlerts`).
-
-### Audit-prune cron (`GET /api/cron/prune-audit`)
-
-Idempotent endpoint called daily by EC2 cron. Bearer-token auth (`CRON_SECRET`). Deletes `AuditLog` rows where `timestamp < now − retentionDays` (default 90, override with `AUDIT_LOG_RETENTION_DAYS` env var, clamped to `[1, 3650]`). Returns `{ deleted, cutoff }`.
-
-EC2 cron: `30 3 * * * curl -s -H "Authorization: Bearer ..." https://irba.club/api/cron/prune-audit`
-
-Core logic in `src/lib/audit-prune.ts` (`pruneAuditLogs(retentionDays)`).
-
-### Tests
-
-- Unit tests: `phone`, `maskPhone`, `rate-limit` (including admin login), `admin-session`, `bcryptjs` verify, mocked `checkDatabase` (`src/lib/*.test.ts`, `src/lib/health.test.ts`).
-- **Player validation tests** (`src/lib/player-validation.test.ts`): 25 cases covering all fields, phone normalization, rank/balance boundaries, multi-position array (valid/invalid values, single-string coercion, empty), isAdmin flag.
-- **Session validation tests** (`src/lib/session-validation.test.ts`): 16 cases covering date parsing (including Israel timezone DST conversion), maxPlayers bounds, isClosed flag.
-- **Precedence tests** (`src/lib/precedence.test.ts`): 10 cases covering score formula (zero state, aggregates only, live count, adjustments, combined), edge cases (missing weight, negative adjustments, fractional weights).
-- **Schedule tests** (`src/lib/schedule.test.ts`): 10 cases — today/tomorrow/multi-day skip, same-weekday-just-passed, DST winter/summer, midnight/23:59 edge cases. Uses `Intl.DateTimeFormat` with `% 24` normalization for older ICU versions.
-- **Waitlist promote tests** (`src/lib/waitlist-promote.test.ts`): 8 cases — promote moves to last confirmed slot, error on confirmed player, error on missing attendance.
-- **Computed rank tests** (`src/lib/computed-rank.test.ts`): 18 cases covering `normalizePeerScore` (position 1/N/middle/N=1/fractional avg), `normalizeWinScore` (0/0.5/1), and `computeBlendedRank` (admin-only, defaultRank, all-three, DROP_IN ignores peer+win, below-threshold excludes win, zero weights → null, custom ratios, admin weight 0, edge 0/100). Imports from `computed-rank-pure.ts` to avoid DB init.
-- **Challenge analytics tests** (`src/lib/challenge-analytics.test.ts`): tests covering win_ratio sorting, 0-match players, ties/tie-breaking, minMatchesPct% filtering (pct=0/50/100/Math.round), drop-in exclusion via `registeredPlayerIds`, ineligible entries with `gamesNeeded`, window scoping (out-of-window matches ignored, empty window → empty result), matchesPlayed field.
-- Default `npm test` does **not** require a running Postgres.
-
-### QA testing system (`/admin/testing`)
-
-Admin-only page for end-to-end manual testing with automated DB-state verification.
-
-**Snapshot manager** — save, restore, and delete full DB snapshots:
-- Prisma-based serialization: all tables serialized to JSON, gzipped, stored in `/opt/irba/backups/snapshots/{label}__{ISO_timestamp}.json.gz` (persistent volume, survives deploys)
-- Restore: FK-safe delete (children before parents) then insert (parents before children) in a single Prisma `$transaction` (30s timeout); resets `AuditLog` autoincrement sequence afterward
-- Path traversal protection; `requireAdmin()` guard on all server actions
-- UI: `SnapshotManager` client component with label input, file list (label / date / size), restore/delete with confirmation dialogs
-
-**Interactive test plan** — 60 steps across 20 groups:
-- Each step has: `id`, `group`, `title`, `instructions[]`, optional `links[]`, `verifyFnName`
-- Steps unlock sequentially — must pass/mark step N before N+1 becomes clickable
-- "Verify" button calls `runVerification(stepId)` server action → returns `{ pass, detail, manual? }`
-- Steps with no automated verification return `manual=true` (blue dot, unlock without DB check)
-- Progress persisted in `localStorage` (`irba-test-plan-results`) — survives page reloads; "נקה הכל" button resets all results. On page mount the test plan auto-expands and scrolls the first non-passed step into view so testers can resume mid-run without scrolling
-- **Cron verification (Group 19)** runs the lib functions directly (`autoClosePastSessions()`, `autoCreateNextSession({ force: true })`) instead of HTTP-fetching the `/api/cron/*` routes — same code path, but avoids the server-to-self fetch failures that occur when the running container can't resolve its own public URL
-- Steps requiring player OTP login show a **"שלח OTP ל-WA שלי"** widget (`OtpLookup`): generates a fresh OTP, stores bcrypt hash in DB, sends plaintext code as a WA DM to the admin phone — secure (plaintext never hits DB or browser)
-- Full coverage: snapshot, config, player CRUD, competition setup, session lifecycle, RSVP, match recording, leaderboard, free entry, charge override, audit, payments, profile, peer ratings, regulations, config effects, WA notifications, cron endpoints, cleanup
-- **Group order**: 0 Snapshot → 1 Config → 2 Players → **3 Competition setup** → 4 Session 1 lifecycle → 5 Public RSVP → 6 Match recording → 7 Leaderboard after session 1 → …. Competition creation precedes session 1 creation so that session 1 and its matches are scoped into the active challenge window — otherwise session data recorded before the challenge exists would not reflect in standings.
-- **11 test players** (A–K, phones 0500000001–0500000011): A–C created manually, D–K auto-created by clicking "בדוק" on step 2.4 (server action creates them idempotently). D=DROP_IN, E–K=REGISTERED
-- All match steps use **5v5** (system enforces exactly 5 per team); sessions use maxPlayers=10
-- Session 1 lifecycle: 10 confirmed (A, C–K), B waitlisted then removed, K promoted from waitlist — leaves exactly 10 players for 4 matches of 5v5
-- **Competition winner is B** (not A) — given the prescribed match outcomes across sessions 1–3, B ends with 5W/1L (83%) vs A's 7W/3L (70%). Group 9.3 verifies `winnerId=B`, Group 10 consumes B's FreeEntry in session 4, Group 11.1 overrides A's normal-tariff charge (B's session-4 charge is ₪0 FREE_ENTRY)
-- OTP text in Public RSVP steps (5.1/5.2) says "שלח OTP ל-WA שלי" (matching the widget label)
-
-**Nav**: `FlaskConical` icon in admin nav links (`NavLinks`) pointing to `/admin/testing`.
+- Summary cards (total paid / charged / net), debtors list, credits list, all-players table sorted by debt, recent payments, recent charges.
+- All player rows fully clickable (overlay link + hover); links pass `?from=finance` so the player edit page shows "→ חזרה לפיננסים".
+- **Manual debt reminder broadcast**: "שלח תזכורת" button in the debtors section header → `broadcastDebtorsAction` → `notifyDebtors` (group). Template macros `{debtors_list}` (newline-joined `{name} @{972…} — ₪{abs(balance)}` rows, biggest first), `{count}`. Button shows "נשלח לאחרונה: {date+time}" derived from the latest `BROADCAST_DEBTORS` audit log row — note the audit row is written via `await prisma.auditLog.create` (not fire-and-forget) before `revalidatePath` so the next render reflects it. `wa_notify_debtors_tag_enabled` (default on) `@`-mentions debtors via Baileys (see WA section).
+- **Shared-expense entry**: link to `/admin/finance/shared-expenses`.
 
 #### Audit log (`/admin/audit`)
 
 Persistent action log covering every mutation in the system.
 
-**Helper** (`src/lib/audit.ts`): `writeAuditLog({ actor, actorIp?, action, entityType?, entityId?, before?, after? })` — fire-and-forget, never throws, never blocks the caller. `before`/`after` are JSON snapshots.
-
-**Instrumented call sites (37 total)** — every server action that mutates state:
-- **Auth**: `ADMIN_LOGIN`, `ADMIN_LOGIN_FAIL` (with reason: `rate_limited` / `wrong_password` / `no_hash_configured` / `bcrypt_error` / `cookie_error`), `ADMIN_LOGOUT`
-- **Players**: `CREATE_PLAYER`, `UPDATE_PLAYER` (with `before` snapshot), `DELETE_PLAYER` (with `before` snapshot)
-- **Sessions**: `CREATE_SESSION`, `UPDATE_SESSION` (with `before`/`after`), `DELETE_SESSION` (with `before`), `ARCHIVE_SESSION`, `UNARCHIVE_SESSION`, `OPEN_SESSION`, `CLOSE_SESSION`, `ADD_ATTENDANCE`, `REMOVE_ATTENDANCE` (with `before`)
-- **Precedence**: `CREATE_ADJUSTMENT`, `UPDATE_ADJUSTMENT` (with `before`/`after`), `DELETE_ADJUSTMENT` (with `before`), `UPSERT_AGGREGATE` (with `before`/`after`), `DELETE_AGGREGATE`
-- **Year weights**: `CREATE_YEAR_WEIGHT`, `UPDATE_YEAR_WEIGHT` (with `before`/`after`), `DELETE_YEAR_WEIGHT` (with `before`)
-- **Config**: `UPDATE_CONFIG` (full `before`/`after` of all config keys), `CREATE_RATE`, `UPDATE_RATE` (with `before`/`after`), `DELETE_RATE` (with `before`)
-- **WA / system**: `SEND_WA_MESSAGE` (with message text + JID), `WA_LOGOUT`, `RUN_AUTO_CREATE` (with result), `AUTO_CREATE_SESSION` (actor: "cron")
-- **Ranking**: `OPEN_PEER_RATING_SESSION`, `CLOSE_PEER_RATING_SESSION`, `DELETE_PEER_RATING_SESSION`, `SUBMIT_PEER_RATING`, `RECALCULATE_RANKS`
-- **Import**: `IMPORT_PLAYERS`, `IMPORT_PAYMENTS`, `IMPORT_AGGREGATES` (with `imported` count + `errorCount`)
-- **Public RSVP**: `RSVP_ATTEND` (actor = player phone + IP, with session + status), `RSVP_CANCEL` (actor = player phone + IP)
-
-**Admin page** (`/admin/audit`): server-rendered, 75 entries/page.
-- **Filters** (URL params): `action` dropdown (all ~55 actions with Hebrew labels), `entity` type dropdown, `actor` text field, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
-- **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=admin auth, violet=player auth, amber=OTP events, indigo=imports, teal=WA/system), actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label. **Responsive**: entity column hidden on mobile (`hidden sm:table-cell`), action badge truncated, no forced min-width — no horizontal scroll on 430px.
-- **Human-readable display**: all action names translated to Hebrew (`ACTION_LABELS` map); actor column resolves player cuid IDs to display names (nickname/firstNameHe/phone), shows "מנהל"/"מערכת" for admin/cron; entity column resolves player IDs to names and session IDs to Hebrew date strings. Column headers renamed: "על מה" (entity), "מבצע" (actor). `JsonDiff` headers: "שדה"/"לפני"/"אחרי". Server-side ID resolution via two batch queries (player names + session dates) passed as maps to the client component.
-- **Expandable rows**: clicking anywhere on a row (that has details) reveals a `JsonDiff` table — for objects shows each field with `before` / `after` columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot indicator instead of chevron. The chevron icon is decorative (`aria-hidden`); the `<tr>` itself carries the `onClick`.
-- **Pagination**: prev/next links with page N of M counter.
+- **Helper** (`src/lib/audit.ts`): `writeAuditLog({ actor, actorIp?, action, entityType?, entityId?, before?, after? })` — fire-and-forget, never throws, never blocks the caller. `before`/`after` are JSON snapshots.
+- **Instrumented call sites**: every mutating server action — auth (login/fail/logout), players (create/update/delete with snapshots), sessions (create/update/delete/archive/unarchive/open/close/cancel/uncancel + add/remove attendance), precedence (adjustments + aggregates + year weights), config (full snapshot diff + rates), WA / system (`SEND_WA_MESSAGE`, `SEND_ADMIN_TEST_OTP`, `WA_LOGOUT`, `RUN_AUTO_CREATE`, `AUTO_CREATE_SESSION` actor `cron`), ranking (open/close/delete/submit/recalc), import (`IMPORT_PLAYERS/PAYMENTS/AGGREGATES`), public RSVP (`RSVP_ATTEND`, `RSVP_CANCEL`), regulations (`PLAYER_ACCEPTED_REGULATIONS`), profile (`PLAYER_PROFILE_UPDATED`), shared expenses (`CREATE_SHARED_EXPENSE`, `REVERT_SHARED_EXPENSE`), retro debt (`RETRO_CLOSE_DEBT`), broadcasts (`BROADCAST_SESSION_ROSTER`, `BROADCAST_DEBTORS`).
+- **Admin page**: server-rendered, 75 entries/page.
+  - **Filters** (URL params): `action` dropdown (Hebrew labels), `entity` dropdown, `actor` text, `from`/`to` date range, `q` free-text (searches `entityId` + `actor`); clear link when any filter active.
+  - **Table** (`AuditLogTable` client component): color-coded action badges (green=creates, blue=updates/state-changes, red=deletes, purple=admin auth, violet=player auth, amber=OTP, indigo=imports, teal=WA/system); actor badge (purple=admin, zinc=cron, amber=player phone), IP sub-label. Responsive — entity column hidden on mobile, no horizontal scroll on 430 px.
+  - **Human-readable**: action names → Hebrew (`ACTION_LABELS`); actor column resolves player IDs to display names; entity column resolves player IDs to names and session IDs to Hebrew dates. Server-side ID resolution via two batch queries.
+  - **Expandable rows**: clicking reveals `JsonDiff` — for objects shows each field with before/after columns, changed rows highlighted amber; for raw JSON shows pre blocks. No-details rows show a dot.
+  - **Pagination**: prev/next with page N of M counter.
+- **Retention**: `pruneAuditLogs(retentionDays)` cron job daily, default 90 days (env override `AUDIT_LOG_RETENTION_DAYS`, clamped `[1, 3650]`).
 
 #### Import pipeline (`/admin/import`)
 
-Migrates historical Sheets data into the DB. Three flows, each with **file upload** or **paste CSV** input (tab switcher), client-side parse → preview table (✓/✗ per row) → confirm → server action.
+Migrates historical Sheets data into the DB. Three flows; each has file upload OR paste CSV (tab switcher), client-side parse → preview table (✓/✗ per row) → confirm → server action.
 
-**Player fields added** (migration `20260324104857_add_player_fields_and_payment`):
-- `nickname String?` — primary matching key for all CSV imports; indexed
-- `firstNameHe`, `lastNameHe`, `firstNameEn`, `lastNameEn` (`String?`) — name components
-- `birthdate DateTime?`
-
-**New `Payment` model** (same migration): `playerId`, `date`, `amount: Int` (NIS, signed), `description?`.
-
-**Import flows:**
+- **Player fields used**: `nickname` (primary matching key, indexed), `firstNameHe/En`, `lastNameHe/En`, `birthdate`, plus the existing `phone` / `playerKind` / `positions`.
 
 | Flow | Route | CSV format | Key |
 |------|-------|-----------|-----|
@@ -493,25 +314,209 @@ Migrates historical Sheets data into the DB. Three flows, each with **file uploa
 | נוכחות עבר | `/admin/import/aggregates` | Wide: `nickname,2021,2022,…` | upserts `PlayerYearAggregate(playerId, year)` |
 | תשלומים | `/admin/import/payments` | Wide: `date,אבי,עידן,…` | creates `Payment` rows |
 
-**CSV parsing** (`src/lib/csv-import.ts`): `parsePlayersCsv`, `parseAggregatesCsv`, `parsePaymentsCsv` — pure functions, no DB, reuse `normalizePhone`. RFC 4180 quoted-field parser (handles `"PG,SG"` multi-value cells). Birthdate accepts ISO (`YYYY-MM-DD`) and Israeli (`D.M.YY` / `D.M.YYYY`) formats. Tested in `src/lib/csv-import.test.ts` (30 cases).
+- **CSV parsing** (`src/lib/csv-import.ts`): pure functions, RFC 4180 quoted fields (handles `"PG,SG"` multi-value cells), birthdate accepts ISO + Israeli formats. 30 unit tests.
+- **Conflict review** (`src/components/admin/import-upload.tsx`): optional `checkConflicts` prop — each conflicting row gets a דלג/דרוס choice; only decided rows are passed to `onImport`.
+- **Results import** (תוצאות sheet) — deferred.
 
-**Input modes** (`src/components/admin/import-upload.tsx`): tab switcher — "העלה קובץ" (FileReader) or "הדבק טקסט" (textarea + parse button). Switching tabs resets preview. Optional `checkConflicts` prop triggers a conflict-review step before import: each conflicting row gets a **דלג / דרוס** (skip / overwrite) choice; only the decided rows are passed to `onImport`.
+#### QA testing system (`/admin/testing`)
 
-**Server actions**: `importPlayersAction`, `importAggregatesAction`, `importPaymentsAction` — each calls `requireAdmin()`, resolves nicknames to playerIds in batch, upserts/creates rows. `checkPlayerConflictsAction` — batch-checks incoming rows against existing phone + nickname; returns per-row conflict messages for the review step. Player import now upserts `positions` array.
+Admin-only page for end-to-end manual testing with automated DB-state verification.
 
-**Results import** (תוצאות sheet) — deferred.
+- **Snapshot manager**: save / restore / delete full DB snapshots. Prisma-based serialization, gzipped, stored in `/opt/irba/backups/snapshots/{label}__{ISO_timestamp}.json.gz` (persistent volume). FK-safe restore in a single `$transaction` (children before parents on delete; parents before children on insert; resets `AuditLog` autoincrement). Path-traversal protection; `requireAdmin()` guard.
+- **Interactive test plan**: 60 steps across 20 groups. Each step: `id`, `group`, `title`, `instructions[]`, optional `links[]`, `verifyFnName`. Steps unlock sequentially. "Verify" → `runVerification(stepId)` server action → `{ pass, detail, manual? }`. Steps with no automated verification return `manual=true` (blue dot). Progress in `localStorage` (`irba-test-plan-results`). On mount the plan auto-expands and scrolls the first non-passed step into view.
+- **Cron verification (Group 19)** runs lib functions directly (`autoClosePastSessions()`, `autoCreateNextSession({ force: true })`) instead of HTTP-fetching `/api/cron/*` — same code path but avoids server-to-self fetch failures.
+- **OTP lookup widget** on steps that require player login: generates a fresh OTP, stores bcrypt hash in DB, sends plaintext code as a WA DM to the admin phone — plaintext never hits DB or browser.
+- **11 test players** (A–K, phones `0500000001`–`0500000011`): A–C manual; D–K auto-created on demand. D = DROP_IN; E–K = REGISTERED. All match steps use 5v5; sessions use maxPlayers=10.
+- **Group order**: 0 Snapshot → 1 Config → 2 Players → 3 Competition setup → 4 Session 1 lifecycle → 5 Public RSVP → 6 Match recording → 7 Leaderboard → … . Competition creation precedes session 1 so session 1 + matches are scoped into the active challenge window.
+- **Competition winner is B** (not A) — given prescribed match outcomes B ends 5W/1L (83%) vs A 7W/3L (70%). Group 9.3 verifies `winnerId=B`; Group 10 consumes B's FreeEntry in session 4; Group 11.1 overrides A's normal-tariff charge.
+
+#### WhatsApp admin (`/admin/wa`)
+
+Dedicated page. Combines three widgets:
+
+- **Bot status**: `WaBotStatus` widget — green/red dot, QR when disconnected, action button. Polls every 15 s (4 s when disconnected so a fresh QR appears quickly). Action button context-aware: **"התנתק"** when ready (POST `/logout` → wipes session); **"אפס וצור QR חדש"** when disconnected (same call, framed as manual recovery). Combined with sidecar auto-recovery on `loggedOut`, no SSH required to re-pair.
+- **Manual group send**: `WaSendForm` — read-only group JID + resolved name (fetched from sidecar on mount); textarea + "שלח לקבוצה" button. If `wa_group_jid` not set, hint links to `/admin/config`.
+- **Admin OTP forwarder** (`WaAdminOtpForm`): admin enters a player's phone → `sendAdminTestOtpAction` generates a fresh 6-digit OTP, stores its bcrypt hash on the player (`otpCode` + 10 min `otpExpiresAt`), and sends the plaintext code as a WA DM to the admin's own phone. Used for QA / support — admin can hand the code to the player out-of-band when the player can't receive a WA message themselves. Requires `WA_NOTIFY_ENABLED=true`. Audited as `SEND_ADMIN_TEST_OTP` with `{ targetPhone, adminPhone }`. Tested in `wa/actions.test.ts`.
+
+### WhatsApp sidecar (`wa/`)
+
+Separate Docker service — Baileys + Express on internal port 3100. Next.js POSTs to sidecar endpoints; if `wa` is down, calls are best-effort (logs, doesn't throw).
+
+- `GET /status` → `{ ready: boolean }`
+- `GET /qr` → `{ qr: string | null }` — current pairing QR as a data URL (null when connected or not yet emitted)
+- `POST /send` → `{ to: "05xxxxxxxx", message }` — DM
+- `POST /send-group` → `{ groupId: "XXXXXXXXXX@g.us", message, mentions?: string[] }` — group broadcast with optional `@`-mentions (Baileys JIDs like `972…@s.whatsapp.net`)
+- `POST /send-poll` → `{ groupId, question, options[] }` — single-choice poll
+- `POST /logout` → wipes session dir + reconnects to emit a fresh QR
+- `GET /groups` → `[{ id, subject }]` — used by admin group-search UI
+- Phone normalization: `05xxxxxxxx → 972xxxxxxxx@s.whatsapp.net`
+- Session persisted to `/opt/irba/wa-session/` (bind-mounted volume); survives deploys.
+- **Auto-recovery on `loggedOut`**: when WhatsApp invalidates the bot session, the disconnect handler wipes `SESSION_PATH` and reconnects automatically (shared `resetSession()` helper used by `/logout` and `DisconnectReason.loggedOut`).
+- Controlled by `WA_NOTIFY_ENABLED=true` env var (default off; set true on EC2).
+
+**`src/lib/wa-notify.ts`** — typed dispatcher; `renderTemplate` for `{placeholder}` substitution; per-type high-level functions route to group or DM.
+
+**Notification triggers:**
+
+| Trigger | Recipient | Default on |
+|---------|-----------|-----------|
+| Session open (auto-create cron or manual create) | WA group | ✅ |
+| Session closed (admin toggle) | WA group | ❌ |
+| Session cancelled (admin) | WA group | ✅ |
+| Player registered (public RSVP) | WA group | ❌ |
+| Player cancelled (public RSVP) | WA group | ❌ |
+| Admin promotes waitlisted player | DM to player | ✅ |
+| Admin manual roster broadcast (button on session admin page) | WA group | ✅ |
+| Admin manual debt reminder (button on finance page) | WA group | ✅ |
+| Competition winner | WA group | ✅ |
+| Admin test-OTP forward (WA admin page) | DM to admin | ✅ |
+
+**Roster macros** — `{registered_list}`, `{waitlist}` available in player-registered, player-cancelled, waitlist-promote, and session-roster templates. Each renders newline-joined display names from the post-event session state. For session-roster broadcasts `{registered_list}` appends a count summary line (e.g. `סה"כ *8 רשומים*`). Default templates demonstrate the multi-line layout. Empty waitlist → empty string. Admin textareas are 6 rows × 2,000 chars.
+
+**Participant tagging in WA group messages** — `sendWaGroupMessage(groupJid, message, mentions?)` forwards optional Baileys JIDs. `phoneToWaMention(phone)` converts a normalised Israeli mobile (`05XXXXXXXX`) into both the inline `@972…` digits AND the `…@s.whatsapp.net` JID. Wired into the debt-reminder dispatcher today (gated by `wa_notify_debtors_tag_enabled`, default on); other dispatchers can opt in. Phones that don't match `05XXXXXXXX` are silently skipped — that line shows name+amount only, no tag.
+
+**Per-session override** — `/admin/sessions/new` form has a collapsible "התראות וואטסאפ" section (pre-filled from global config) to override session-open notification for that session only.
+
+### Cron jobs
+
+#### Auto-create (`GET /api/cron/auto-create`)
+
+Idempotent endpoint, called hourly by EC2 cron. Bearer-token auth (`CRON_SECRET`).
+1. Check `SESSION_SCHEDULE_ENABLED=true` in AppConfig
+2. Compute next scheduled session datetime (`src/lib/schedule.ts` — DST-safe via `Intl.DateTimeFormat`)
+3. If `now ≥ sessionTime − autoCreateHours` and no session exists for that Israel day (any status, including cancelled — tombstones block recreation) → create + auto-attend admin + notify WA group
+4. Otherwise → `{ created: false, reason }`
+
+Core in `src/lib/auto-create-session.ts`. Admin config has a **"הרץ עכשיו"** button (in לוח זמנים) calling `runAutoCreateAction({ force: true })` to bypass the lead-time check.
+
+#### Auto-close (`GET /api/cron/auto-close`)
+
+Idempotent, called every minute by EC2 cron.
+1. Find sessions with `isClosed=false AND isArchived=false`
+2. For each, compute `endTime = date + (durationMinutes ?? defaultDuration) min`
+3. If `endTime ≤ now` → set `isClosed=true`, write `CLOSE_SESSION` audit (actor: cron), notify WA group
+4. Run `checkLowAttendanceAlerts` — fire WA group message if any upcoming open session is below `session_min_players` and the alert hasn't fired for that session/tier
+5. Returns `{ closed: string[], skipped: number, alerts: { earlyFired, criticalFired } }`
+
+Core in `src/lib/auto-close-sessions.ts`; alert logic in `src/lib/low-attendance-alert.ts`.
+
+#### Audit-prune (`GET /api/cron/prune-audit`)
+
+Idempotent, called daily by EC2 cron. Deletes `AuditLog` rows older than `retentionDays` (default 90). Returns `{ deleted, cutoff }`. Core in `src/lib/audit-prune.ts`.
+
+### Regulations acceptance gate
+
+- **Schema additions to `Player`**: `regulationsAcceptedAt`, `regulationsAcceptedVersion`.
+- **Flow**: root layout (`src/app/layout.tsx`) is `async` — on every request it checks if the logged-in player's `regulationsAcceptedVersion` is null or behind `regulations_version` config. If so, `RegulationsOverlay` renders before children, blocking content. Zero client-side flash.
+- **Overlay UX**: full-screen `fixed inset-0 z-50`. Scrollable content area; sticky header + footer. Accept button starts disabled; enables only after `IntersectionObserver` confirms the bottom sentinel has been reached (root must be the scrollable div, not viewport). `acceptRegulationsAction` records timestamp + version, writes `PLAYER_ACCEPTED_REGULATIONS` audit, calls `revalidatePath("/", "layout")`. Overlay unmounts optimistically on success.
+- **Versioning**: admin bumps `regulations_version` → all players see the overlay again.
+- **Re-read from profile**: `/profile` → "תקנון" → "קרא את התקנון" opens a non-blocking full-screen modal (`RegulationsViewer`) with the same rendered content but no accept button or scroll gate.
+- **Template engine** (`src/lib/regulations-renderer.ts`): line-by-line parser with buffer/flush. Supports `## Heading` (h3), `### Sub-heading` (h4), `**bold**`, `- bullet` (consecutive `-` lines form one `<ul>`), blank line (paragraph break), `{variable}` substitution (all config keys + special `{session_schedule_day_name}`). `RegulationsContent` reused by both viewer and admin live preview.
+- **Default content**: 10 sections — ידידות, הוגנות וספורטיביות, כיף, כללי המשחק (with `{match_win_score}` נק׳ / `{match_duration_min}` דק׳ + sub-heading עבירות קבוצה using `{fouls_until_penalty}`), סמכות מנהל, לוח זמנים, כספים (`{debt_threshold}₪`), הרשמה והגעה, קנסות עדיפות (with `{fine_no_show/kick_ball/early_leave}`), אפס סובלנות לאלימות, הסכמה לוואטסאפ.
+
+### Profile completion gate
+
+Runs alongside (and after) the regulations gate in the async root layout. Every logged-in player must have a baseline profile filled before they can use the rest of the app. Also picks up the slack left when OTP first-login was simplified — there is no more forced password setup or `set_name` step during OTP verify; the overlay collects whatever the player still owes.
+
+- **Required fields by player kind** (`src/lib/profile-completion.ts`):
+  - `REGISTERED`: `firstNameHe`, `lastNameHe`, `birthdate`, `nationalId`, `email`
+  - `DROP_IN`: `firstNameHe`, `lastNameHe`
+  - Exported helpers: `REGISTERED_REQUIRED_FIELDS`, `DROP_IN_REQUIRED_FIELDS`, `requiredFieldsFor(playerKind)`, `isProfileComplete(player)`.
+- **Validation** (`src/lib/player-validation.ts`): `parseProfileForm(raw, { playerKind })` only enforces the fields required for that kind — birthdate / nationalId / email errors are skipped entirely for DROP_INs.
+- **Overlay** (`ProfileCompletionOverlay`): renders inside the async root layout when `isProfileComplete(player) === false`. For DROP_INs the REGISTERED-only inputs (birthdate, nationalId, email) are hidden so the form is a 2-field stub. Save → `updatePlayerProfileAction` audited as `PLAYER_PROFILE_UPDATED`.
+
+### Balanced team selection
+
+- **Algorithm** (`src/lib/team-balance.ts`): snake-draft assigns players sorted by rank desc (A B C C B A A B C…) → minimises rank-sum variance. `generateTeamOptions(players, seed)` — seed param (default 0) derives per-tier shuffle seeds; UI passes a fresh `Math.random()` seed per call so re-shuffle is genuinely different. Handles non-divisible N gracefully (e.g. 14 → 5/5/4). Pure function — no DB. Uses `computedRank ?? rank` (so peer / win-loss data flows through). 9 unit tests.
+- **Admin UI** (`TeamBalancePanel` on the session detail page, between attendance and match panels):
+  - "צור קבוצות" (disabled + note when < 3 confirmed)
+  - 3 option cards stacked vertically; each card: Teams א׳/ב׳/ג׳ with player names + rank sum
+  - Per-row: name, position badges (PG/SG/SF/PF/C, monospace pill), rank (right-aligned, admin-only)
+  - "העתק" copies names-only plain-text Hebrew (no rank/positions)
+  - "ערבב מחדש" generates different teams every press
+- **WA group send + poll**: send option to group; emit a single-choice poll for the group to vote.
+
+### Player-facing pages
+
+- **`/profile`** — section order:
+  1. **יתרה** — balance card (paid / charged / net)
+  2. **סטטיסטיקות משחק** — match analytics: all-time summary (W/L/T + win%, ties excluded from ratio); breakdown toggle "לפי תחרות" (per-Challenge — סיבוב N, win%, W/L/T, active/closed badge; Challenges with 0 player matches hidden) / "לפי מפגש" (per-session date + bar); teammate affinity top 5 ("X ניצחונות מתוך Y משחקים יחד")
+  3. **היסטוריית פעולות** — paginated account statement (payments + charges, running balance, filter tabs, per-page selector); URL-param driven
+  4. **נוכחות אחרונה** — last 10 sessions attended
+  5. **הגדרות** — single card: password set/change + regulations viewer + theme selector
+  - **Self-service profile editing** ("פרטים אישיים" card): all logged-in players edit their own `firstNameHe/En`, `nickname`, `birthdate`, `nationalId`, `email`. Inline display ↔ edit modes; `updatePlayerProfileAction` audited as `PLAYER_PROFILE_UPDATED`.
+- **`/precedence`** — login-gated; full precedence ranking. Server Component reuses `computePrecedenceScores`; filters out players with no history. Client `PrecedenceTable` is an expandable accordion (one open at a time): rank + name + score; tap expands inline detail (year-by-year `sessions × weight = points` + adjustments list). Current player highlighted blue with "(אתה)".
+- **`/challenges`** — see Competitions section.
+- **`/ranking/submit`** — see Dynamic ranking section.
+
+**Date / datetime input system (canonical, Israeli format)**: all date / date-time fields share two components:
+- `DateInputIL` (`src/components/ui/date-input-il.tsx`) — `DD/MM/YYYY`
+- `DateTimeInputIL` (`src/components/ui/datetime-input-il.tsx`) — `DD/MM/YYYY HH:MM`
+
+Identical UX everywhere — auto-formats digits (8 → date, +`:` between hour/minute, single space between date and time); accepts `/ . -` separators (auto-rebuilt to `/`); live validation rejects impossible dates (31/02) and out-of-range times; calendar icon overlays a transparent native `<input type="date">` / `<input type="datetime-local">` so the OS picker opens reliably; submits via a hidden ISO field. Used by `EditProfileForm`, `ProfileCompletionOverlay`, admin `PlayerForm`, `SessionForm`, `AdjustmentForm`, `HourlyRateForm`, `ChallengeForm`, `PlayerPayments`, sessions list filters, audit log filters. Config "שעת התחלה" uses native `<input type="time">` (locale-neutral 24 h).
+
+### Tests
+
+`npm test` runs Vitest with no Postgres requirement. All tests are pure (no DB).
+
+- `phone`, `maskPhone`, `rate-limit` (incl. admin login), `admin-session`, `bcryptjs verify`, mocked `checkDatabase`
+- `player-validation.test.ts` (25 cases) — fields, normalization, multi-position, isAdmin
+- `session-validation.test.ts` (16 cases) — DST conversion, bounds
+- `precedence.test.ts` (10) — score formula, edge cases
+- `schedule.test.ts` (10) — DST winter/summer, midnight/23:59
+- `waitlist-promote.test.ts` (8)
+- `computed-rank.test.ts` (18) — pure peer + win + blend
+- `challenge-analytics.test.ts` — sorting, tie-breaking, threshold filtering, drop-in exclusion, ineligible `gamesNeeded`, window scoping
+- `match-analytics.test.ts` (25) — match stats, session breakdown, teammate affinity
+- `team-balance.test.ts` (9) — snake draft, non-divisible N
+- `csv-import.test.ts` (30)
+- `cascade-recalc.test.ts` (11)
+- `balance.test.ts` (6+ shared-expense regression)
+- `charging.test.ts`
+- `shared-expenses.test.ts` (14)
+- `wa/actions.test.ts` (admin OTP forward)
+
+### Security / abuse
+
+- **Cookies**: HTTP-only, `Secure` in production or when `RSVP_COOKIE_SECURE` set; player + RSVP use `sameSite=lax` (compatible with WA-link redirects); JWT verifies `iss`/`aud` (defaults `irba` / `irba-rsvp`).
+- **Rate limits** (in-memory per process): attend / cancel, **admin login**, **player login** (shared across OTP-send/verify and password login), and a stricter **OTP-send** bucket (per-phone + per-IP, both must pass) applied at the WA-message-issuing step so an attacker can't spam a victim's phone or burn the WA budget; client IP from `CF-Connecting-IP`, `X-Real-IP`, or first `X-Forwarded-For` hop.
+- **Response headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, full **CSP** (`default-src 'self'`, `script-src 'self' 'unsafe-inline'`, `style-src 'self' 'unsafe-inline'`, `img-src 'self' data:`, `frame-src` allows OpenStreetMap, `frame-ancestors 'none'`) — `next.config.ts`.
+- **Mobile zoom**: `viewport` export sets `maximumScale: 1` to prevent iOS auto-zoom on input focus (pinch-zoom still works).
+
+### Ops / DX
+
+- **`GET /api/health`** — JSON; 200 if DB answers `SELECT 1`, else 503 (generic body, no secrets). Response includes `version` (git commit hash) and `wa.ready`.
+- **Favicon / icons**: `src/app/icon.svg` (desktop SVG), `src/app/icon.png` (48×48 PNG fallback), `src/app/apple-icon.png` (180×180 PNG, served as `apple-touch-icon` for iOS). PNGs generated from icon.svg via sharp.
+- **Docker**: `docker-compose.yml` with 3 services — `db` (Postgres 16-alpine), `app` (Next.js on `127.0.0.1:3004`), `wa` (Baileys / Express sidecar on internal port 3100). All `restart: unless-stopped`; `wa` has 30 s `/status` healthcheck so a hung sidecar gets auto-restarted. `app` and `wa` reference prebuilt images via `image: ghcr.io/avivais/irba/{app,wa}:${IRBA_*_IMAGE:-:latest}` with `pull_policy: always`. `Dockerfile` uses `output: standalone`; runner stage installs only the 3 packages the entrypoint needs (`prisma`, `@prisma/client`, `dotenv`) — image is ~250 MB instead of ~3 GB. `docker-entrypoint.sh` runs `prisma migrate deploy` then `exec node server.js`. `init: true` on `app` and `wa` uses Docker's built-in tini as PID 1 to reap zombies.
+- **Build pipeline**: `.github/workflows/build-image.yml` runs on every push to `main` (matrix: `app` + `wa`), builds with `docker/build-push-action`, pushes both `:latest` and `:<short-sha>` tags to GHCR (public, anonymous-pullable), reuses a `:buildcache` registry layer. Builds happen on GitHub-hosted ARM runners — never on EC2, so deploys can no longer OOM the 4 GB host. `NODE_OPTIONS=--max-old-space-size=1024` set in the builder stage as belt-and-braces.
+- **Deploy**: `./scripts/deploy.sh` — local entry point: waits for the GHCR image tagged with the current commit SHA (polls up to 5 min), runs a pre-deploy DB backup, then SSHes to EC2: `git pull → docker compose pull → docker compose up -d → trim images`. Both services pinned to the SHA via `IRBA_APP_IMAGE` / `IRBA_WA_IMAGE` env vars exported just before compose so a concurrent push of `:latest` can't race the restart. Image trim keeps the **2 most recent tags per IRBA repo** (current + previous, for rollback) — Docker refuses to remove an in-use image so the running container is protected automatically. (Age-only filter was insufficient — 14 same-day deploys had pushed disk over 85% before the weekly cron caught up.) `.github/workflows/deploy.yml` does the same as a manual `workflow_dispatch`.
+- **Versioning**: `COMMIT_HASH` build arg → baked as `NEXT_PUBLIC_COMMIT_HASH` at build time. `COMMIT_DATE` is set via `git log -1 --format='%cI'` (strict ISO 8601 with full TZ offset) — required so client-side `new Date()` parses UTC and `Intl.DateTimeFormat` renders local TZ. Footer on all admin pages uses `CommitInfo` client component to show local-TZ date + Hebrew relative time ("לפני X שעות").
+- **Production**: live at `https://irba.club` — EC2 `t4g.large` on a 1-year reserved instance (No Upfront, ~$30.73/mo compute) purchased 2026-04-28. Total monthly bill ~$44.50 incl. storage, IPv4, tax. Renews / expires 2027-04-28; revisit before then.
+- **Monitoring**: CloudWatch Agent on EC2 under namespace `IRBA/EC2`, pushing `mem_used_percent`, `swap_used_percent`, `disk_used_percent` every 60 s. Four alarms (`irba-ec2-{cpu,memory,disk,status-check}-*`):
+  - CPU > 90% / 5 min, memory > 90% / 5 min, disk > 85% / 15 min → SNS `irba-alarms-info` (email to `avivais@gmail.com`)
+  - `StatusCheckFailed` ≥ 1 / 2 min → `irba-alarms-critical` (email + SMS to `+972507666550`)
+  - Disk-high alarm has full dimensions (`InstanceId`, `path=/`, `device=nvme0n1p1`, `fstype=ext4`) — partial dimensions silently won't match the metric.
+  - Instance has `IrbaEC2CloudWatchAgent` IAM role (with `CloudWatchAgentServerPolicy`) attached so it can publish without static credentials.
+- **Billing**: AWS Budgets `"My Monthly Cost Budget"` set to $60/month with notifications at 85% actual, 100% actual, 100% forecast — all email to `avivais@gmail.com`.
+- **Backup**: `scripts/backup.sh` — `pg_dump | gzip`, 30-day retention. Runs daily 03:00 via EC2 cron.
+- **Logging**: cron auto-create / auto-close run via wrapper scripts that prefix `[YYYY-MM-DD HH:MM:SS]` → `/opt/irba/cron.log`. Both `cron.log` and `backups/backup.log` rotated daily, 30-day retention, via `/etc/logrotate.d/irba`. Docker container logs rotate automatically via global `/etc/docker/daemon.json` (10 MB max, 3 files).
+- **Custom 404**: `src/app/not-found.tsx` — Hebrew page ("הדף לא נמצא") with back-to-home link; fixes RTL layout issue with the Next.js default.
+- **Process management** (dev): `npm start` writes PID to `.next.pid`; `npm run web` / `startweb` / `buildandstartweb` write cloudflared's PID to `.cloudflared.pid`; `npm stop` kills both by PID file.
+- **Seeds**: deterministic `prisma/seed.ts` (`npm run db:seed`); random QA script `scripts/seed-random.ts` (`npm run db:seed:random`) with env guards.
+- **Uptime alerts**: UptimeRobot free tier; public status page `https://stats.uptimerobot.com/dHQF2WHXL9`.
+- **CI**: GitHub Actions — lint, test, build on push/PR to main.
 
 ### Accessibility
 
 All admin form label/input associations have been audited and fixed:
-- `Field` component in `config-form.tsx` accepts `htmlFor` prop, propagated to its `<label>`; all 14 `Field` usages now pass `htmlFor={CONFIG.xxx}` with matching `id` on the input/select/textarea.
-- Standalone WA Group JID label in `config-form.tsx` now has `htmlFor`/`id`.
-- Group filter input uses `aria-label` (transient search widget, no visible label).
-- Manual send textarea in `config-form.tsx` linked via `htmlFor="wa-send-message"`.
-- `hourly-rate-form.tsx`: both labels now have `htmlFor` with matching `id` on inputs.
-- `session-form.tsx`: WA override template label now linked to its textarea.
-- `session-quick-dropin-form.tsx`: name + phone inputs have `aria-label` (compact inline form).
-- `session-add-player-form.tsx`: player select has `aria-label`.
+- `Field` component in `config-form.tsx` accepts `htmlFor`, propagated to its `<label>`; all 14 `Field` usages pass `htmlFor={CONFIG.xxx}` with matching `id`.
+- Standalone WA Group JID label has `htmlFor`/`id`.
+- Group filter input uses `aria-label` (transient widget, no visible label).
+- Manual send textarea linked via `htmlFor="wa-send-message"`.
+- `hourly-rate-form.tsx`: both labels have `htmlFor` with matching `id` on inputs.
+- `session-form.tsx`: WA override template label linked.
+- `session-quick-dropin-form.tsx`: name + phone use `aria-label` (compact inline form).
+- `session-add-player-form.tsx`: player select uses `aria-label`.
 
 ---
 
@@ -519,364 +524,64 @@ All admin form label/input associations have been audited and fixed:
 
 | Topic | Decision |
 |--------|----------|
-| **Admin auth (current)** | `ADMIN_PASSWORD_HASH` + HttpOnly JWT cookie — kept as bootstrap/fallback. Once user auth ships and the admin player account exists, this becomes obsolete. |
-| **Player = User** | No separate User model. `Player` IS the user. Phone is the identity key — if admin pre-creates a player and they later register, they link by phone. |
-| **`Player.isAdmin`** | Grants full admin access when the player logs in via user auth. One admin today. |
-| **WhatsApp** | Baileys library, dedicated SIM. Used for OTP delivery, all notifications (session open, waitlist promotion, admin alerts). WA group integration deferred. |
-| **Balance** | Fully computed from `Payment` and `SessionCharge` history — never stored directly. Prevents drift. Opening balances handled via a payment record at import time. |
-| **Cascade recalc** | Editing any past `SessionCharge` triggers chronological re-evaluation of all subsequent sessions for all players (because running balance at each session determines charge tier). |
-| **Admin court cost** | Admin is charged like any registered player for their session share. Financial dashboard shows aggregate: total court costs charged vs. total collected vs. outstanding gap. |
-| **Waitlist order** | Registered players sorted by precedence score descending, then drop-ins by `createdAt` ascending. Promotion is manual (admin picks from sorted list). |
+| **Player = User** | No separate User model. `Player` IS the user. Phone is the identity key. |
+| **Admin auth** | Single `Player.isAdmin` flag — no separate admin login. Legacy `ADMIN_PASSWORD_HASH` files kept for reference but unused. |
+| **First-login UX** | OTP verify drops the player straight on `/profile`; no forced password setup, no `set_name` step. The layout overlays (regulations + profile completion) collect anything that's still missing. Password is opt-in from `/profile`. |
+| **Balance** | Always computed: `Σ(payments) − Σ(sessionCharges) − Σ(sharedExpenseCharges)`. Never stored. Opening balances handled via a payment record at import time. |
+| **WhatsApp** | Baileys library, dedicated SIM. Used for OTP delivery + all notifications + group-broadcast roster + manual debt reminders + admin-forwarded test OTPs. |
+| **Cascade recalc** | Editing any past `SessionCharge` triggers chronological re-evaluation of all subsequent sessions for all players (running balance at each session determines charge tier). |
+| **Admin court cost** | Admin is auto-attended on every session and charged as a regular registered player; `chargeSessionAction` writes a matching `Payment` (`method: OTHER`, "קיזוז מנהל") so balance stays ~0. |
+| **In-debt drop-in pricing** | A registered player below `−debt_threshold` is charged at the drop-in tariff. Their surplus is redistributed as a discount across normal-registered teammates in the same session. Retroactive / what-if work must reverse this end-to-end (focal player drops to registered AND every teammate loses their discount). |
+| **Waitlist order** | Admin first, then REGISTERED by precedence score desc, then DROP_IN by `createdAt` asc. Promotion is manual. |
+| **Cancellation tombstones** | Cancelled `GameSession` records remain in the DB with cleared attendance and act as same-day tombstones; auto-create won't recreate, charging is blocked, excluded from `getNextGame` / auto-close / alerts / challenge windows / `hasActiveSession`. |
+| **Profile completion** | Required for both player kinds — REGISTERED need 5 fields (Hebrew first+last name, birthdate, nationalId, email); DROP_IN need only Hebrew first+last name. Enforced by the post-login `ProfileCompletionOverlay`. |
 | **PWA** | Deferred indefinitely — app is fully server-dependent, offline adds no value. |
-| **Results import** | (תוצאות sheet) deferred. |
+| **Results import (תוצאות sheet)** | Deferred. |
+| **Municipality CSV export** | Deferred. |
+| **Redis rate limits** | Single replica; in-memory per-process is fine for now. |
 
 ---
 
-## Feature history — Phase 1 (all shipped)
+## Future suggestions
 
-Completed in build order. Each section below maps to the detailed documentation above.
+Loosely ordered by likely impact / cost ratio. Treat as a brainstorm of natural next steps now that the league management core is stable.
 
----
+#### A. Multiple admin roles
+Today there is one boolean `isAdmin`. Splitting into roles (e.g. `OWNER` / `TREASURER` / `COACH`) would let a treasurer manage payments without granting full DB access — and is a prerequisite for handing IRBA to a successor. Schema change: `Player.role` enum + per-action capability checks in `requireAdmin()`. Existing audit log already records actor identity, so the audit trail mostly comes free.
 
-#### 1. Config system ✅ DONE
+#### B. Per-player notification preferences
+Some players want every roster update; others want only their own status changes. Add a per-player `notificationPrefs` JSON (or columns) and gate WA dispatchers on it. Useful especially for the roster-broadcast flow which currently fans out to the whole group — a quiet-hours / mute toggle would cut complaints without losing the always-synced roster benefit.
 
-See "Config system" and "Hourly rates" sections under "What exists today".
+#### C. SMS fallback for OTP
+OTP is WA-only today. A new player without WhatsApp can't log in (admin-forwarded OTP via `/admin/wa` is a workaround but requires admin involvement). Adding Twilio (or 019 / Cellact) SMS as a fallback when the WA bot is offline or the user hasn't received the OTP within ~30 s would close the last "I can't log in" support case. Reuse `requestOtpAction` plumbing — only the delivery channel changes.
 
----
+#### D. Calendar feed (.ics export)
+A signed per-player `.ics` URL (`/api/calendar/{playerToken}.ics`) that exposes upcoming sessions plus that player's RSVP status would let players subscribe in Google Calendar / Apple Calendar without needing the app. Cheap to build (no UI) and adds real ambient value.
 
-#### 2. Session enhancements ✅ DONE
+#### E. Public season summary page
+End-of-season "yearbook" — final leaderboard, biggest comebacks, longest win streak, MVP of the year (highest `computedRank` swing). Generate a static page per closed year from existing `Match` + `Challenge` + `PeerRatingSession` data. Good marketing artifact for the WA group; nothing to maintain because it's a snapshot.
 
-- ✅ Schema migration: `durationMinutes`, `locationName`, `locationLat`, `locationLng` on `GameSession`
-- ✅ Schema migration: `isArchived Boolean @default(false)` on `GameSession`
-- ✅ Config integration: session create form pre-fills date/duration/location from `AppConfig`
-- ✅ Map links: Google Maps + Waze shown in admin form and on public page when lat/lng set
-- ✅ OpenStreetMap iframe minimap on public page location card
-- ✅ Session creation constraint: block if any session started in last 24h is still running
-- ✅ Auto-register admin (`isAdmin=true` player) on session create
-- ✅ RSVP enforcement: registration open until `session.date`; close window blocks cancel for confirmed only
-- ✅ Unified session detail/edit page (`/admin/sessions/[id]`)
-- ✅ Sessions list: row-click navigation, hover effect, archive filter, date range filter
-- ✅ Archive/unarchive sessions; archived excluded from public next-game
-- ✅ Admin session detail: attendee list + precedence-sorted waitlist
-- ✅ Add registered player to session (searchable dropdown)
-- ✅ Quick drop-in: phone lookup before submit, never overwrites existing player data
-- ✅ Remove player from session (with confirmation)
+#### F. Tournament brackets (vs round-robin Challenges)
+The current `Challenge` model assumes win% over a window. Some events (a 4-team knockout night, end-of-season cup) need single- or double-elimination brackets. Add `Tournament` + `TournamentMatch(round, slot, winnerAdvancesTo)`; reuse `SessionMatchPanel` UX for score entry. Probably the next natural extension to the competition system.
 
-**Remaining (all done):**
-- ✅ Manual waitlist promote action — `promoteWaitlistAction` in `sessions/[id]/actions.ts`; re-timestamps attendance to last confirmed slot; "קדם" button on each waitlisted row; WA notification to promoted player.
+#### G. Streaks / achievements / badges
+Cheap engagement boost: badge a player who attends 10 in a row, wins 5 straight matches, fills a waitlist gap last-minute. Compute from existing `Attendance` + `Match` data — pure derived view, no new write paths. Show as small icons next to names on the players list and `/profile`.
 
----
+#### H. Photo upload per match / session
+A single photo per session (admin uploads), shown on the homepage banner after the session and on `/profile` history. Object store (S3 / Cloudflare R2) + signed URLs; reuse the EC2 IAM role. Adds minimal DB surface (`GameSession.photoKey String?`).
 
-#### 3. User auth ✅ DONE
+#### I. Player profile cards (limited public view)
+Let any logged-in player view another player's stats card (matches, win%, computed rank, position, attendance %). Today `/profile` is self-only. This is the "social" piece that makes peer-rating context-rich — when ranking teammates you'd see their stats inline. Scope: a new `/players/[id]` route reusing the analytics components from `/profile`, gated to logged-in users; admin-controlled fields hidden.
 
-Player = User. Phone is the identity. Two registration paths, both on the public site.
+#### J. Smarter team rotation suggester
+Today `SessionMatchPanel` auto-fills "winner stays + sitting-out team in" but only naively (last winner). A smarter suggester would consider rest minutes per player, win-rate balance over the night, and avoid back-to-back-of-back-to-back for the strong players. Pure function — drop into the existing panel as a "הצע קבוצות" button.
 
-**Schema additions to `Player`:**
-- `email String?`, `nationalId String?` (9-digit Israeli ID)
-- `passwordHash String?`, `otpCode String?`, `otpExpiresAt DateTime?`
-- `emailVerified Boolean default false`
+#### K. Multi-venue / multi-group tenancy
+Today the app assumes one IRBA league at one location. If a sister group at another school wants the same tooling, multi-tenancy via a `League` parent table (with per-league `AppConfig`, players, sessions) is the conservative path. Big change — only worth doing when there's a concrete second tenant.
 
-**Flows:**
-- **Phone + OTP:** enter phone → WhatsApp OTP sent → verify → set password on first login (email/nationalId now self-edited from `/profile`, not collected here)
-- **Phone + password:** enter phone + password; falls back to OTP if no password set
-- **Login redirect pattern:** `verifyOtpAction` and `playerPasswordLoginAction` set the session cookie then return `{ step: "logged_in", redirectTo }` instead of calling `redirect()`. The `useActionState` wrapper on `PlayerLoginForm` reads the step and triggers `router.push()` client-side. Required because `useActionState` action wrappers swallow the `NEXT_REDIRECT` rejection from the server action's `redirect()`, which previously left the form in an infinite pending state after a successful verify (cookie set but no nav).
-- **Remember me:** 10-year persistent cookie vs. session cookie (12h JWT)
-- **Password reset:** phone → WhatsApp OTP → set new password
-- **Change/set password:** available from `/profile` — "הגדרת סיסמה" if no password yet, "שינוי סיסמה" if one exists (requires current password); `changePasswordAction` server action + `ChangePasswordForm` client component (`src/components/change-password-form.tsx`)
-- **Email:** stored, used as fallback notification channel (not primary)
-- **`isAdmin=true`** players → full admin access; existing `ADMIN_PASSWORD_HASH` auth kept as fallback
-- **Login location:** `/login` route redirects to `/`; `/admin/login` also redirects to `/`; login form (`PlayerLoginForm`) embedded inline on the homepage when not authenticated; all logout paths redirect to `/`
-- **Navigation:** unified sticky top nav (`PlayerNav` server component, `src/components/player-nav.tsx`) rendered on all pages (homepage, profile, all admin pages via protected layout) — shows IRBA brand (sole home link), Profile icon, Admin icon (if `isAdmin`), Logout; active page highlighted via `NavLinks` client component (`src/components/nav-links.tsx`, uses `usePathname()`); no ThemeToggle in nav
-- **Logout:** `playerLogoutAction` clears the player session cookie and redirects to `/`
-- **Admin layout guard:** `requireAdmin()` from `src/lib/admin-guard.ts` — checks player session + DB `isAdmin`; redirects to `/` if unauthorized
-
-**Self-service profile editing (`/profile` → "פרטים אישיים" card):**
-All logged-in players (REGISTERED and DROP_IN) can edit their own details from the profile page:
-- Fields: `firstNameHe/He`, `firstNameEn/En`, `nickname`, `birthdate`, `nationalId`, `email`
-- Inline card with display mode (shows values with "—" for empty) and edit mode (form fields with save/cancel)
-- `updatePlayerProfileAction` server action (`src/app/actions/player-profile.ts`) — audited as `PLAYER_PROFILE_UPDATED`
-- `EditProfileForm` client component (`src/components/edit-profile-form.tsx`) — uses shared `BirthdateInput` (`src/components/ui/birthdate-input.tsx`), field-level validation, green flash on save
-- **Date / datetime input system (canonical, Israeli format):** All date and date-time fields throughout the app share two components:
-  - `DateInputIL` (`src/components/ui/date-input-il.tsx`) — `DD/MM/YYYY`
-  - `DateTimeInputIL` (`src/components/ui/datetime-input-il.tsx`) — `DD/MM/YYYY HH:MM`
-  Identical UX everywhere: matching placeholder; auto-formats digits as the user types (8 digits → date, +`:` between hour/minute, single space between date and time); accepts `/ . -` as input separators (auto-rebuilt to `/`); live validation surfaces format/range errors after the user has typed all required digits or on blur (rejects impossible dates like 31/02 and out-of-range times); calendar icon overlays a transparent native `<input type="date">` / `<input type="datetime-local">` so the OS picker opens reliably across browsers; submits via a hidden ISO field. Used by `EditProfileForm`, `ProfileCompletionOverlay`, admin `PlayerForm`, `SessionForm`, `AdjustmentForm`, `HourlyRateForm`, `ChallengeForm`, `PlayerPayments`, sessions list filters, audit log filters. The config "שעת התחלה" field uses native `<input type="time">` (locale-neutral 24h, no Israeli format issue)
-- Admin player form (`src/components/admin/player-form.tsx`) also gained `email` and `nationalId` fields
-
-**Israeli ID validation (`src/lib/israeli-id.ts`):**
-Luhn-like check-digit: pad to 9 digits, alternate ×1/×2, subtract 9 if >9, sum % 10 === 0.
-
-**Commits:**
-1. Schema migration: auth fields on `Player`
-2. `src/lib/israeli-id.ts` + tests
-3. OTP generation/verification logic (WA delivery wired in step 4)
-4. Phone+OTP registration/login flow (UI + actions)
-5. Phone+password registration/login flow (UI + actions)
-6. Password reset flow
-7. Remember me + session cookie handling
-8. `isAdmin` → admin access; bridge from old `ADMIN_PASSWORD_HASH` auth
+#### L. AI match summaries
+Daily WA digest after a session: "Tonight at IRBA — 4 matches, A won 3 in a row, biggest upset was C beating B 12-9 in match 3. Top streak: D, 4 of 4." Wire `Match` + `Attendance` data into Claude Haiku via the Anthropic SDK; one-shot `wa-notify` dispatch. Cheap to prototype, high "this lives in WhatsApp where the league actually lives" value.
 
 ---
 
-#### 4. WhatsApp integration *(Baileys)* — ✅ DONE
-
-**Done (production):**
-- ✅ Baileys sidecar service (`wa/`) — Express on port 3100, session persistence, QR auth; `POST /send-group` + `GET /groups` added
-- ✅ `src/lib/wa-notify.ts` — typed dispatcher, `renderTemplate`, per-event notify functions
-- ✅ Configurable notification system — admin-editable toggles + templates + group JID in `/admin/config`
-- ✅ Session open notification → WA group broadcast (cron + manual create, with per-session override)
-- ✅ Session close notification → WA group broadcast
-- ✅ Player registered/cancelled → WA group broadcast (with confirmed/waitlisted status)
-- ✅ Waitlist promotion notification → individual DM to promoted player
-
-**Remaining:** none — OTP delivery wired in `requestOtpAction` / `requestPasswordResetAction` (shipped with step 3).
-
----
-
-#### 5. Payments ✅ DONE
-
-**Schema:** `method PaymentMethod @default(BIT)` added to `Payment` (enum: CASH/PAYBOX/BIT/BANK_TRANSFER/OTHER).
-
-**Balance:** fully computed — `balance = Σ(payments.amount) - Σ(sessionCharges.amount)` for a player. Pure helper in `src/lib/balance.ts`; DB functions use dynamic imports (no module-level prisma).
-
-**Admin UI:** Per-player payments section in `/admin/players/[id]/edit` — positioned immediately below the player details form (before attendance/precedence sections). Add (date, amount, method, description), delete, balance breakdown (paid / charged / balance). Server actions: `addPaymentAction`, `deletePaymentAction` in `src/app/admin/(protected)/players/[id]/payments/actions.ts`.
-
-**Finance dashboard** (`/admin/finance`): summary cards (total paid / charged / net balance), debtors list, credits list, all-players table sorted by debt, recent payments, recent charges. Linked from admin home nav card (Banknote icon). All player rows are fully clickable (overlay link + hover highlight). Links pass `?from=finance` so the player edit page shows "→ חזרה לפיננסים" instead of "→ חזרה לשחקנים".
-
-**Player-facing:** Balance shown on `/profile` (computed live; shows +/- and breakdown).
-
-**Remaining (deferred):** Municipality CSV export (needs national IDs from auth flow).
-
----
-
-#### 6. Charging ✅ DONE
-
-**Models:** `SessionCharge(sessionId, playerId, amount, calculatedAmount, chargeType)` + `ChargeAuditEntry(sessionChargeId, changedBy, previousAmount, newAmount, reason?)`.
-
-**Charge engine (`src/lib/charging.ts`):**
-- `proposeSessionCharges(input)` → returns null if count < minPlayers; else: drop-ins + registered-in-debt each pay `ceil(totalCost / minPlayers)`; remainder after subtracting those payments is split equally among normal registered players with `Math.ceil`. This means registered players pay slightly more or less than `totalCost / minPlayers` depending on how many drop-ins/debt-players are in the session.
-- `computeSingleCharge(opts)` — delegates to `proposeSessionCharges` with the full `allPlayers` list so the registered remainder is computed correctly in cascade context
-
-**Balance engine (`src/lib/balance.ts`):** `computePlayerBalance`, `computePlayerBalances` (bulk), `computeBalanceFromTotals` (pure).
-
-**Cascade recalc (`src/lib/cascade-recalc.ts`):** `cascadeRecalc` preserves admin delta (`newAmount = newCalculated + savedDelta`); `summarizeRecalc` for change preview.
-
-**Session charge flow (admin):** “חייב מפגש” button on `/admin/sessions/[id]` → `chargeSessionAction` writes charges + sets `isCharged=true`. “בטל חיוב” → `unchargeSessionAction`. Per-charge amount override with reason → `updateSessionChargeAction` + `ChargeAuditEntry`. Admin delta preserved on future recalcs. UI: `SessionChargePanel` client component.
-
-**Charge audit history:** Each charge row in `SessionChargePanel` shows a clock icon when overrides exist. Clicking expands an inline list of changes (date, actor, before → after amount, reason).
-
-**Cascade recalc UI:** After saving a charge override, `previewCascadeAction` automatically checks for downstream impact. If any downstream session charges would change, an amber banner shows a per-player diff table. Admin confirms → `applyCascadeAction` applies all changes, creating `ChargeAuditEntry` rows with `reason: “cascade_recalc”`. No downstream sessions → silent (no banner).
-
-**Per-player charge history (admin):** `/admin/players/[id]/edit` — חיובי מפגשים section below payments; shows all session charges with date (links to session page), amount, type badge, override indicator. Read-only; editing happens on the session page.
-
-**Low-attendance alerts (`src/lib/low-attendance-alert.ts`):** `checkLowAttendanceAlerts` runs on every auto-close cron tick. Two tiers (early / critical), each with configurable hours + WA template. Fire-once via `alertEarlyFiredAt` / `alertCriticalFiredAt` on `GameSession`. Master toggle: `alert_low_attendance_enabled`.
-
-**Config:** `session_min_players` (replaces `dropin_charge`) — sets both the charge minimum and the rate denominator. 8 alert config keys added.
-
-**Tests:** `balance.test.ts` (6), `charging.test.ts` (updated for new split formula), `cascade-recalc.test.ts` (11). All pure — no DB required.
-
-**Player-facing `/profile` page — section order:**
-1. **יתרה** — balance card (total paid / charged / net)
-2. **סטטיסטיקות משחק** — match analytics: all-time summary (wins/losses/ties/win%), breakdown toggle "לפי תחרות" (per-competition: סיבוב N, win%, W/L/T, active/closed badge) / "לפי מפגש" (per-session date + bar), teammate affinity
-3. **היסטוריית פעולות** — paginated account statement (payments + charges, running balance, filter tabs, per-page selector); URL-param driven
-4. **נוכחות אחרונה** — last 10 sessions attended
-5. **הגדרות** — single card grouping: password change + regulations viewer + theme selector (previously three separate cards)
-
----
-
-#### 7. Match results ✅ DONE
-
-**Model:** `Match(id, sessionId, teamAPlayerIds String[], teamBPlayerIds String[], scoreA Int, scoreB Int, createdAt, updatedAt)` — cascades on session delete.
-
-Winning team stays; next match teams are composed by admin from session attendees. Multiple matches per session. Teams editable after recording.
-
-**Admin UI** (`SessionMatchPanel` on `/admin/sessions/[id]`):
-- **Mobile-first redesign**: optimised for live on-court use from an iPhone
-  - Player assignment: single vertical list, each player has [א׳] and [ב׳] toggle buttons (40×48px tap targets). Tapping the other team's button atomically moves the player. Selected A → blue; selected B → orange; unselected → outlined.
-  - Score entry: `[−] [input] [+]` stepper rows per team (44px stepper buttons). `−` disabled at 0. Input is large, tappable, opens numeric keyboard on mobile (`inputMode=”numeric”`) for direct score entry. Stepper and direct input work simultaneously.
-  - Action buttons: `min-h-12 w-full` on mobile, inline on `sm:`. `flex-col-reverse` puts Save above Cancel.
-  - Match list edit/delete: upgraded to `h-9 w-9` (36px) tap targets.
-- **Nickname display**: `confirmedAttendees` in the session page prefers `nickname → firstNameHe → firstNameEn → full name` to keep names short in the panel.
-- Match history list; edit or delete any row
-- Server actions: `createMatchAction`, `updateMatchAction`, `deleteMatchAction` in `sessions/[id]/matches/actions.ts`
-- Config: `match_win_score` (default 12) — stored in `AppConfig`
-- **Auto-selection on new match**: `computeNextMatchDefaults` inspects the last recorded match — winner pre-fills Team A, sitting-out players pre-fill Team B. Covers 3-team rotation. Tied → no pre-fill. Hint shown when pre-populated.
-
----
-
-#### 8. IRBA Regulations acceptance ✅ DONE
-
-Players must read and accept the IRBA regulations before using the app.
-
-**Schema additions to `Player`:** `regulationsAcceptedAt DateTime?`, `regulationsAcceptedVersion Int?`.
-
-**Flow:** Root layout (`src/app/layout.tsx`) is now `async` — on every request it checks if the logged-in player's `regulationsAcceptedVersion` is null or behind `regulations_version` config. If so, `RegulationsOverlay` (`src/components/regulations-overlay.tsx`) is rendered before `{children}`, blocking all content. Zero client-side flash — check is server-side.
-
-**Overlay UX:** Full-screen `fixed inset-0 z-50` overlay. Scrollable content area; sticky header and footer. Accept button starts **disabled**; enables only once the user has scrolled to the bottom sentinel (`IntersectionObserver` with `root: scrollRef.current` — must be the scrollable div, not viewport). `acceptRegulationsAction` server action records timestamp + version, writes `PLAYER_ACCEPTED_REGULATIONS` audit log, calls `revalidatePath("/", "layout")`. Overlay unmounts optimistically on success.
-
-**Versioning:** Admin bumps `regulations_version` in the config panel → all players see the overlay again on next visit.
-
-**Re-read from profile:** Players can re-read accepted regulations anytime via `/profile` → "תקנון" section → "קרא את התקנון" button. Opens a non-blocking full-screen modal (`RegulationsViewer`, `src/components/regulations-viewer.tsx`) with the same rendered content but no accept button or scroll gate. ✕ button or backdrop click closes it.
-
-**Template engine (`src/lib/regulations-renderer.ts`):** `parseRegulationsTemplate(text, configValues)` — pure function, line-by-line parser with buffer/flush pattern. Supports `## Heading` (h3), `### Sub-heading` (h4), `**bold**` inline, `- bullet` list items (consecutive `-` lines form one `<ul>` block), blank line (paragraph break), `{variable}` substitution (all config keys + special `{session_schedule_day_name}` derived from `session_schedule_day`). `RegulationsContent` component is exported from `regulations-overlay.tsx` and reused by both the viewer and the admin preview. Admin can fully edit the text via `/admin/config` → "תקנון" section. The "תקנון" section has: macro/syntax reference overlay (toggle button), live preview toggle ("תצוגה מקדימה") that renders the current textarea content with real config values substituted — updates on every keystroke.
-
-**Regulations content (default):** 10 sections — ידידות, הוגנות וספורטיביות, כיף, כללי המשחק (`{match_win_score}` נק׳ / `{match_duration_min}` דק׳ — with `### עבירות קבוצה` sub-heading using `{fouls_until_penalty}`), סמכות מנהל, לוח זמנים, כספים (סף חוב `{debt_threshold}₪`), הרשמה והגעה, קנסות עדיפות (bullet list with `{fine_no_show/kick_ball/early_leave}`), אפס סובלנות לאלימות, הסכמה לוואטסאפ.
-
-**New config keys:** `regulations_version`, `regulations_text`, `match_duration_min`, `fine_no_show`, `fine_kick_ball`, `fine_early_leave`, `fouls_until_penalty` — all admin-editable on `/admin/config`.
-
-**Audit:** `PLAYER_ACCEPTED_REGULATIONS` action type added to `AuditAction` union.
-
----
-
-#### 9. Balanced team selection ✅ DONE
-
-
-**Algorithm (`src/lib/team-balance.ts`):**
-- Input: `PlayerInput[]` with `rank` (null → `default_player_rank` config), `positions`, `displayName`
-- Snake-draft assigns players sorted by rank desc: A B C C B A A B C… (minimises rank-sum variance)
-- `generateTeamOptions(players, seed)` — seed param (default 0) derives per-tier shuffle seeds; each call from the UI passes a fresh `Math.random()` seed so re-shuffle produces different results
-- Handles non-divisible N gracefully (e.g., 14 → teams of 5,5,4)
-- Pure function — no DB, runs client-side. 9 unit tests in `src/lib/team-balance.test.ts`
-
-**Admin UI** (`TeamBalancePanel` on `/admin/sessions/[id]`, between attendance and match panels):
-- “צור קבוצות” button (disabled + note when < 3 confirmed players)
-- Shows 3 option cards stacked vertically; each card: Teams א׳/ב׳/ג׳ with player names + rank sum
-- Each player row shows: name, position badges (PG/SG/SF/PF/C, monospace pill), rank (right-aligned, admin-only)
-- “העתק” button per option — copies names-only plain-text Hebrew format (no rank/positions in copy)
-- “ערבב מחדש” now generates genuinely different teams on every press (random seed each call)
-
----
-
-### Platform (pre-production) — **DONE**
-
-- ✅ Automated daily Postgres backups (`scripts/backup.sh`, 30-day retention, EC2 cron at 03:00)
-- ✅ Ops runbook (`RUNBOOK.md`) — deploy, rollback, DB restore, WA re-auth, env vars, cron setup
-- ✅ Health monitoring: `GET /api/health`; 200 = DB up, 503 = down
-- ✅ CSP header in `next.config.ts`
-- ✅ **Deployed**: `https://irba.club` — EC2 → Apache TLS → localhost:3004 → Docker
-- ✅ Auto-create cron running hourly on EC2
-- ✅ Uptime alerts — UptimeRobot free tier, public status page: https://stats.uptimerobot.com/dHQF2WHXL9
-- Redis rate limits — single replica, in-memory is fine for now
-
----
-
-#### 10. Player precedence table ✅ DONE
-
-Players see the full precedence ranking at `/precedence` (login-gated). `ListOrdered` icon in nav for all logged-in players.
-
-- `src/app/precedence/page.tsx` — Server Component; reuses `computePrecedenceScores`; filters out players with no history (no sessions, no adjustments); reads player session for row highlight
-- `src/components/precedence-table.tsx` — Client Component; expandable accordion rows (one open at a time); each row shows rank + name + score; tapping expands inline detail: year-by-year table (sessions × weight = points) + adjustments list (date, description, ±points); current player highlighted in blue with "(אתה)" label
-- `src/components/nav-links.tsx` — `ListOrdered` icon link to `/precedence`
-
-No schema changes. No migrations.
-
----
-
-#### 11. Personal match analytics on `/profile` ✅ DONE
-
-Players see their match stats at the bottom of `/profile`.
-
-**UI sections:**
-- Summary: all-time wins / losses / ties counts + win% (ties excluded from ratio denominator)
-- Breakdown toggle ("לפי תחרות" / "לפי מפגש") — `useState` client-side only; CSS-only colored bar per row
-  - Per-competition view: one row per Challenge where player has ≥1 match — shows "סיבוב N", start date, total matches, win%, active/closed badge; competitions with 0 player matches are hidden
-  - Per-session view: each session date with that night's wins/losses
-- Teammate affinity: top 5 by shared wins; shows "X ניצחונות מתוך Y משחקים יחד"
-
-**Implementation:**
-- `src/lib/match-analytics.ts` — pure functions: `computeMatchStats`, `computeSessionBreakdown`, `computeTeammateAffinity`; no Prisma
-- `src/lib/match-analytics.test.ts` — 25 unit tests
-- `src/app/profile/analytics.ts` — server fetcher; fetches all sessions + challenges; builds `competitionBreakdown` by filtering player matches to each challenge's window; resolves teammate names
-- `src/components/match-stats-section.tsx` — Client Component; `useState` toggle
-- `src/lib/config-keys.ts` — added `round_size` key (default 5)
-
----
-
-## Phase 2 Roadmap — post-MVP features
-
-Dependencies: #11 (match analytics) is prerequisite for #12 and #13 — both depend on per-player win/loss data. #12's peer rating is independent of #11 but adds complexity. #13 depends on both #11 (win ratio metric) and existing attendance data.
-
-**Suggested build order: #13 (competitions) → #12 (dynamic ranking last — changes how rank works, needs careful UX design).**
-
----
-
-#### 12. Dynamic player ranking ✅ DONE
-
-Replace the single manual `rank` field with a computed score from three inputs:
-- **Admin weight** — manual `rank` as base; drop-ins use only this component
-- **Peer rating** — annual admin-triggered survey; players rank all other REGISTERED players; history preserved per year; `PeerRatingSession` + `PeerRating` models
-- **Win/loss ratio** — computed from `Match` data; only applied when player meets min-games threshold
-
-See "Dynamic ranking" section under "What exists today" for full implementation details.
-
----
-
-#### 13. Competitions / challenges ✅ DONE
-
-Admin creates a `Challenge` with a metric (e.g. win ratio), an eligibility rule (e.g. played ≥X% of max sessions anyone played in the period), and a prize description. The system tracks it passively and shows a live leaderboard.
-
-See "Competitions / Challenges" section under "What exists today" for full implementation details.
-
-#### 14. Shared expenses (advanced charging) ✅ DONE
-
-**Models:** `SharedExpense(title, totalAmount, lookbackYears, minAttendancePct, eligibilityPool, createdBy, revertedAt?)` + `SharedExpenseCharge(sharedExpenseId, playerId, amount, manuallyAdded)`. New enum `EligibilityPool { REGISTERED_ONLY, ALL_PLAYERS }`.
-
-**Engine (`src/lib/shared-expenses.ts` pure + `shared-expenses-server.ts` DB):** `computeSharedExpenseShares(total, count)` — floor split with deterministic remainder distribution so the per-player sum equals `totalAmount` exactly. `computeEligible(candidates, sessionsTotal, minPct, pool)` — pure threshold + pool filter; admin candidates always pass and report 100% (they run every session, so the system doesn't capture their attendance via Attendance rows). `findEligiblePlayers({lookbackYears, minAttendancePct, eligibilityPool})` — DB orchestrator combines two attendance sources, mirroring the precedence list: live segment (currentYear ∩ window) uses `Attendance` rows; historical segment (years < currentYear ∩ window) uses `PlayerYearAggregate` counts with the boundary year fraction-scaled by its overlap with the window. Denominator = max attendance count across all players in the window (top attendee = 100% by definition; everyone else's pct is their share relative to the top). `listAllPlayersForManualAdd()` powers the manual-add dropdown.
-
-**Balance helper (`src/lib/balance.ts`):** Updated to subtract `SharedExpenseCharge` totals alongside `SessionCharge` totals. New optional `sessionChargesTotal` / `sharedExpenseChargesTotal` breakout fields on `BalanceBreakdown`. Existing consumers still see correct `balance` / `totalCharged` / `totalPaid`.
-
-**Admin flow (`/admin/finance/shared-expenses`):** New entry on the finance dashboard. Index lists past expenses with active/reverted status. `/new` → `SharedExpenseForm` (client) — title, amount, lookback years, min attendance %, eligibility radio (registered-only default vs all players). "טען תצוגה מקדימה" calls `loadInitialPreviewAction`, populates the eligible table + the full roster. Admin can remove rows or use the searchable add-player dropdown to manually include any player from the full pool (flagged with a manual badge). Share recomputes locally on every change. Submit → `createSharedExpenseAction` re-runs eligibility server-side (rejects stale lists), validates manual IDs exist, writes parent + N children in a `prisma.$transaction`. Detail page shows criteria + per-charge rows + revert button. `revertSharedExpenseAction` soft-marks the parent (`revertedAt = now()`) and deletes the children — balances restore automatically.
-
-**Audit:** New `CREATE_SHARED_EXPENSE` and `REVERT_SHARED_EXPENSE` actions on `AuditLog`.
-
-**Tests:** `shared-expenses.test.ts` (14 cases) — share split (clean / remainder distribution / total-smaller-than-count edge / zero count / zero total), rolling cutoff (whole + fractional years), eligibility filter (threshold pass/fail, REGISTERED_ONLY vs ALL_PLAYERS, sessionsTotal=0, sort order, balance preservation). `balance.test.ts` extended with shared-expense regression cases.
-
----
-
-#### 15. Roster context in WA notifications + manual broadcast ✅ DONE
-
-Day-of-launch (May 2026) UX improvements to keep the WA group always synced with the live roster.
-
-**New macros** (`{registered_list}`, `{waitlist}`) added to the player-registered, player-cancelled, and waitlist-promote templates. Macros render as newline-joined display names from the post-event attendance state — so a single registration message can carry both the actor (`{player_name} registered`) and the resulting full roster, eliminating the need to open the app to see who's in.
-
-**Manual broadcast** — new `notifySessionRoster` dispatcher + `WA_NOTIFY_SESSION_ROSTER_ENABLED` / `_TEMPLATE` config keys (default-on). "שלח עדכון רשימה" button in the attendance section header on `/admin/sessions/[id]`; confirms → `broadcastSessionRosterAction` → group broadcast with the configured template. The confirmed-player macro includes a final count line like `סה"כ *8 רשומים*` before the waitlist. New audit action `BROADCAST_SESSION_ROSTER`.
-
-**Manual debt reminder** — new `notifyDebtors` dispatcher + `WA_NOTIFY_DEBTORS_ENABLED` / `_TEMPLATE` config keys (default-on). Template macros `{debtors_list}` (newline-joined `{name} — ₪{abs(balance)}` rows, biggest debt first) and `{count}`. "שלח תזכורת" button in the debtors section header on `/admin/finance`; confirms → `broadcastDebtorsAction` → group broadcast. Button shows "נשלח לאחרונה: {date+time}" derived from the latest `BROADCAST_DEBTORS` audit-log entry — no separate timestamp column needed. New audit action `BROADCAST_DEBTORS`.
-
-**Files:** `src/lib/wa-notify.ts` (3 dispatchers extended + new `notifySessionRoster` + new `notifyDebtors`), `src/app/actions/rsvp.ts` (attend/auth-attend/cancel pass post-event rosters), `src/app/admin/(protected)/sessions/[id]/actions.ts` (`promoteWaitlistAction` + new `broadcastSessionRosterAction`), `src/app/admin/(protected)/finance/actions.ts` (new `broadcastDebtorsAction`), `src/app/admin/(protected)/finance/page.tsx` (parallel-loads latest broadcast timestamp; mounts button in debtors section header), `src/components/admin/config-form.tsx` (new cards; existing 3 templates bumped to 6 rows × 2,000 chars), `src/lib/config-keys.ts` (defaults), `src/lib/config-validation.ts` (`waTemplateLong` schema), `src/components/admin/session-broadcast-roster-button.tsx` and `src/components/admin/debtors-broadcast-button.tsx` (new client buttons).
-
----
-
-#### 16. Retroactive debt closure ✅ DONE
-
-Player-by-player retroactive recharge that closes a trailing in-debt streak. Built for the Ronen-style pattern: a REGISTERED player who has been attending consistently but paying in lump sums, accumulating consecutive sessions charged at the higher DROP_IN rate (debt-threshold path). When he settles, admin clicks one button to retroactively re-bill those sessions as if he'd been a normal registered player.
-
-**Critical mechanic** — IRBA's charging engine redistributes the drop-in surplus as a discount to the other normal-registered teammates in the same session (`dropInAmount = ceil(totalCost / minPlayers)` is strictly higher than `totalCost / N`, so each in-debt player covers more than their share, shrinking `remainder` and lowering the per-registered split). Closing the debt retroactively must reverse that redistribution end-to-end: the focal player's charge drops to registered, AND every normal-registered teammate from those sessions loses their debt discount and is re-billed up at the new (higher) registered amount. Drop-in-by-kind players, other still-in-debt teammates, free-entry charges, and ADMIN_OVERRIDE charges are untouched.
-
-**Scope** — only the *trailing consecutive* DROP_IN charges (walk back from most recent, stop at first non-DROP_IN). Older history is left alone. Eligibility: `playerKind === "REGISTERED"` AND streak length > 0. UI is hidden otherwise.
-
-**Algorithm** — for each affected session, re-run `proposeSessionCharges` with the focal player's balance flipped to 0 (so he no longer triggers the debt path) and other in-debt-registered players' balances synthesized to remain in-debt. Diff per-charge against the existing rows; collect changes. Sessions containing any `ADMIN_OVERRIDE` charge are skipped and surfaced in the preview as "דולגו" so admin sees them.
-
-**UX** — new "סגירת חוב רטרואקטיבית" card embedded in the "חיובי מפגשים" section on `/admin/players/[id]/edit`. Modal with per-session expandable rows: focal player diff highlighted, every affected teammate listed below with old → new + diff. Totals card: "החזר לשחקן", "תוספת לשאר השחקנים", rounding residual, current → projected balance. Apply rewrites all changed `SessionCharge` rows in a single transaction with a `ChargeAuditEntry` per change (`reason: "retro_close_debt"`) plus one `RETRO_CLOSE_DEBT` audit log entry. Idempotent: post-apply the streak is empty, so the section disappears.
-
-**Files:** `src/app/admin/(protected)/players/[id]/retro/actions.ts` (preview + apply server actions), `src/components/admin/player-retro-button.tsx` (button + modal), `src/app/admin/(protected)/players/[id]/edit/page.tsx` (mounts the section conditionally on streak detection from existing `playerCharges`), `src/lib/audit.ts` (added `RETRO_CLOSE_DEBT` action).
-
----
-
-#### 17. Admin auto-attendance + auto-offset payments ✅ DONE
-
-Admin (the organizer) is now treated as a regular registered player throughout the charging flow — the admin runs every session, pays the venue out-of-pocket, and the system records both sides so the admin's balance stays ~0.
-
-**Mechanics:**
-- New helper `addAdminAttendances(sessionId)` (`src/lib/admin-attendance.ts`) idempotently creates `Attendance` rows for every `isAdmin: true` player. Wired into `createSessionAction` AND `autoCreateNextSession` — previously only the manual create path auto-attended admin, so cron-created sessions silently lost admin attendance.
-- `chargeSessionAction` now creates a matching `Payment` row alongside each admin `SessionCharge` (same amount, `method: OTHER`, description `"קיזוז מנהל"`, `date: session.date`, `sessionId: session.id`). All inside the same `prisma.$transaction`, so charging and offsetting are atomic.
-- `unchargeSessionAction` deletes by `sessionId` so admin-offset payments come off cleanly when a session is uncharged.
-
-**Schema:** `Payment.sessionId` (nullable FK → `GameSession`, `onDelete: SetNull`). Indexed. Enables linking auto-offset payments to their source session for the uncharge cleanup and future reconciliation.
-
-**Backfill:** `scripts/backfill-admin-attendance.ts` — idempotent one-shot that adds Attendance for every session and (for charged sessions) `SessionCharge` + matching `Payment` for every admin. Charge amount mirrors a reference `REGISTERED` charge from the same session (no redistribution of other players' charges — admin's charge sits on top, and the offsetting payment makes it a wash).
-
-**Why no precedence change:** admin is already excluded from the precedence list and competition winners (`isAdmin: false` filters), so the new Attendance rows don't pollute leaderboards.
-
----
-
-*Last updated: May 2026 — IRBA went live in production. Items #15 (roster macros + manual broadcast), #16 (retroactive debt closure), and #17 (admin auto-attendance + offset) shipped post-launch.*
+*Last updated: 2026-05-11 — reflects all commits through `79a73dd` (simplified OTP first-login). IRBA is live in production at https://irba.club.*
