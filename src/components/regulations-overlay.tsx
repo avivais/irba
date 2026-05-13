@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, ScrollText } from "lucide-react";
 import { acceptRegulationsAction } from "@/app/actions/regulations";
 import {
@@ -73,10 +74,10 @@ export function RegulationsContent({ blocks }: { blocks: RenderedBlock[] }) {
 }
 
 export function RegulationsOverlay({ templateText, configValues }: Props) {
+  const router = useRouter();
   const [canAccept, setCanAccept] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -107,14 +108,16 @@ export function RegulationsOverlay({ templateText, configValues }: Props) {
     setError(null);
     const result = await acceptRegulationsAction();
     if (result.ok) {
-      setAccepted(true);
+      // Trigger a layout refresh so the server re-evaluates which overlay
+      // (if any) to render next. The overlay stays mounted with a spinner
+      // until the new layout tree arrives and unmounts it naturally —
+      // this avoids a flash of the underlying page between overlays.
+      router.refresh();
     } else {
       setError(result.message ?? "אירעה שגיאה, נסה שוב");
       setPending(false);
     }
   }
-
-  if (accepted) return null;
 
   return (
     <div
