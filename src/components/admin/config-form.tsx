@@ -859,6 +859,24 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
           )}
         </div>
 
+        <Field
+          label="קישור הצטרפות לקבוצה"
+          hint="https://chat.whatsapp.com/..."
+          htmlFor={CONFIG.WA_GROUP_INVITE_LINK}
+          error={errors[CONFIG.WA_GROUP_INVITE_LINK]}
+        >
+          <input
+            id={CONFIG.WA_GROUP_INVITE_LINK}
+            type="url"
+            name={CONFIG.WA_GROUP_INVITE_LINK}
+            defaultValue={values[CONFIG.WA_GROUP_INVITE_LINK]}
+            maxLength={200}
+            placeholder="https://chat.whatsapp.com/..."
+            className={`${inputBase} ${errors[CONFIG.WA_GROUP_INVITE_LINK] ? inputError : inputNormal}`}
+            dir="ltr"
+          />
+        </Field>
+
         {/* Session open */}
         <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
           <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">

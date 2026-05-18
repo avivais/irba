@@ -50,6 +50,7 @@ export const CONFIG = {
   WA_NOTIFY_COMPETITION_WINNER_TEMPLATE: "wa_notify_competition_winner_template", // vars: {player_name}, {round_number}
   // WhatsApp notifications
   WA_GROUP_JID:                          "wa_group_jid",                          // group JID for broadcasts, e.g. "XXXXXXXXXX@g.us"
+  WA_GROUP_INVITE_LINK:                  "wa_group_invite_link",                  // public invite link, e.g. "https://chat.whatsapp.com/..."
   WA_NOTIFY_SESSION_OPEN_ENABLED:        "wa_notify_session_open_enabled",        // "true" | "false"
   WA_NOTIFY_SESSION_OPEN_TEMPLATE:       "wa_notify_session_open_template",
   WA_NOTIFY_SESSION_CLOSE_ENABLED:       "wa_notify_session_close_enabled",       // "true" | "false"
@@ -147,6 +148,7 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
   wa_notify_competition_winner_enabled:  "true",
   wa_notify_competition_winner_template: "🏆 מזל טוב ל{player_name} על זכייה בסיבוב {round_number}! כניסה חינם למפגש הבא",
   wa_group_jid:                          "",
+  wa_group_invite_link:                  "",
   wa_notify_session_open_enabled:        "true",
   wa_notify_session_open_template:       "ההרשמה למפגש ב{date} פתוחה! כנסו ל-irba.club להירשם",
   wa_notify_session_close_enabled:       "false",

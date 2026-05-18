@@ -1,11 +1,11 @@
-import { CalendarDays, MapPin, Users } from "lucide-react";
+import { CalendarDays, MapPin, MessageCircle, Users } from "lucide-react";
 import { CancelRsvpForm } from "@/components/cancel-rsvp-form";
 import { AuthenticatedRsvpForm } from "@/components/authenticated-rsvp-form";
 import { PlayerLoginForm } from "@/components/player-login-form";
 import { PlayerNav } from "@/components/player-nav";
 import { formatGameDate } from "@/lib/format-date";
 import { getNextGame } from "@/lib/game";
-import { getConfigInt, CONFIG } from "@/lib/config";
+import { getConfigInt, getConfigValue, CONFIG } from "@/lib/config";
 import { maskPhone } from "@/lib/mask-phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { prisma } from "@/lib/prisma";
@@ -27,10 +27,11 @@ export default async function HomePage({
   searchParams?: Promise<{ waitlisted?: string }>;
 }) {
   const justWaitlisted = (await searchParams)?.waitlisted === "1";
-  const [game, closeHours, sessionPlayerId, authenticatedPlayerId] =
+  const [game, closeHours, whatsappInviteLink, sessionPlayerId, authenticatedPlayerId] =
     await Promise.all([
       getNextGame(),
       getConfigInt(CONFIG.RSVP_CLOSE_HOURS),
+      getConfigValue(CONFIG.WA_GROUP_INVITE_LINK),
       getSessionPlayerId(),
       getPlayerSessionPlayerId(),
     ]);
@@ -199,6 +200,20 @@ export default async function HomePage({
             <p className="text-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
               ההרשמה למפגש זה נסגרה
             </p>
+          </section>
+        )}
+
+        {whatsappInviteLink && (
+          <section className="mx-auto mt-6 w-full max-w-lg md:max-w-2xl">
+            <a
+              href={whatsappInviteLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 active:bg-green-800"
+            >
+              <MessageCircle className="h-5 w-5" aria-hidden />
+              הצטרפות לקבוצת הוואטסאפ
+            </a>
           </section>
         )}
 

@@ -79,6 +79,15 @@ const waGroupJid = z
     'מזהה קבוצה לא תקין — פורמט: XXXXXXXXXX@g.us'
   );
 
+const waGroupInviteLink = z
+  .string()
+  .trim()
+  .max(200, "קישור ארוך מדי")
+  .refine(
+    (v) => v === "" || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]+$/.test(v),
+    "קישור לא תקין — יש להזין קישור הזמנה של WhatsApp"
+  );
+
 export const configSchema = z.object({
   session_schedule_day:             dayOfWeek,
   session_schedule_time:            scheduleTime,
@@ -117,6 +126,7 @@ export const configSchema = z.object({
   wa_notify_competition_winner_enabled:  enabledFlag,
   wa_notify_competition_winner_template: waTemplate,
   wa_group_jid:                          waGroupJid,
+  wa_group_invite_link:                  waGroupInviteLink,
   wa_notify_session_open_enabled:        enabledFlag,
   wa_notify_session_open_template:       waTemplate,
   wa_notify_session_close_enabled:       enabledFlag,
