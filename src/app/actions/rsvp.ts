@@ -16,6 +16,7 @@ import { getSessionPlayerId, setRsvpSessionCookie } from "@/lib/rsvp-session";
 import { getPlayerSessionPlayerId } from "@/lib/player-session";
 import { getAllConfigs } from "@/lib/config";
 import { notifyPlayerRegistered, notifyPlayerCancelled } from "@/lib/wa-notify";
+import { buildNumberedList } from "@/lib/sort-attendances";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -134,18 +135,7 @@ export async function attendAction(
     prisma.attendance.findMany({
       where: { gameSessionId: game.id },
       orderBy: { createdAt: "asc" },
-      select: {
-        player: {
-          select: {
-            firstNameHe: true,
-            lastNameHe: true,
-            firstNameEn: true,
-            lastNameEn: true,
-            nickname: true,
-            phone: true,
-          },
-        },
-      },
+      include: { player: true },
     }),
   ]);
   const isConfirmed = attendances.length <= game.maxPlayers;
@@ -159,7 +149,9 @@ export async function attendAction(
   const names = attendances.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, game.maxPlayers);
   const waitlist = names.slice(game.maxPlayers);
-  void notifyPlayerRegistered(dateStr, name, status, registeredList, waitlist, configs);
+  buildNumberedList(attendances, game.date.getFullYear())
+    .then((numberedList) => notifyPlayerRegistered(dateStr, name, status, registeredList, waitlist, numberedList, configs))
+    .catch((e) => console.warn("[wa-notify] numbered list build failed:", e));
 
   writeAuditLog({
     actor: phone,
@@ -236,18 +228,7 @@ export async function rsvpAuthenticatedAction(
     prisma.attendance.findMany({
       where: { gameSessionId: game.id },
       orderBy: { createdAt: "asc" },
-      select: {
-        player: {
-          select: {
-            firstNameHe: true,
-            lastNameHe: true,
-            firstNameEn: true,
-            lastNameEn: true,
-            nickname: true,
-            phone: true,
-          },
-        },
-      },
+      include: { player: true },
     }),
   ]);
   const isConfirmed = attendances.length <= game.maxPlayers;
@@ -261,7 +242,9 @@ export async function rsvpAuthenticatedAction(
   const names = attendances.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, game.maxPlayers);
   const waitlist = names.slice(game.maxPlayers);
-  void notifyPlayerRegistered(dateStr, name, status, registeredList, waitlist, configs);
+  buildNumberedList(attendances, game.date.getFullYear())
+    .then((numberedList) => notifyPlayerRegistered(dateStr, name, status, registeredList, waitlist, numberedList, configs))
+    .catch((e) => console.warn("[wa-notify] numbered list build failed:", e));
 
   writeAuditLog({
     actor: player?.phone ?? playerId,
@@ -378,24 +361,15 @@ export async function cancelAttendanceAction(
     prisma.attendance.findMany({
       where: { gameSessionId: game.id },
       orderBy: { createdAt: "asc" },
-      select: {
-        player: {
-          select: {
-            firstNameHe: true,
-            lastNameHe: true,
-            firstNameEn: true,
-            lastNameEn: true,
-            nickname: true,
-            phone: true,
-          },
-        },
-      },
+      include: { player: true },
     }),
   ]);
   const names = postCancelAttendances.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, game.maxPlayers);
   const waitlist = names.slice(game.maxPlayers);
-  void notifyPlayerCancelled(dateStr, playerName, registeredList, waitlist, configs);
+  buildNumberedList(postCancelAttendances, game.date.getFullYear())
+    .then((numberedList) => notifyPlayerCancelled(dateStr, playerName, registeredList, waitlist, numberedList, configs))
+    .catch((e) => console.warn("[wa-notify] numbered list build failed:", e));
 
   revalidatePath("/");
   return { ok: true, message: "ביטלת את ההרשמה" };

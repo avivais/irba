@@ -70,8 +70,25 @@ export async function sortAttendancesByPrecedence(
     if (a.player.isAdmin !== b.player.isAdmin) return a.player.isAdmin ? -1 : 1;
     const scoreA = scoreById.get(a.player.id) ?? 0;
     const scoreB = scoreById.get(b.player.id) ?? 0;
-    return scoreB - scoreA;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    if (a.createdAt < b.createdAt) return -1;
+    if (a.createdAt > b.createdAt) return 1;
+    return getPlayerDisplayName(a.player).localeCompare(getPlayerDisplayName(b.player), "he");
   });
 
-  return [...sortedRegistered, ...dropIns];
+  const sortedDropIns = [...dropIns].sort((a, b) => {
+    if (a.createdAt < b.createdAt) return -1;
+    if (a.createdAt > b.createdAt) return 1;
+    return getPlayerDisplayName(a.player).localeCompare(getPlayerDisplayName(b.player), "he");
+  });
+
+  return [...sortedRegistered, ...sortedDropIns];
+}
+
+export async function buildNumberedList(
+  attendances: AttendanceWithPlayer[],
+  sessionYear: number,
+): Promise<string> {
+  const sorted = await sortAttendancesByPrecedence(attendances, sessionYear);
+  return sorted.map((a, i) => `${i + 1}. ${getPlayerDisplayName(a.player)}`).join("\n");
 }

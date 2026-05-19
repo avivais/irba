@@ -118,7 +118,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — replace
 - **Cancel RSVP**: inline two-step confirmation (no `window.confirm`). Success banners auto-dismiss after 3 s (tracked by reference, not bool flag).
 - **Waitlist**: server action `redirect("/?waitlisted=1")` after waitlisting; homepage shows a persistent server-rendered amber notice whenever `userIsWaitlisted` is true. `AutoScroll` client component scrolls to `#waiting-list` on first registration.
 - **Registration timestamp**: attending users see "נרשמת למפגש זה ב-{date}" below the cancel section.
-- **Attendance sorting** (`src/lib/sort-attendances.ts`): admin first, then REGISTERED by precedence score desc, then DROP_IN by `createdAt` asc. Slice at `maxPlayers` separates confirmed from waitlist.
+- **Attendance sorting** (`src/lib/sort-attendances.ts`): admin first, then REGISTERED by precedence score desc → `createdAt` asc → name asc, then DROP_IN by `createdAt` asc → name asc. Slice at `maxPlayers` separates confirmed from waitlist. `buildNumberedList(attendances, sessionYear)` wraps this sort and returns a `"1. Name\n2. Name…"` string for the `{numbered_list}` WA macro.
 - Per-IP sliding-window rate limits on attend/cancel; phones masked in UI; **"מזדמן"** badge for drop-ins.
 
 ### Admin area
@@ -371,7 +371,7 @@ Separate Docker service — Baileys + Express on internal port 3100. Next.js POS
 | Competition winner | WA group | ✅ |
 | Admin test-OTP forward (WA admin page) | DM to admin | ✅ |
 
-**Roster macros** — `{registered_list}`, `{waitlist}` available in player-registered, player-cancelled, waitlist-promote, and session-roster templates. Each renders newline-joined display names from the post-event session state. For session-roster broadcasts `{registered_list}` appends a count summary line (e.g. `סה"כ *8 רשומים*`). Default templates demonstrate the multi-line layout. Empty waitlist → empty string. Admin textareas are 6 rows × 2,000 chars.
+**Roster macros** — `{registered_list}`, `{waitlist}`, and `{numbered_list}` available in player-registered, player-cancelled, waitlist-promote, and session-roster templates. Each renders display names from the post-event session state. `{registered_list}` and `{waitlist}` are newline-joined by registration-time order; for session-roster broadcasts `{registered_list}` also appends a count summary line (e.g. `סה"כ *8 רשומים*`). `{numbered_list}` renders all attendees (confirmed + waitlist) as a numbered list sorted by precedence score → registration time → name (admins first, then REGISTERED by score, then DROP_IN), giving each player their exact queue position. Default templates demonstrate the multi-line layout. Empty waitlist → empty string. Admin textareas are 6 rows × 2,000 chars.
 
 **Participant tagging in WA group messages** — `sendWaGroupMessage(groupJid, message, mentions?)` forwards optional Baileys JIDs. `phoneToWaMention(phone)` converts a normalised Israeli mobile (`05XXXXXXXX`) into both the inline `@972…` digits AND the `…@s.whatsapp.net` JID. Wired into the debt-reminder dispatcher today (gated by `wa_notify_debtors_tag_enabled`, default on); other dispatchers can opt in. Phones that don't match `05XXXXXXXX` are silently skipped — that line shows name+amount only, no tag.
 

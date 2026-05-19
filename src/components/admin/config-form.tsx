@@ -974,7 +974,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{status}"}, {"{registered_list}"}, {"{waitlist}"}
+              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{status}"}, {"{registered_list}"}, {"{waitlist}"}, {"{numbered_list}"}
             </p>
           </Field>
         </div>
@@ -1001,7 +1001,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{registered_list}"}, {"{waitlist}"}
+              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{registered_list}"}, {"{waitlist}"}, {"{numbered_list}"}
             </p>
           </Field>
         </div>
@@ -1028,7 +1028,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{registered_list}"}, {"{waitlist}"}
+              משתנים זמינים: {"{date}"}, {"{player_name}"}, {"{registered_list}"}, {"{waitlist}"}, {"{numbered_list}"}
             </p>
           </Field>
         </div>
@@ -1055,7 +1055,7 @@ export function ConfigForm({ values, rates, currentRateId }: Props) {
               className={`${inputBase} resize-y ${errors[CONFIG.WA_NOTIFY_SESSION_ROSTER_TEMPLATE] ? inputError : inputNormal}`}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              משתנים זמינים: {"{date}"}, {"{registered_list}"}, {"{waitlist}"}
+              משתנים זמינים: {"{date}"}, {"{registered_list}"}, {"{waitlist}"}, {"{numbered_list}"}
             </p>
           </Field>
         </div>

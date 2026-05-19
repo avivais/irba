@@ -8,6 +8,7 @@ import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
 import { computePromoteTimestamp } from "@/lib/waitlist";
 import { notifySessionRoster, notifyWaitlistPromote, sendWaGroupMessage, sendWaPoll } from "@/lib/wa-notify";
+import { buildNumberedList } from "@/lib/sort-attendances";
 import { writeAuditLog } from "@/lib/audit";
 import { CONFIG } from "@/lib/config-keys";
 import { getAllConfigs } from "@/lib/config";
@@ -175,31 +176,16 @@ export async function promoteWaitlistAction(
     prisma.attendance.findMany({
       where: { gameSessionId: sessionId },
       orderBy: { createdAt: "asc" },
-      select: {
-        player: {
-          select: {
-            firstNameHe: true,
-            lastNameHe: true,
-            firstNameEn: true,
-            lastNameEn: true,
-            nickname: true,
-            phone: true,
-          },
-        },
-      },
+      include: { player: true },
     }),
   ]);
   const names = postPromoteAttendances.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, session.maxPlayers);
   const waitlist = names.slice(session.maxPlayers);
-  void notifyWaitlistPromote(
-    attendance.player.phone,
-    dateStr,
-    playerName,
-    registeredList,
-    waitlist,
-    configs,
-  );
+  const sessionYear = attendance.gameSession.date.getFullYear();
+  buildNumberedList(postPromoteAttendances, sessionYear)
+    .then((numberedList) => notifyWaitlistPromote(attendance.player.phone, dateStr, playerName, registeredList, waitlist, numberedList, configs))
+    .catch((e) => console.warn("[wa-notify] numbered list build failed:", e));
 
   return { ok: true, message: "השחקן קודם בהצלחה" };
 }
@@ -216,18 +202,7 @@ export async function broadcastSessionRosterAction(
       maxPlayers: true,
       attendances: {
         orderBy: { createdAt: "asc" },
-        select: {
-          player: {
-            select: {
-              firstNameHe: true,
-              lastNameHe: true,
-              firstNameEn: true,
-              lastNameEn: true,
-              nickname: true,
-              phone: true,
-            },
-          },
-        },
+        include: { player: true },
       },
     },
   });
@@ -242,9 +217,10 @@ export async function broadcastSessionRosterAction(
   const names = session.attendances.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, session.maxPlayers);
   const waitlist = names.slice(session.maxPlayers);
+  const numberedList = await buildNumberedList(session.attendances, session.date.getFullYear());
 
   const configs = await getAllConfigs();
-  await notifySessionRoster(dateStr, registeredList, waitlist, configs);
+  await notifySessionRoster(dateStr, registeredList, waitlist, numberedList, configs);
 
   writeAuditLog({
     actor: "admin",

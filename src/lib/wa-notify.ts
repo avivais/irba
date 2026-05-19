@@ -168,7 +168,7 @@ export async function notifySessionCancelled(
 
 /**
  * Notify the configured WA group that a player has registered.
- * Vars: {date}, {player_name}, {status}, {registered_list}, {waitlist}
+ * Vars: {date}, {player_name}, {status}, {registered_list}, {waitlist}, {numbered_list}
  */
 export async function notifyPlayerRegistered(
   dateStr: string,
@@ -176,6 +176,7 @@ export async function notifyPlayerRegistered(
   status: string,
   registeredList: string[],
   waitlist: string[],
+  numberedList: string,
   configs: Record<ConfigKey, string>,
 ): Promise<void> {
   if (configs[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_ENABLED] !== "true") return;
@@ -185,19 +186,21 @@ export async function notifyPlayerRegistered(
     status,
     registered_list: registeredList.join("\n"),
     waitlist: waitlist.join("\n"),
+    numbered_list: numberedList,
   });
   await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);
 }
 
 /**
  * Notify the configured WA group that a player has cancelled.
- * Vars: {date}, {player_name}, {registered_list}, {waitlist}
+ * Vars: {date}, {player_name}, {registered_list}, {waitlist}, {numbered_list}
  */
 export async function notifyPlayerCancelled(
   dateStr: string,
   playerName: string,
   registeredList: string[],
   waitlist: string[],
+  numberedList: string,
   configs: Record<ConfigKey, string>,
 ): Promise<void> {
   if (configs[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_ENABLED] !== "true") return;
@@ -206,6 +209,7 @@ export async function notifyPlayerCancelled(
     player_name: playerName,
     registered_list: registeredList.join("\n"),
     waitlist: waitlist.join("\n"),
+    numbered_list: numberedList,
   });
   await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);
 }
@@ -229,7 +233,7 @@ export async function notifyCompetitionWinner(
 
 /**
  * Send an individual DM to a player promoted from the waitlist.
- * Vars: {date}, {player_name}, {registered_list}, {waitlist}
+ * Vars: {date}, {player_name}, {registered_list}, {waitlist}, {numbered_list}
  */
 export async function notifyWaitlistPromote(
   phone: string,
@@ -237,6 +241,7 @@ export async function notifyWaitlistPromote(
   playerName: string,
   registeredList: string[],
   waitlist: string[],
+  numberedList: string,
   configs: Record<ConfigKey, string>,
 ): Promise<void> {
   if (configs[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_ENABLED] !== "true") return;
@@ -245,6 +250,7 @@ export async function notifyWaitlistPromote(
     player_name: playerName,
     registered_list: registeredList.join("\n"),
     waitlist: waitlist.join("\n"),
+    numbered_list: numberedList,
   });
   await sendWaMessage(phone, message);
 }
@@ -296,12 +302,13 @@ export async function notifyDebtors(
 /**
  * Manually broadcast the current session roster to the configured WA group.
  * Used by the "send roster update" admin button.
- * Vars: {date}, {registered_list}, {waitlist}
+ * Vars: {date}, {registered_list}, {waitlist}, {numbered_list}
  */
 export async function notifySessionRoster(
   dateStr: string,
   registeredList: string[],
   waitlist: string[],
+  numberedList: string,
   configs: Record<ConfigKey, string>,
 ): Promise<void> {
   if (configs[CONFIG.WA_NOTIFY_SESSION_ROSTER_ENABLED] !== "true") return;
@@ -309,6 +316,7 @@ export async function notifySessionRoster(
     date: dateStr,
     registered_list: formatRegisteredListWithTotal(registeredList),
     waitlist: waitlist.join("\n"),
+    numbered_list: numberedList,
   });
   await sendWaGroupMessage(configs[CONFIG.WA_GROUP_JID], message);
 }
