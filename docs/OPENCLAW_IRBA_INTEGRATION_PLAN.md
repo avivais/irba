@@ -6,6 +6,14 @@
 
 ---
 
+## Execution Plans
+
+- Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md)
+
+These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
+
+---
+
 ## 1. Goal and Non-Goals
 
 ### Goal
