@@ -31,60 +31,59 @@ jobs:
             echo "Missing IRBA_ASSISTANT_API_SECRET_TMP secret" >&2
             exit 1
           fi
-          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com \
-            ASSISTANT_SECRET="$ASSISTANT_SECRET" GROUP_JID="$GROUP_JID" GITHUB_RUN_ID="$GITHUB_RUN_ID" bash <<'REMOTE'
-              set -euo pipefail
-              cd /opt/irba
-              backup=".env.assistant-api-${GITHUB_RUN_ID}.bak"
-              cp .env "$backup"
-              chmod 600 "$backup" || true
-              python3 - <<'PY_REMOTE'
-              import os
-              import subprocess
-              from pathlib import Path
+          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com ASSISTANT_SECRET="$ASSISTANT_SECRET" GROUP_JID="$GROUP_JID" GITHUB_RUN_ID="$GITHUB_RUN_ID" bash <<'REMOTE'
+          set -euo pipefail
+          cd /opt/irba
+          backup=".env.assistant-api-${GITHUB_RUN_ID}.bak"
+          cp .env "$backup"
+          chmod 600 "$backup" || true
+          python3 - <<'PY_REMOTE'
+          import os
+          import subprocess
+          from pathlib import Path
 
-              secret = os.environ['ASSISTANT_SECRET']
-              group = os.environ['GROUP_JID']
-              if len(secret) < 32:
-                  raise SystemExit('assistant secret must be at least 32 chars')
+          secret = os.environ['ASSISTANT_SECRET']
+          group = os.environ['GROUP_JID']
+          if len(secret) < 32:
+              raise SystemExit('assistant secret must be at least 32 chars')
 
-              p = Path('/opt/irba/.env')
-              lines = p.read_text().splitlines()
-              out = []
-              seen = False
-              for line in lines:
-                  if line.startswith('ASSISTANT_API_SECRET='):
-                      out.append(f'ASSISTANT_API_SECRET="{secret}"')
-                      seen = True
-                  else:
-                      out.append(line)
-              if not seen:
+          p = Path('/opt/irba/.env')
+          lines = p.read_text().splitlines()
+          out = []
+          seen = False
+          for line in lines:
+              if line.startswith('ASSISTANT_API_SECRET='):
                   out.append(f'ASSISTANT_API_SECRET="{secret}"')
-              p.write_text('\n'.join(out) + '\n')
+                  seen = True
+              else:
+                  out.append(line)
+          if not seen:
+              out.append(f'ASSISTANT_API_SECRET="{secret}"')
+          p.write_text('\n'.join(out) + '\n')
 
-              try:
-                  current = subprocess.check_output([
-                      'docker', 'exec', 'irba-db-1', 'psql', '-U', 'irba', '-d', 'irba', '-tAc',
-                      'SELECT COALESCE(value, \'\') FROM "AppConfig" WHERE key = \'assistant_allowed_groups\';'
-                  ], text=True).strip()
-              except subprocess.CalledProcessError:
-                  current = ''
-              parts = [x.strip() for x in current.split(',') if x.strip()]
-              if group not in parts:
-                  parts.append(group)
-              new_value = ','.join(parts)
-              escaped = new_value.replace("'", "''")
-              sql = f"""
-              INSERT INTO "AppConfig" ("key", "value", "updatedAt")
-              VALUES ('assistant_allowed_groups', '{escaped}', NOW())
-              ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
-              """
-              subprocess.run(['docker', 'exec', '-i', 'irba-db-1', 'psql', '-U', 'irba', '-d', 'irba', '-v', 'ON_ERROR_STOP=1'], input=sql, text=True, check=True)
-              print('Updated ASSISTANT_API_SECRET and assistant_allowed_groups')
-PY_REMOTE
-              docker compose up -d --no-deps app
-              docker compose ps app
-REMOTE
+          try:
+              current = subprocess.check_output([
+                  'docker', 'exec', 'irba-db-1', 'psql', '-U', 'irba', '-d', 'irba', '-tAc',
+                  'SELECT COALESCE(value, \'\') FROM "AppConfig" WHERE key = \'assistant_allowed_groups\';'
+              ], text=True).strip()
+          except subprocess.CalledProcessError:
+              current = ''
+          parts = [x.strip() for x in current.split(',') if x.strip()]
+          if group not in parts:
+              parts.append(group)
+          new_value = ','.join(parts)
+          escaped = new_value.replace("'", "''")
+          sql = f"""
+          INSERT INTO "AppConfig" ("key", "value", "updatedAt")
+          VALUES ('assistant_allowed_groups', '{escaped}', NOW())
+          ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
+          """
+          subprocess.run(['docker', 'exec', '-i', 'irba-db-1', 'psql', '-U', 'irba', '-d', 'irba', '-v', 'ON_ERROR_STOP=1'], input=sql, text=True, check=True)
+          print('Updated ASSISTANT_API_SECRET and assistant_allowed_groups')
+          PY_REMOTE
+          docker compose up -d --no-deps app
+          docker compose ps app
+          REMOTE
 
       - name: Health check
         run: |
@@ -95,7 +94,6 @@ REMOTE
       - name: Smoke test assistant endpoint
         env:
           ASSISTANT_SECRET: ${{ secrets.IRBA_ASSISTANT_API_SECRET_TMP }}
-          GROUP_JID: 120363409761679942@g.us
         run: |
           set -euo pipefail
           payload=$(python3 - <<'PY_PAYLOAD'
@@ -107,7 +105,7 @@ REMOTE
             'idempotency_key': str(uuid.uuid4()),
             'params': {},
           }))
-PY_PAYLOAD
+          PY_PAYLOAD
           response=$(curl -sS -w '\nHTTP_STATUS:%{http_code}\n' \
             -X POST https://irba.club/api/assistant/v1 \
             -H "content-type: application/json" \
