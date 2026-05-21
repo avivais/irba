@@ -2,7 +2,7 @@
 
 > Source plan: `docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md`
 > Scope: infrastructure only — no real IRBA business operations yet
-> Status: ready for implementation review
+> Status: implemented on IRBA side; production config/smoke test still pending
 
 ## 1. Purpose and explicit non-goals
 
@@ -429,6 +429,9 @@ Because the endpoint is additive and disabled unless configured, the preferred r
 - No changes were made to `wa/`.
 
 ## 15. Open questions before implementation
+
+Resolved before implementation: Avi approved all recommendations below. Implementation follows Bearer token auth for Phase 0, AppConfig allowlist, no AssistantRequestLog entries for failed auth, implemented-only `help`, broad phone normalization for `05...`/`972...`/`+972...`, and no future mutation audit actions yet.
+
 
 1. Should Phase 0 use Bearer token only, or HMAC signing from day one?
    - Recommendation: Bearer token for Phase 0; design modules so HMAC can replace/extend auth later.

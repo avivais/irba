@@ -88,6 +88,25 @@ const waGroupInviteLink = z
     "קישור לא תקין — יש להזין קישור הזמנה של WhatsApp"
   );
 
+const assistantAllowedGroups = z
+  .string()
+  .max(1000, "רשימת קבוצות ארוכה מדי")
+  .refine(
+    (v) =>
+      v
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .every((jid) => /^[\d-]+@g\.us$/.test(jid)),
+    "רשימת קבוצות לא תקינה — יש להפריד מזהי WhatsApp group JID בפסיקים"
+  );
+
+const retentionDays = (label: string) =>
+  z.string().regex(/^\d+$/, `${label} חייב להיות מספר שלם`).refine((v) => {
+    const n = parseInt(v, 10);
+    return n >= 1 && n <= 3650;
+  }, `${label} חייב להיות בין 1 ל-3650`);
+
 export const configSchema = z.object({
   session_schedule_day:             dayOfWeek,
   session_schedule_time:            scheduleTime,
@@ -144,6 +163,8 @@ export const configSchema = z.object({
   wa_notify_debtors_enabled:             enabledFlag,
   wa_notify_debtors_template:            waTemplateLong,
   wa_notify_debtors_tag_enabled:         enabledFlag,
+  assistant_allowed_groups:        assistantAllowedGroups,
+  assistant_log_retention_days:    retentionDays("ימי שמירת לוג assistant"),
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

@@ -342,3 +342,16 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actor])
 }
+
+model AssistantRequestLog {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  operation      String
+  actorPhone     String
+  groupJid       String
+  resultCode     String
+  resultSnapshot Json?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}

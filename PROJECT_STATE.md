@@ -90,6 +90,7 @@ Self-hosted web app for **Ilan Ramon Basketball Association (IRBA)** — replace
 - **`PlayerYearAggregate`**: `(playerId, year)` unique — historical attendance count for years before live tracking; not created for the current year (counted from live `Attendance` rows).
 - **`PlayerAdjustment`**: `playerId`, `date`, `points` (Float, signed), `description`. Bonuses (+) and fines (−).
 - **`AuditLog`**: append-only log of every mutation. `id Int PK`, `timestamp`, `actor` (`"admin"` | player phone | `"cron"`), `actorIp?`, `action` (constant string), `entityType?`, `entityId?`, `before Json?`, `after Json?`. Indexed on `timestamp DESC`, `action`, `(entityType, entityId)`, `actor`.
+- **`AssistantRequestLog`**: idempotency/audit log for the OpenClaw assistant API. `id`, unique `idempotencyKey`, `operation`, `actorPhone`, `groupJid`, `resultCode`, sanitized `resultSnapshot`, `createdAt`; indexed on `createdAt`. Used by `POST /api/assistant/v1`, retained separately from `AuditLog` (default 7 days).
 
 ### Identity & auth
 
@@ -402,7 +403,7 @@ Core in `src/lib/auto-close-sessions.ts`; alert logic in `src/lib/low-attendance
 
 #### Audit-prune (`GET /api/cron/prune-audit`)
 
-Idempotent, called daily by EC2 cron. Deletes `AuditLog` rows older than `retentionDays` (default 90). Returns `{ deleted, cutoff }`. Core in `src/lib/audit-prune.ts`.
+Idempotent, called daily by EC2 cron. Deletes `AuditLog` rows older than `retentionDays` (default 90) and `AssistantRequestLog` rows older than `assistant_log_retention_days` (default 7). Returns `{ deleted, cutoff, assistantDeleted, assistantCutoff }`. Core in `src/lib/audit-prune.ts`.
 
 ### Regulations acceptance gate
 
@@ -478,6 +479,7 @@ Identical UX everywhere — auto-formats digits (8 → date, +`:` between hour/m
 
 ### Security / abuse
 
+- **OpenClaw assistant API**: `POST /api/assistant/v1` is a narrow typed API for Mikey/OpenClaw. Auth is `Authorization: Bearer <ASSISTANT_API_SECRET>` and fails closed if the env var is missing. Requests must include `operation`, `actor_phone`, `group_jid`, `idempotency_key`, and optional `params`; Phase 0 exposes only `help`. `group_jid` must be in AppConfig `assistant_allowed_groups` (empty = disabled). `actor_phone` accepts `05...`, `972...`, or `+972...` and is resolved server-side to guest/member/admin from `Player.isAdmin`. Results are stored in `AssistantRequestLog` and same-key retries replay the cached result. No inbound WhatsApp listener or natural-language execution exists in IRBA.
 - **Cookies**: HTTP-only, `Secure` in production or when `RSVP_COOKIE_SECURE` set; player + RSVP use `sameSite=lax` (compatible with WA-link redirects); JWT verifies `iss`/`aud` (defaults `irba` / `irba-rsvp`).
 - **Rate limits** (in-memory per process): attend / cancel, **admin login**, **player login** (shared across OTP-send/verify and password login), and a stricter **OTP-send** bucket (per-phone + per-IP, both must pass) applied at the WA-message-issuing step so an attacker can't spam a victim's phone or burn the WA budget; client IP from `CF-Connecting-IP`, `X-Real-IP`, or first `X-Forwarded-For` hop.
 - **Response headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, full **CSP** (`default-src 'self'`, `script-src 'self' 'unsafe-inline'`, `style-src 'self' 'unsafe-inline'`, `img-src 'self' data:`, `frame-src` allows OpenStreetMap, `frame-ancestors 'none'`) — `next.config.ts`.

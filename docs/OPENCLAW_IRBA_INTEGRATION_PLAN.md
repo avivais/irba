@@ -1,14 +1,14 @@
 # OpenClaw ↔ IRBA Integration Plan
 
 > **Replaces**: `docs/WHATSAPP_COMMAND_API_PLAN.md`
-> **Status**: Draft plan
+> **Status**: Phase 0 IRBA-side implementation complete; OpenClaw wiring and production configuration pending
 > **Date**: 2026-05-20
 
 ---
 
 ## Execution Plans
 
-- Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md)
+- Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — IRBA-side implementation complete
 
 These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
 
@@ -445,22 +445,23 @@ Extend the existing `prune-audit` cron to also delete `AssistantRequestLog` rows
 
 Deliverables: API endpoint exists, auth works, group check works, actor resolution works, audit log table in DB.
 
-- [ ] Add `ASSISTANT_API_SECRET` to `.env.example`, production EC2 `.env`, and OpenClaw config
-- [ ] Add `assistant_allowed_groups` seed row to `AppConfig`
-- [ ] Add `assistant_log_retention_days` seed row to `AppConfig` (default: 7)
-- [ ] Write and apply Prisma migration: `AssistantRequestLog` model
-- [ ] Create `src/app/api/assistant/v1/route.ts` — request routing skeleton
-- [ ] `src/lib/assistant/auth.ts` — bearer token verification (constant-time)
-- [ ] `src/lib/assistant/actor.ts` — phone → Player + permission level
-- [ ] `src/lib/assistant/idempotency.ts` — check/store idempotency key
-- [ ] `src/lib/assistant/schema.ts` — outer Zod envelope validation
-- [ ] Smoke test: `curl -X POST ... -H "Authorization: Bearer ..." '{"operation":"help",...}'`
+- [x] Add `ASSISTANT_API_SECRET` to `.env.example`
+- [ ] Add `ASSISTANT_API_SECRET` to production EC2 `.env` and OpenClaw config
+- [x] Add `assistant_allowed_groups` seed row to `AppConfig`
+- [x] Add `assistant_log_retention_days` seed row to `AppConfig` (default: 7)
+- [x] Write Prisma migration: `AssistantRequestLog` model
+- [x] Create `src/app/api/assistant/v1/route.ts` — request routing skeleton
+- [x] `src/lib/assistant/auth.ts` — bearer token verification (constant-time)
+- [x] `src/lib/assistant/actor.ts` — phone → Player + permission level
+- [x] `src/lib/assistant/idempotency.ts` — check/store idempotency key
+- [x] `src/lib/assistant/schema.ts` — outer Zod envelope validation
+- [ ] Production smoke test: `curl -X POST ... -H "Authorization: Bearer ..." '{"operation":"help",...}'`
 
 ### Phase 1 — Read-only MVP (est. 2–3 days)
 
 Deliverables: Mikey can answer "what's the roster?" and "what's my balance?" from the group.
 
-- [ ] `src/lib/assistant/operations/help.ts`
+- [x] `src/lib/assistant/operations/help.ts` (completed in Phase 0)
 - [ ] `src/lib/assistant/operations/session-roster-status.ts` (reuses session + attendance DB queries)
 - [ ] `src/lib/assistant/operations/player-balance-get.ts` (reuses `src/lib/balance.ts:computePlayerBalance()`)
 - [ ] Wire up OpenClaw: Mikey calls IRBA API with correct params, formats Hebrew reply

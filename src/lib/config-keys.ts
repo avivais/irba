@@ -68,6 +68,9 @@ export const CONFIG = {
   WA_NOTIFY_DEBTORS_ENABLED:             "wa_notify_debtors_enabled",             // "true" | "false" — manual debt-reminder broadcast
   WA_NOTIFY_DEBTORS_TEMPLATE:            "wa_notify_debtors_template",            // vars: {debtors_list}, {count}
   WA_NOTIFY_DEBTORS_TAG_ENABLED:         "wa_notify_debtors_tag_enabled",         // "true" | "false" — tag each debtor in the WA group message
+  // Assistant API
+  ASSISTANT_ALLOWED_GROUPS:        "assistant_allowed_groups",        // comma-separated WhatsApp group JIDs allowed to call /api/assistant/v1
+  ASSISTANT_LOG_RETENTION_DAYS:    "assistant_log_retention_days",    // days to retain AssistantRequestLog rows
 } as const;
 
 export type ConfigKey = (typeof CONFIG)[keyof typeof CONFIG];
@@ -192,4 +195,6 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, string> = {
 
 {debtors_list}`,
   wa_notify_debtors_tag_enabled:         "true",
+  assistant_allowed_groups:        "",
+  assistant_log_retention_days:    "7",
 };
