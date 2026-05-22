@@ -19,7 +19,7 @@ Phase 2 adds two admin-only mutations: **add a player to the next session's rost
 - Full unit + route test coverage matching Phase 1 quality.
 
 ### Not in scope (Phase 2)
-- Auto-promoting the first waitlisted player after a removal — that stays a separate admin decision. The response will surface the first waitlisted player's name so Mikey can prompt the admin.
+- Creating a separate/manual promotion operation — Phase 2 auto-promotes as part of `session_roster_remove` when a confirmed player is removed and the waitlist is non-empty.
 - Adding brand-new DROP_IN players who don't exist in the database — Phase 2 only handles known `Player` records with a matching phone. Unknown phones return `PLAYER_NOT_FOUND`.
 - Self-service RSVP mutations for non-admin members (Phase 3).
 - `session_roster_promote` as a standalone operation (Phase 3 candidate).
@@ -97,9 +97,9 @@ Both operations use the same envelope structure already in production.
       "phone": "0507654321"
     },
     "was_confirmed": true,
-    "confirmed_count": 13,
-    "waitlisted_count": 2,
-    "waitlist_first": {
+    "confirmed_count": 14,
+    "waitlisted_count": 1,
+    "promoted_player": {
       "display_name": "דני",
       "phone": "0509999999"
     }
@@ -109,7 +109,7 @@ Both operations use the same envelope structure already in production.
 }
 ```
 
-`waitlist_first` is `null` when `waitlisted_count === 0` after removal.
+`promoted_player` is `null` when the removed player was waitlisted or when no waitlisted player exists after removing a confirmed player.
 
 ---
 
@@ -147,7 +147,7 @@ Both operations call `writeAuditLog` (from `@/lib/audit`) with:
 - `before` / `after`: minimal snapshot (`{ sessionId, playerId, playerPhone }`)
 
 ### Safety
-- Sessions in the past, archived, or cancelled are excluded by `getNextAssistantSession()` (already filters `isClosed: false, isArchived: false, cancelledAt: null`). If no qualifying session exists → `SESSION_NOT_FOUND`.
+- Session lookup must distinguish "no upcoming session" from "next session is closed": find the next future, non-archived, non-cancelled session; if `isClosed` is true return `SESSION_CLOSED`, otherwise proceed. If no qualifying session exists → `SESSION_NOT_FOUND`.
 - No blind-add of strangers: `player_phone` must resolve to an existing `Player` record.
 - Prisma unique constraint on `(playerId, gameSessionId)` is the final guard against double-adds.
 - `removePlayerAction` in the admin UI already silently absorbs `P2025` (already gone); the assistant route will surface this as `NOT_REGISTERED` instead, so Mikey can reply clearly.
@@ -156,7 +156,7 @@ Both operations call `writeAuditLog` (from `@/lib/audit`) with:
 
 ## 4. Session and player selection
 
-**Session**: Always the next open session, selected by `getNextAssistantSession(now)` from `src/lib/assistant/operations/session-status.ts`. No session-ID param is accepted; if the admin needs to target a different session (edge case), that's a Phase 3+ concern.
+**Session**: Always the next upcoming non-archived, non-cancelled session. For the foreseeable future IRBA will have at most one open/upcoming session, so Phase 2 does not accept a `session_id` parameter. If the next session exists but `isClosed === true`, return `SESSION_CLOSED` instead of the misleading `SESSION_NOT_FOUND`.
 
 **Player**: Resolved from `params.player_phone` using the same `normalizeAssistantPhone()` that already normalizes actor phones (`src/lib/assistant/actor.ts`). Then:
 ```ts
@@ -172,32 +172,34 @@ If no row → `PLAYER_NOT_FOUND`.
 
 ### Add
 ```
-1. getNextAssistantSession()                   → session (or SESSION_NOT_FOUND)
+1. getNextAssistantSessionForMutation()        → session (or SESSION_NOT_FOUND / SESSION_CLOSED)
 2. normalizeAssistantPhone(params.player_phone)
 3. prisma.player.findUnique(phone)             → player (or PLAYER_NOT_FOUND)
-4. prisma.attendance.create({ playerId, gameSessionId })
+4. In one Prisma transaction: create attendance + write audit log
    → if P2002 unique violation → ALREADY_REGISTERED
 5. Re-fetch sorted attendances to compute position + counts
 6. Return data: status = confirmed if position <= maxPlayers, else waitlisted
-7. writeAuditLog(ASSISTANT_ROSTER_ADD)
+7. Return result
 ```
 
-No explicit transaction needed — the create is a single atomic insert; P2002 is the correct conflict signal. Position is computed post-insert by re-fetching all attendances and running `sortAttendancesByPrecedence` (same as `buildSessionStatus` in session-status.ts).
+Use a Prisma transaction so the attendance insert and `AuditLog` write are committed together. P2002 remains the correct conflict signal for duplicate adds. Position is computed post-insert by re-fetching all attendances and running `sortAttendancesByPrecedence` (same as `buildSessionStatus` in session-status.ts).
 
 ### Remove
 ```
-1. getNextAssistantSession()                   → session (or SESSION_NOT_FOUND)
+1. getNextAssistantSessionForMutation()        → session (or SESSION_NOT_FOUND / SESSION_CLOSED)
 2. normalizeAssistantPhone(params.player_phone)
 3. prisma.player.findUnique(phone)             → player (or PLAYER_NOT_FOUND)
 4. prisma.attendance.findFirst({ playerId, gameSessionId })  → or NOT_REGISTERED
 5. Re-fetch sorted attendances BEFORE delete to determine was_confirmed (position <= maxPlayers)
-6. prisma.attendance.delete({ id: attendance.id })
-   → if P2025 (race: already gone) → silently succeed (treat as idempotent success)
-7. Compute post-delete counts + first waitlisted player
-8. writeAuditLog(ASSISTANT_ROSTER_REMOVE)
+6. In one Prisma transaction:
+   a. delete the attendance row
+      → if P2025 (race: already gone) → treat as NOT_REGISTERED unless this is an idempotent replay
+   b. if the removed player was confirmed and the waitlist is non-empty, auto-promote the first waitlisted player by effectively moving them into the confirmed slice through canonical sorting (no extra DB field is needed; removing the confirmed attendance opens a slot)
+   c. write audit log for the removal and include promoted-player metadata in `after` when applicable
+7. Re-fetch sorted attendances after the transaction and return counts + promoted player metadata
 ```
 
-**Waitlist promotion semantics**: Phase 2 does **not** auto-promote. After remove, `waitlist_first` in the response gives Mikey the name of the next-in-line. Mikey surfaces this to the admin ("יש 2 בהמתנה, הראשון הוא דני — להקדים?"). The admin would then issue a separate command (Phase 3) or use the admin dashboard.
+**Waitlist promotion semantics**: Phase 2 **does auto-promote** after removing a confirmed player when the waitlist is non-empty. The promoted player is selected by the same canonical ordering used everywhere else: registered players by precedence score desc, then `createdAt` asc, then name asc; drop-ins by `createdAt` asc, then name asc. In practical terms: if candidates have the same precedence, the one who entered the waitlist earlier is promoted first. The response includes `promoted_player` so Mikey can say who moved in.
 
 ---
 
@@ -208,20 +210,21 @@ New error codes to add to `AssistantErrorCode` in `types.ts`:
 | Code | HTTP | Scenario | Mikey Hebrew reply |
 |------|------|----------|--------------------|
 | `FORBIDDEN_OPERATION` | 403 | Non-admin called a mutation | "רק מנהל יכול לבצע פעולה זו." |
-| `SESSION_NOT_FOUND` | 404 | No next open session | "לא נמצא מפגש פתוח קרוב." |
+| `SESSION_NOT_FOUND` | 404 | No upcoming non-archived/non-cancelled session | "לא נמצא מפגש קרוב." |
+| `SESSION_CLOSED` | 409 | Next session exists but roster is closed | "המפגש הקרוב סגור לשינויים." |
 | `PLAYER_NOT_FOUND` | 404 | Phone not in Player table | "לא נמצא שחקן עם מספר זה." |
 | `ALREADY_REGISTERED` | 409 | Add: player already in session | "השחקן כבר רשום למפגש זה." |
 | `NOT_REGISTERED` | 409 | Remove: player not in session | "השחקן אינו רשום למפגש זה." |
 
 Existing codes reused as-is: `UNAUTHORIZED`, `VALIDATION_ERROR`, `UNKNOWN_OPERATION`, `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`.
 
-`statusForCode` in `route.ts` gains entries for `FORBIDDEN_OPERATION` (403), `SESSION_NOT_FOUND` (404), `PLAYER_NOT_FOUND` (404), `ALREADY_REGISTERED` (409), `NOT_REGISTERED` (409).
+`statusForCode` in `route.ts` gains entries for `FORBIDDEN_OPERATION` (403), `SESSION_NOT_FOUND` (404), `SESSION_CLOSED` (409), `PLAYER_NOT_FOUND` (404), `ALREADY_REGISTERED` (409), `NOT_REGISTERED` (409).
 
 ### Success reply templates (for Mikey, not stored in IRBA):
 - Add confirmed: "✅ [שם] נוסף למשחק ([position]/[maxPlayers])."
 - Add waitlisted: "⏳ [שם] נוסף לרשימת ההמתנה (מקום [position])."
 - Remove (was confirmed, no waitlist): "✅ [שם] הוסר מהמשחק."
-- Remove (was confirmed, waitlist exists): "✅ [שם] הוסר. יש [N] בהמתנה — הבא הוא [waitlist_first.display_name]."
+- Remove (was confirmed, promoted waitlisted player): "✅ [שם] הוסר, ו־[promoted_player.display_name] קודם אוטומטית מרשימת ההמתנה."
 - Remove (was waitlisted): "✅ [שם] הוסר מרשימת ההמתנה."
 
 ---
@@ -232,6 +235,7 @@ Existing codes reused as-is: `UNAUTHORIZED`, `VALIDATION_ERROR`, `UNKNOWN_OPERAT
 
 **`src/lib/assistant/operations/session-roster-add.test.ts`**
 - No session → SESSION_NOT_FOUND
+- Next session exists but `isClosed` → SESSION_CLOSED
 - Unknown phone → PLAYER_NOT_FOUND
 - Happy path: player added to confirmed slot → returns `status: "confirmed"`, correct counts
 - Happy path: player added beyond maxPlayers → `status: "waitlisted"`, correct position
@@ -240,10 +244,11 @@ Existing codes reused as-is: `UNAUTHORIZED`, `VALIDATION_ERROR`, `UNKNOWN_OPERAT
 
 **`src/lib/assistant/operations/session-roster-remove.test.ts`**
 - No session → SESSION_NOT_FOUND
+- Next session exists but `isClosed` → SESSION_CLOSED
 - Unknown phone → PLAYER_NOT_FOUND
 - Player not in session → NOT_REGISTERED
-- Happy path: confirmed player removed, no waitlist → `was_confirmed: true`, `waitlist_first: null`
-- Happy path: confirmed player removed with waitlist → `waitlist_first` populated
+- Happy path: confirmed player removed, no waitlist → `was_confirmed: true`, `promoted_player: null`
+- Happy path: confirmed player removed with waitlist → first waitlisted player is promoted and `promoted_player` is populated
 - Happy path: waitlisted player removed → `was_confirmed: false`
 - Race/already-gone (P2025) treated as success
 - Correct audit log call
@@ -278,7 +283,7 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 ## 8. Implementation steps (recommended order)
 
-1. **Extend types** (`src/lib/assistant/types.ts`): add `"session_roster_add" | "session_roster_remove"` to `AssistantOperation`; add `FORBIDDEN_OPERATION | SESSION_NOT_FOUND | PLAYER_NOT_FOUND | ALREADY_REGISTERED | NOT_REGISTERED` to `AssistantErrorCode`.
+1. **Extend types** (`src/lib/assistant/types.ts`): add `"session_roster_add" | "session_roster_remove"` to `AssistantOperation`; add `FORBIDDEN_OPERATION | SESSION_NOT_FOUND | SESSION_CLOSED | PLAYER_NOT_FOUND | ALREADY_REGISTERED | NOT_REGISTERED` to `AssistantErrorCode`.
 
 2. **Update permissions** (`src/lib/assistant/permissions.ts`): introduce `ADMIN_ONLY_OPERATIONS` set; update `isKnownAssistantOperation` and `canRunAssistantOperation` to enforce admin level; change return to a discriminated type so route.ts can distinguish "unknown" from "forbidden".
 
@@ -290,7 +295,7 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 6. **Wire operations into route** (`route.ts`): add two cases to `runAssistantOperation`; pass `actor` to both (needed for audit log actor ID).
 
-7. **Update `help.ts`**: add both new operations to the returned list. Consider returning `admin_only: true` per-operation for Mikey to gate confirmation prompts.
+7. **Update `help.ts`**: show all operations to all actors, with per-operation metadata explaining who may run each one (for example `level: "any" | "admin"`), so Mikey can explain permissions clearly.
 
 8. **Write all tests** (steps 4-5 first, to drive implementation).
 
@@ -300,23 +305,27 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 ---
 
-## 9. Risks and open questions for Avi
+## 9. Avi decisions / resolved questions
 
-1. **Auto-promote on remove?** The current plan does not auto-promote. Should Mikey be able to say "הסר את X וקדם את הבא" in one command? If yes, Phase 2 should include `session_roster_promote` or a `promote_first_waitlisted: true` flag on remove.
+Resolved by Avi on 2026-05-22:
 
-2. **Unknown player add?** A player may have a WhatsApp number not in the DB (new drop-in). Should the admin be able to add them by phone only (creating a DROP_IN record on the fly)? This mirrors `quickAddDropInAction`. If yes, Phase 2 complexity rises; suggested: defer to Phase 3.
+1. **Auto-promote on remove**: yes. If a confirmed player is removed and the waitlist is non-empty, promote the next waitlisted player automatically using the canonical precedence order. If multiple players tie on precedence, use waitlist entry time (`createdAt`) as the tie-breaker.
 
-3. **WA notification to affected player?** After an admin-add/remove via assistant, should the affected player receive a DM? The admin dashboard doesn't auto-notify on add, only on waitlist-promote. Recommend: no notification in Phase 2, same as dashboard behavior.
+2. **Unknown player add**: defer to Phase 3. Phase 2 returns `PLAYER_NOT_FOUND` and does not create new DROP_IN players.
 
-4. **Session selection edge case**: What if there are two future open sessions? `getNextAssistantSession` picks the earliest; the admin might mean a different one. Acceptable for now given one-session cadence?
+3. **WA notification to affected player**: no player DM/push notification in Phase 2.
 
-5. **`isClosed` session behavior**: `getNextAssistantSession` filters `isClosed: false`. If admin closes the session (locking the roster), add/remove will return SESSION_NOT_FOUND, not a "session is locked" error. Is that clear enough, or should `isClosed` be checked explicitly with a dedicated `SESSION_CLOSED` error code?
+4. **Session selection**: for the foreseeable future there will not be more than one open/upcoming IRBA session, so no `session_id` parameter is needed.
 
-6. **Audit actor field**: Current `writeAuditLog` actor for admin-session actions is the string `"admin"` (single-operator MVP). For the assistant, the actor is a Player with an ID. Should audit entries use `actor: player.id` or the string `"assistant:admin"`? Recommend `actor: actor.player.id` for traceability.
+5. **Closed session behavior**: explicitly check `isClosed` and return `SESSION_CLOSED` rather than a misleading `SESSION_NOT_FOUND`.
 
-7. **Idempotency TTL for mutations**: The current TTL is `assistant_log_retention_days` (default 7). A replay of a 6-day-old "add" idempotency key would return success even though the session is long past. Is this fine? (It's harmless but slightly misleading.) Recommend keeping current behavior for now.
+6. **Audit actor field**: use `actor.player.id` for traceability.
 
-8. **`help` operation output for non-admins**: Once mutations are admin-only, should `help` return the full list (including admin-only ops) to all levels, or filter by actor level? Recommend: show all ops to all levels, mark admin-only ops with `"level": "admin"` in the response so OpenClaw can give a useful explanation.
+7. **Idempotency TTL**: 7-day retention is acceptable.
+
+8. **`help` output**: show all operations with an explanation/metadata for who can run each operation.
+
+No unresolved questions remain before implementation. If implementation reveals an ambiguity not covered here, stop and ask Avi before changing the plan.
 
 ---
 
@@ -324,7 +333,7 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 | File | Change |
 |------|--------|
-| `src/lib/assistant/types.ts` | Add 2 operations + 5 error codes |
+| `src/lib/assistant/types.ts` | Add 2 operations + 6 error codes |
 | `src/lib/assistant/permissions.ts` | Admin-only enforcement; two operation sets |
 | `src/lib/assistant/operations/help.ts` | Include new ops; add `level` field per op |
 | `src/app/api/assistant/v1/route.ts` | Wire new ops; `FORBIDDEN_OPERATION` branch; `statusForCode` entries |
@@ -332,8 +341,8 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 | `src/lib/assistant/operations/session-roster-remove.ts` | **New file** |
 | `src/lib/assistant/operations/session-roster-add.test.ts` | **New file** |
 | `src/lib/assistant/operations/session-roster-remove.test.ts` | **New file** |
-| `src/lib/assistant/__tests__/permissions.test.ts` | Extend for admin-only logic |
-| `src/lib/assistant/__tests__/route.test.ts` | New cases for mutations + FORBIDDEN_OPERATION |
+| `src/lib/assistant/permissions.test.ts` | Extend for admin-only logic |
+| `src/app/api/assistant/v1/route.test.ts` | New cases for mutations + FORBIDDEN_OPERATION |
 | `docs/plans/openclaw-irba-phase-2-admin-mutations.md` | This execution plan |
 
 No database schema changes required. No new AppConfig keys required.
