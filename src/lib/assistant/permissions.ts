@@ -1,16 +1,18 @@
-import type { AssistantActor } from "./types";
+import type { AssistantActor, AssistantOperation } from "./types";
 
-export function isKnownAssistantOperation(operation: string): operation is "help" {
-  return operation === "help";
+const READ_ONLY_OPERATIONS = new Set<AssistantOperation>(["help", "session_status", "next_session"]);
+
+export function isKnownAssistantOperation(operation: string): operation is AssistantOperation {
+  return READ_ONLY_OPERATIONS.has(operation as AssistantOperation);
 }
 
 export function canRunAssistantOperation(
   actor: AssistantActor,
   operation: string,
 ): boolean {
-  if (operation === "help") return true;
-  // Phase 0 has no member/admin-only operations yet. Keep actor in the
-  // signature so Phase 1 can add permission rules without changing callers.
+  // Phase 1 exposes allowlisted group read-only operations only. The actor is
+  // resolved server-side for audit/future policy, but all levels may read the
+  // group-visible roster/session status.
   void actor;
-  return false;
+  return isKnownAssistantOperation(operation);
 }

@@ -12,6 +12,13 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    gameSession: {
+      findFirst: vi.fn(),
+    },
+    playerYearAggregate: { findMany: vi.fn() },
+    playerAdjustment: { findMany: vi.fn() },
+    attendance: { groupBy: vi.fn() },
+    yearWeight: { findMany: vi.fn() },
   },
 }));
 
@@ -45,6 +52,11 @@ describe("POST /api/assistant/v1", () => {
     vi.mocked(prisma.player.findUnique).mockReset();
     vi.mocked(prisma.assistantRequestLog.findUnique).mockReset();
     vi.mocked(prisma.assistantRequestLog.create).mockReset();
+    vi.mocked(prisma.gameSession.findFirst).mockReset();
+    vi.mocked(prisma.playerYearAggregate.findMany).mockReset();
+    vi.mocked(prisma.playerAdjustment.findMany).mockReset();
+    vi.mocked(prisma.attendance.groupBy).mockReset();
+    vi.mocked(prisma.yearWeight.findMany).mockReset();
     vi.mocked(prisma.appConfig.findUnique).mockResolvedValue({
       key: "assistant_allowed_groups",
       value: body.group_jid,
@@ -53,6 +65,11 @@ describe("POST /api/assistant/v1", () => {
     vi.mocked(prisma.player.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.assistantRequestLog.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.assistantRequestLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.gameSession.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.playerYearAggregate.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.playerAdjustment.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.attendance.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.yearWeight.findMany).mockResolvedValue([] as never);
   });
 
   afterEach(() => {
@@ -94,10 +111,52 @@ describe("POST /api/assistant/v1", () => {
     expect(res.status).toBe(200);
     expect(json).toMatchObject({
       ok: true,
-      data: { operations: ["help"], actor: { level: "guest", phone: "0501234567" } },
+      data: { operations: ["help", "session_status", "next_session"], actor: { level: "guest", phone: "0501234567" } },
       error: null,
       idempotent_replay: false,
     });
+  });
+
+  it("returns next_session for a valid read-only request", async () => {
+    const res = await POST(request({ ...body, operation: "next_session" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({
+      ok: true,
+      data: { session: null },
+      error: null,
+      idempotent_replay: false,
+    });
+    expect(prisma.assistantRequestLog.create).toHaveBeenCalled();
+  });
+
+  it("returns session_status for a valid read-only request", async () => {
+    const res = await POST(request({ ...body, operation: "session_status" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({
+      ok: true,
+      data: {
+        session: null,
+        counts: { registered: 0, confirmed: 0, waitlisted: 0, spots_left: 0 },
+        confirmed: [],
+        waitlist: [],
+      },
+      error: null,
+      idempotent_replay: false,
+    });
+    expect(prisma.assistantRequestLog.create).toHaveBeenCalled();
+  });
+
+  it("returns validation error for invalid operation params", async () => {
+    const res = await POST(request({ ...body, operation: "session_status", params: { target: "past" } }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(prisma.assistantRequestLog.create).toHaveBeenCalled();
   });
 
   it("replays an idempotent response", async () => {

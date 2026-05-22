@@ -1,4 +1,4 @@
-export type AssistantOperation = "help";
+export type AssistantOperation = "help" | "session_status" | "next_session";
 
 export type AssistantErrorCode =
   | "UNAUTHORIZED"

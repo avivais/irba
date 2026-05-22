@@ -10,7 +10,7 @@ export type AssistantHelpData = {
 
 export function getAssistantHelp(actor: AssistantActor): AssistantHelpData {
   return {
-    operations: ["help"],
+    operations: ["help", "session_status", "next_session"],
     actor: {
       level: actor.level,
       phone: actor.normalizedPhone,

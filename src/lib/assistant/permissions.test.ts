@@ -31,9 +31,19 @@ describe("assistant permissions", () => {
     expect(canRunAssistantOperation(admin, "help")).toBe(true);
   });
 
-  it("recognizes only implemented operations in phase 0", () => {
+  it("recognizes phase 1 read-only operations", () => {
     expect(isKnownAssistantOperation("help")).toBe(true);
+    expect(isKnownAssistantOperation("session_status")).toBe(true);
+    expect(isKnownAssistantOperation("next_session")).toBe(true);
     expect(isKnownAssistantOperation("roster.add")).toBe(false);
+  });
+
+  it("allows all actor levels to call read-only operations", () => {
+    for (const operation of ["help", "session_status", "next_session"]) {
+      expect(canRunAssistantOperation(guest, operation)).toBe(true);
+      expect(canRunAssistantOperation(member, operation)).toBe(true);
+      expect(canRunAssistantOperation(admin, operation)).toBe(true);
+    }
     expect(canRunAssistantOperation(admin, "roster.add")).toBe(false);
   });
 });

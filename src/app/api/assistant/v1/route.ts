@@ -7,10 +7,12 @@ import { verifyAssistantAuth } from "@/lib/assistant/auth";
 import { AssistantApiError, errorResponse, successResponse } from "@/lib/assistant/errors";
 import { isAssistantGroupAllowed } from "@/lib/assistant/group-allowlist";
 import { getAssistantIdempotency, storeAssistantResult } from "@/lib/assistant/idempotency";
+import { getAssistantNextSession } from "@/lib/assistant/operations/next-session";
 import { getAssistantHelp } from "@/lib/assistant/operations/help";
+import { getAssistantSessionStatus } from "@/lib/assistant/operations/session-status";
 import { canRunAssistantOperation, isKnownAssistantOperation } from "@/lib/assistant/permissions";
 import { parseAssistantEnvelope } from "@/lib/assistant/schema";
-import type { AssistantEnvelope, AssistantResponse } from "@/lib/assistant/types";
+import type { AssistantActor, AssistantEnvelope, AssistantResponse } from "@/lib/assistant/types";
 
 export async function POST(request: Request) {
   try {
@@ -68,14 +70,33 @@ export async function POST(request: Request) {
   }
 
   try {
-    const data = getAssistantHelp(actor);
+    const data = await runAssistantOperation(envelope, actor);
     const response = successResponse(data);
     await storeAssistantResultSafe(envelope, "OK", response);
     return json(response, 200);
-  } catch {
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const response = errorResponse("VALIDATION_ERROR", "Invalid assistant operation params", error.flatten());
+      await storeAssistantResultSafe(envelope, "VALIDATION_ERROR", response);
+      return json(response, 400);
+    }
+
     const response = errorResponse("INTERNAL_ERROR", "Assistant operation failed");
     await storeAssistantResultSafe(envelope, "INTERNAL_ERROR", response);
     return json(response, 500);
+  }
+}
+
+async function runAssistantOperation(envelope: AssistantEnvelope, actor: AssistantActor): Promise<unknown> {
+  switch (envelope.operation) {
+    case "help":
+      return getAssistantHelp(actor);
+    case "session_status":
+      return getAssistantSessionStatus(envelope.params);
+    case "next_session":
+      return getAssistantNextSession();
+    default:
+      throw new Error("unknown assistant operation");
   }
 }
 

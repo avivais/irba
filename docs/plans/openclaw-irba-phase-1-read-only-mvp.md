@@ -3,7 +3,7 @@
 > Source plan: `docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md`  
 > Depends on: `docs/plans/openclaw-irba-phase-0-infrastructure.md`  
 > Scope: deterministic read-only assistant operations only  
-> Status: planned  
+> Status: implementation complete locally; production deployment/smoke pending  
 > Date: 2026-05-22
 
 ## 1. Purpose and explicit non-goals
@@ -362,6 +362,8 @@ Phase 1 is complete when:
 
 ## 13. Open questions
 
-- Should Phase 1 expose only roster/status, or also a safe member-only personal balance summary? Recommendation: keep balances out of Phase 1 and add them later as a private-DM/member operation.
-- Should `session_status` support selecting a session by date in Phase 1? Recommendation: not yet; default to next active session to keep the MVP narrow.
-- Should group users see full confirmed/waitlist names in the main IRBA group? Recommendation: yes, because the roster is already group-visible operational data, but omit phones and private profile data.
+Resolved by Avi on 2026-05-22:
+
+- Phase 1 exposes only roster/status and next-session data; balances stay out of Phase 1 and can be added later as a private-DM/member operation.
+- `session_status` does not support selecting by date in Phase 1; it defaults to the next active session to keep the MVP narrow.
+- Group users may see full confirmed/waitlist display names because roster status is already group-visible operational data; phones and private profile data remain omitted.
