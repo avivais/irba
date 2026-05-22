@@ -2,11 +2,17 @@
 
 > Source plan: `docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md`
 > Scope: infrastructure only — no real IRBA business operations yet
-> Status: implemented on IRBA side; production config/smoke test still pending
+> Status: complete and production-smoked on 2026-05-22
 
 ## 1. Purpose and explicit non-goals
 
-Phase 0 creates the safe foundation that OpenClaw/Mikey will use to call IRBA. At the end of this phase, IRBA has an authenticated assistant API endpoint, a request envelope, group allowlist enforcement, actor resolution, idempotency storage, request logging, and a minimal `help` operation.
+Phase 0 created the safe foundation that OpenClaw/Mikey will use to call IRBA. IRBA now has an authenticated assistant API endpoint, a request envelope, group allowlist enforcement, actor resolution, idempotency storage, request logging, and a minimal `help` operation.
+
+Completion notes:
+
+- Implemented in `eb048a3 feat(assistant): add OpenClaw integration infrastructure`.
+- Production configuration and manual smoke tests were verified on 2026-05-22.
+- Local verification on 2026-05-22: `npm test` (337 tests), `npm run lint` (0 errors, 9 pre-existing warnings), and `DATABASE_URL='postgresql://build:placeholder@localhost:5432/build' npm run build` all passed.
 
 Non-goals:
 
@@ -416,17 +422,27 @@ Because the endpoint is additive and disabled unless configured, the preferred r
 
 ## 14. Acceptance criteria / definition of done
 
-- New endpoint exists and is documented.
-- Endpoint fails closed with missing secret.
-- Auth, allowlist, schema validation, actor resolution, permission check, idempotency, logging, and `help` dispatch all exist.
-- `AssistantRequestLog` migration applies cleanly.
-- Config keys are seeded and defaults are safe.
-- Prune cron handles assistant logs.
-- Tests pass.
-- Manual curl smoke tests pass in production or staging.
-- `PROJECT_STATE.md` records the new assistant API skeleton.
-- No inbound WhatsApp listener was added to IRBA.
-- No changes were made to `wa/`.
+All Phase 0 acceptance criteria are complete as of 2026-05-22:
+
+- [x] New endpoint exists and is documented.
+- [x] Endpoint fails closed with missing secret.
+- [x] Auth, allowlist, schema validation, actor resolution, permission check, idempotency, logging, and `help` dispatch all exist.
+- [x] `AssistantRequestLog` migration applies cleanly.
+- [x] Config keys are seeded and defaults are safe.
+- [x] Prune cron handles assistant logs.
+- [x] Tests pass.
+- [x] Manual curl smoke tests pass in production.
+- [x] `PROJECT_STATE.md` records the new assistant API skeleton.
+- [x] No inbound WhatsApp listener was added to IRBA.
+- [x] No changes were made to `wa/`.
+
+Production smoke results:
+
+- Valid `help` request from allowlisted IRBA Coding group → `200`, `ok: true`, `operations: ["help"]`, actor resolved as admin for Avi.
+- Same idempotency key replay → `200`, `idempotent_replay: true`.
+- Missing auth → `401 UNAUTHORIZED`.
+- Non-allowlisted group → `403 FORBIDDEN_GROUP`.
+- Unknown operation → `400 UNKNOWN_OPERATION`.
 
 ## 15. Open questions before implementation
 

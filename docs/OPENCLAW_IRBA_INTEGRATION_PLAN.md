@@ -1,14 +1,15 @@
 # OpenClaw ↔ IRBA Integration Plan
 
 > **Replaces**: `docs/WHATSAPP_COMMAND_API_PLAN.md`
-> **Status**: Phase 0 IRBA-side implementation complete; OpenClaw wiring and production configuration pending
-> **Date**: 2026-05-20
+> **Status**: Phase 0 complete and production-smoked; Phase 1 read-only MVP next
+> **Date**: 2026-05-22
 
 ---
 
 ## Execution Plans
 
-- Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — IRBA-side implementation complete
+- Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — complete and production-smoked
+- Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — next implementation plan
 
 These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
 
@@ -441,12 +442,12 @@ Extend the existing `prune-audit` cron to also delete `AssistantRequestLog` rows
 
 ## 8. MVP Scope and Phased Rollout
 
-### Phase 0 — Infrastructure (est. 1–2 days)
+### Phase 0 — Infrastructure (complete)
 
-Deliverables: API endpoint exists, auth works, group check works, actor resolution works, audit log table in DB.
+Deliverables: API endpoint exists, auth works, group check works, actor resolution works, audit log table in DB. Implemented in `eb048a3 feat(assistant): add OpenClaw integration infrastructure`; production config and smoke test verified on 2026-05-22.
 
 - [x] Add `ASSISTANT_API_SECRET` to `.env.example`
-- [ ] Add `ASSISTANT_API_SECRET` to production EC2 `.env` and OpenClaw config
+- [x] Add `ASSISTANT_API_SECRET` to production EC2 `.env` and OpenClaw config
 - [x] Add `assistant_allowed_groups` seed row to `AppConfig`
 - [x] Add `assistant_log_retention_days` seed row to `AppConfig` (default: 7)
 - [x] Write Prisma migration: `AssistantRequestLog` model
@@ -455,7 +456,7 @@ Deliverables: API endpoint exists, auth works, group check works, actor resoluti
 - [x] `src/lib/assistant/actor.ts` — phone → Player + permission level
 - [x] `src/lib/assistant/idempotency.ts` — check/store idempotency key
 - [x] `src/lib/assistant/schema.ts` — outer Zod envelope validation
-- [ ] Production smoke test: `curl -X POST ... -H "Authorization: Bearer ..." '{"operation":"help",...}'`
+- [x] Production smoke test: `help` returns 200, replay returns `idempotent_replay: true`, unauthenticated request returns 401, non-allowlisted group returns 403, unknown operation returns 400
 
 ### Phase 1 — Read-only MVP (est. 2–3 days)
 
@@ -539,10 +540,10 @@ Deliverables: Admin can add/remove players from a session via WhatsApp message.
 ### Manual QA Checklist
 
 **Phase 0 (infrastructure):**
-- [ ] `curl -X POST /api/assistant/v1` with correct token + valid body → 200 `help` response
-- [ ] Same curl with wrong token → 401
-- [ ] Same curl with non-allowlisted group JID → 403
-- [ ] Same curl twice with same `idempotency_key` → second returns 200 with `idempotent_replay: true`
+- [x] `curl -X POST /api/assistant/v1` with correct token + valid body → 200 `help` response
+- [x] Same curl without/wrong token → 401
+- [x] Same curl with non-allowlisted group JID → 403
+- [x] Same curl twice with same `idempotency_key` → second returns 200 with `idempotent_replay: true`
 
 **Phase 1 (read-only):**
 - [ ] Mikey: ask "מה הסטטוס?" in group → Mikey replies with roster
