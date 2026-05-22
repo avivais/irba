@@ -553,7 +553,7 @@ Deliverables: Admin can add/remove players from a session via WhatsApp message.
 - [x] Production helper smoke: `help` returns operations + admin actor
 - [x] Production helper smoke: `next_session` returns valid response (`session: null` when no upcoming active session)
 - [x] Production helper smoke: `session_status {"include_waitlist":true}` returns valid empty counts/rosters when no upcoming active session
-- [ ] Group-language QA: ask "מה הסטטוס?" in IRBA Coding → Mikey formats the API response clearly in Hebrew
+- [x] Group-language QA: ask "מה הסטטוס של IRBA?" in IRBA Coding → Mikey formats the API response clearly in Hebrew (2026-05-22)
 
 Note: balance/payment questions were explicitly deferred out of Phase 1. Do not use balance checks as Phase 1 acceptance criteria unless a balance read-only operation is reintroduced.
 
