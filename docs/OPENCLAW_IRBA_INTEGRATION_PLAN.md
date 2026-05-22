@@ -1,7 +1,7 @@
 # OpenClaw ↔ IRBA Integration Plan
 
 > **Replaces**: `docs/WHATSAPP_COMMAND_API_PLAN.md`
-> **Status**: Phase 1 read-only MVP implemented locally; production deployment/smoke pending
+> **Status**: Phase 1 read-only MVP complete and production-smoked; OpenClaw helper configured
 > **Date**: 2026-05-22
 
 ---
@@ -9,7 +9,7 @@
 ## Execution Plans
 
 - Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — complete and production-smoked
-- Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — implemented locally; production deployment/smoke pending
+- Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — complete and production-smoked
 
 These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
 
@@ -458,7 +458,7 @@ Deliverables: API endpoint exists, auth works, group check works, actor resoluti
 - [x] `src/lib/assistant/schema.ts` — outer Zod envelope validation
 - [x] Production smoke test: `help` returns 200, replay returns `idempotent_replay: true`, unauthenticated request returns 401, non-allowlisted group returns 403, unknown operation returns 400
 
-### Phase 1 — Read-only MVP (implementation complete; deployment/smoke pending)
+### Phase 1 — Read-only MVP (complete and production-smoked)
 
 Deliverables: Mikey can answer roster/status and next-session questions from the group via deterministic read-only assistant API operations. Avi accepted the Phase 1 plan recommendations: balances stay out of Phase 1, date-specific session selection is deferred, and group-visible roster names are allowed while private fields remain omitted.
 
@@ -466,8 +466,8 @@ Deliverables: Mikey can answer roster/status and next-session questions from the
 - [x] `src/lib/assistant/operations/session-status.ts` returns next active session roster/status using existing attendance precedence sorting
 - [x] `src/lib/assistant/operations/next-session.ts` returns next-session metadata and counts
 - [x] Route dispatch validates params, preserves auth/allowlist/permission/idempotency/logging behavior, and stores validation errors
-- [ ] Wire up OpenClaw: Mikey calls IRBA API with correct params, formats Hebrew reply
-- [ ] Manual production smoke in the allowlisted IRBA Coding group (see §9)
+- [x] Wire up OpenClaw helper: Mikey can call IRBA API with correct params and format Hebrew replies
+- [x] Manual production smoke in the allowlisted IRBA Coding group (see §9)
 
 ### Phase 2 — Admin Mutations (est. 2–3 days)
 

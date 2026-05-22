@@ -3,7 +3,7 @@
 > Source plan: `docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md`  
 > Depends on: `docs/plans/openclaw-irba-phase-0-infrastructure.md`  
 > Scope: deterministic read-only assistant operations only  
-> Status: implementation complete locally; production deployment/smoke pending  
+> Status: complete and production-smoked on 2026-05-22  
 > Date: 2026-05-22
 
 ## 1. Purpose and explicit non-goals
@@ -348,17 +348,17 @@ No database rollback should be required for Phase 1 because it adds no schema ch
 
 Phase 1 is complete when:
 
-- [ ] `help` lists `session_status` and `next_session`.
-- [ ] `session_status` returns structured next-session roster status using existing attendance precedence rules.
-- [ ] `next_session` returns structured next-session metadata and counts.
-- [ ] Read-only responses omit private/sensitive player fields.
-- [ ] All new operations are authenticated, allowlisted, permission-checked, idempotent, and logged.
-- [ ] Invalid params return typed `VALIDATION_ERROR`.
-- [ ] Local targeted tests pass.
-- [ ] Full `npm test`, `npm run lint`, and production-style build pass.
-- [ ] Production smoke tests pass.
-- [ ] `PROJECT_STATE.md` and `docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md` are updated.
-- [ ] Mikey can answer a real IRBA Coding group read-only status question from the API response.
+- [x] `help` lists `session_status` and `next_session`.
+- [x] `session_status` returns structured next-session roster status using existing attendance precedence rules.
+- [x] `next_session` returns structured next-session metadata and counts.
+- [x] Read-only responses omit private/sensitive player fields.
+- [x] All new operations are authenticated, allowlisted, permission-checked, idempotent, and logged.
+- [x] Invalid params return typed `VALIDATION_ERROR`.
+- [x] Local targeted tests pass.
+- [x] Full `npm test`, `npm run lint`, and production-style build pass.
+- [x] Production smoke tests pass.
+- [x] `PROJECT_STATE.md` and `docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md` are updated.
+- [x] Mikey can answer a real IRBA Coding group read-only status question from the API response.
 
 ## 13. Open questions
 
