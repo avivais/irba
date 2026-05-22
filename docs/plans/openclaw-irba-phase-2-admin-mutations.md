@@ -1,4 +1,4 @@
-# IRBA Assistant Phase 2 Plan: Admin Roster Mutations
+# Phase 2 — OpenClaw ↔ IRBA Integration: Admin Roster Mutations Execution Plan
 
 ## Context
 
@@ -8,7 +8,7 @@ Phase 2 adds two admin-only mutations: **add a player to the next session's rost
 
 ---
 
-## 1. Scope and Non-Goals
+## 1. Purpose and explicit non-goals
 
 ### In scope
 - `session_roster_add`: admin adds a known player (by phone) to the next open session.
@@ -28,7 +28,7 @@ Phase 2 adds two admin-only mutations: **add a player to the next session's rost
 
 ---
 
-## 2. Proposed API Operations and Contracts
+## 2. MVP operations and API contracts
 
 Both operations use the same envelope structure already in production.
 
@@ -113,7 +113,7 @@ Both operations use the same envelope structure already in production.
 
 ---
 
-## 3. Permission, Confirmation, Idempotency, Audit, and Safety Model
+## 3. Permission, confirmation, idempotency, audit, and safety model
 
 ### Permissions
 - `admin` actor: allowed.
@@ -154,7 +154,7 @@ Both operations call `writeAuditLog` (from `@/lib/audit`) with:
 
 ---
 
-## 4. Session and Player Selection
+## 4. Session and player selection
 
 **Session**: Always the next open session, selected by `getNextAssistantSession(now)` from `src/lib/assistant/operations/session-status.ts`. No session-ID param is accepted; if the admin needs to target a different session (edge case), that's a Phase 3+ concern.
 
@@ -168,7 +168,7 @@ If no row → `PLAYER_NOT_FOUND`.
 
 ---
 
-## 5. Transaction Behavior
+## 5. Transaction behavior
 
 ### Add
 ```
@@ -201,7 +201,7 @@ No explicit transaction needed — the create is a single atomic insert; P2002 i
 
 ---
 
-## 6. Error Cases and Hebrew Reply Guidance
+## 6. Error cases and Hebrew reply guidance
 
 New error codes to add to `AssistantErrorCode` in `types.ts`:
 
@@ -226,7 +226,7 @@ Existing codes reused as-is: `UNAUTHORIZED`, `VALIDATION_ERROR`, `UNKNOWN_OPERAT
 
 ---
 
-## 7. Test Plan
+## 7. Tests
 
 ### Unit tests (new files)
 
@@ -276,7 +276,7 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 ---
 
-## 8. Implementation Steps (Recommended Order)
+## 8. Implementation steps (recommended order)
 
 1. **Extend types** (`src/lib/assistant/types.ts`): add `"session_roster_add" | "session_roster_remove"` to `AssistantOperation`; add `FORBIDDEN_OPERATION | SESSION_NOT_FOUND | PLAYER_NOT_FOUND | ALREADY_REGISTERED | NOT_REGISTERED` to `AssistantErrorCode`.
 
@@ -300,7 +300,7 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 ---
 
-## 9. Risks and Open Questions for Avi
+## 9. Risks and open questions for Avi
 
 1. **Auto-promote on remove?** The current plan does not auto-promote. Should Mikey be able to say "הסר את X וקדם את הבא" in one command? If yes, Phase 2 should include `session_roster_promote` or a `promote_first_waitlisted: true` flag on remove.
 
@@ -320,7 +320,7 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 
 ---
 
-## 10. Files Likely to Change
+## 10. Expected files
 
 | File | Change |
 |------|--------|
@@ -334,6 +334,6 @@ New error codes are literals; no runtime test needed — TypeScript compile is t
 | `src/lib/assistant/operations/session-roster-remove.test.ts` | **New file** |
 | `src/lib/assistant/__tests__/permissions.test.ts` | Extend for admin-only logic |
 | `src/lib/assistant/__tests__/route.test.ts` | New cases for mutations + FORBIDDEN_OPERATION |
-| `docs/ASSISTANT_PHASE_2_PLAN.md` | Replace stub with this document |
+| `docs/plans/openclaw-irba-phase-2-admin-mutations.md` | This execution plan |
 
 No database schema changes required. No new AppConfig keys required.
