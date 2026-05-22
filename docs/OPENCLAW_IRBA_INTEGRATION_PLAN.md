@@ -1,7 +1,7 @@
 # OpenClaw ↔ IRBA Integration Plan
 
 > **Replaces**: `docs/WHATSAPP_COMMAND_API_PLAN.md`
-> **Status**: Phases 1, 2, and 2.1 lookup layer complete and production-smoked; OpenClaw IRBA skill configured
+> **Status**: Phases 1, 2, and 2.1 complete enough for operational use; OpenClaw IRBA skill configured and QA-smoked; final live mention QA in the future production group deferred until real use
 > **Date**: 2026-05-22
 
 ---
@@ -10,8 +10,8 @@
 
 - Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — complete and production-smoked
 - Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — complete and production-smoked
-- Phase 2 admin roster mutations: [`docs/plans/openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) — implemented and production-deployed; full mutation QA pending an open session
-- Phase 2.1 human-friendly roster commands: [`docs/plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) — `player_lookup` implemented/deployed; OpenClaw `irba-assistant` skill created for natural command orchestration; real add/remove QA pending an open session
+- Phase 2 admin roster mutations: [`docs/plans/openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) — implemented, production-deployed, and QA-smoked through OpenClaw roster commands against an upcoming session
+- Phase 2.1 human-friendly roster commands: [`docs/plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) — `player_lookup` implemented/deployed; OpenClaw `irba-assistant` skill created and QA-smoked for natural command orchestration; final live mention QA in the future production group remains deferred
 
 These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
 
@@ -59,6 +59,7 @@ Enable Mikey (OpenClaw's AI assistant) to respond to natural-language WhatsApp m
   - `SKILL.md` declares when to use the IRBA assistant workflow.
   - `scripts/irba_roster_command.py` implements safe natural roster orchestration: parse → `player_lookup` → all-or-clarify → `session_roster_add/remove`.
   - `references/COMMANDS.md` documents supported command words, target splitting, and safety behavior.
+  - Mention handling is intentionally conservative: phone/JID mentions resolve directly; LID mentions resolve only through an existing local WhatsApp/Baileys LID→phone mapping; unresolved LIDs block mutation and ask for a name/phone.
 
 ---
 

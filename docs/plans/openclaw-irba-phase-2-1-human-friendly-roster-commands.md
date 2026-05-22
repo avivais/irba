@@ -2,7 +2,7 @@
 
 ## Implementation status — 2026-05-22
 
-Approved by Avi and partially implemented/deployed.
+Approved by Avi, implemented/deployed, and QA-smoked enough for operational use.
 
 Completed:
 
@@ -13,15 +13,16 @@ Completed:
   - `SKILL.md`
   - `scripts/irba_roster_command.py`
   - `references/COMMANDS.md`
-- Skill smoke tests passed for Hebrew multi-target parsing, dry-run lookup, phone/JID mention resolution, and safe refusal for LID-only mentions.
+- Skill smoke tests passed for Hebrew multi-target parsing, dry-run lookup, phone/JID mention resolution, local LID→phone mapping, and safe refusal for unmapped LID-only mentions.
+- Real IRBA Coding group QA against upcoming session `cmpha1zfy000508qh2aot2huj` passed for: self remove/add, multi-add (`אבי`, `אדיר`, `יקיר`, `פוגל`), duplicate add (`ALREADY_REGISTERED`), status reply, and LID-mapped mention remove (`@138435436224615` → `יקיר`).
+- Skill was polished after QA to strip surrounding schedule words such as `מהמפגש הקרוב`, support `אותי`, use local WhatsApp/Baileys reverse LID→phone mappings when available, and format mutation success replies from API `data.player.display_name` instead of raw phone input.
 
-Still pending before marking Phase 2.1 fully complete:
+Still pending / deferred before treating mentions as fully proven in the final production group:
 
-- Real WhatsApp/group add/remove by name against an upcoming/open session.
+- Live mention QA in the future production WhatsApp group, because that group may expose different LID/JID behavior and may not have local LID→phone mappings yet.
 - Ambiguous-name group QA against real data.
 - Unknown-name group QA against real data.
-- Mention QA using actual inbound OpenClaw WhatsApp mention metadata.
-- Remove-by-name and duplicate/not-registered edge cases against an open session.
+- Not-registered remove edge case against an open session.
 
 ## Context
 
@@ -208,8 +209,8 @@ Resolution rules:
 
 1. If mention metadata includes a phone number, normalize it with `normalizeAssistantPhone()` and lookup `Player.phone`.
 2. If mention metadata includes a WhatsApp JID with an embedded phone, extract and normalize that phone.
-3. If mention metadata only includes LID/internal ID, do **not** guess. Either:
-   - use an existing mapping table if one exists, or
+3. If mention metadata/text only includes LID/internal ID, do **not** guess. Either:
+   - use an existing local WhatsApp/Baileys reverse LID→phone mapping if one exists, or
    - return “לא הצלחתי לזהות את התיוג למספר/שחקן — תכתוב שם או מספר.”
 4. If mention metadata only includes display text, treat it like a normal name lookup and apply ambiguity rules.
 
@@ -393,23 +394,26 @@ If OpenClaw-side command handling is implemented in repo scripts/helpers:
 
 ## 9. Production QA checklist
 
-Before marking Phase 2.1 complete:
+Before treating Phase 2.1 as fully proven in the final production WhatsApp group:
 
 - [x] Unit tests pass for lookup priority and parser behavior. (`src/lib/assistant/player-lookup.test.ts`, 23 tests)
-- [x] Full test suite passes. (`398 passed` on 2026-05-22)
+- [x] Full test suite passes. (`398 passed` for Phase 2.1 implementation; later `400 passed` after the admin config save fix on 2026-05-22)
 - [x] Lint passes with no new errors. (`0 errors`, 9 pre-existing warnings)
 - [x] Production deploy completed and `/api/health.version` reports the Phase 2.1 commit. (`7c1f5dd`)
 - [x] WhatsApp/API smoke: `help`/capability text lists `player_lookup` as admin-only.
 - [x] OpenClaw skill smoke: Hebrew multi-target parse works in `irba_roster_command.py`.
 - [x] OpenClaw skill smoke: `תוסיף את פוגל --dry-run` resolves through production `player_lookup` without mutating.
-- [x] OpenClaw skill smoke: mention with phone/JID resolves; LID-only mention fails safely.
-- [ ] WhatsApp group QA: add by unique Hebrew nickname works on a safe/open session.
-- [ ] WhatsApp group QA: add two players in one Hebrew command works or asks before partial execution.
+- [x] OpenClaw skill smoke: mention with phone/JID resolves; unresolved LID-only mention fails safely; LID with local reverse mapping resolves to phone.
+- [x] WhatsApp group QA: add by unique Hebrew nickname works on a safe/open session. (`יקיר`)
+- [x] WhatsApp group QA: add multiple players in one Hebrew command works. (`אבי`, `אדיר`, `יקיר`, `פוגל`)
+- [x] WhatsApp group QA: self remove/add works. (`אותי` → Avi's actor phone)
+- [x] WhatsApp group QA: LID-mapped mention remove works in the current IRBA Coding group. (`@138435436224615` → `יקיר`)
+- [x] Duplicate add reply remains clear. (`אדיר` already registered)
 - [ ] WhatsApp group QA: ambiguous name asks clarification and does not mutate.
 - [ ] WhatsApp group QA: unknown name returns a clear not-found reply and does not mutate.
-- [ ] WhatsApp group QA: mention lookup succeeds when phone metadata is available, or fails safely when only LID/internal metadata is available.
-- [ ] Remove by name tested after add.
-- [ ] Duplicate add / not-registered remove replies remain clear.
+- [ ] WhatsApp group QA: mention lookup in the future production group succeeds when phone metadata/mapping is available, or fails safely when only unmapped LID/internal metadata is available.
+- [ ] Remove by name tested after add in final production-style flow.
+- [ ] Not-registered remove reply remains clear.
 
 ---
 
