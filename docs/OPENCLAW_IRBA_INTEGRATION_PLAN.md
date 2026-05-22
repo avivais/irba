@@ -10,7 +10,8 @@
 
 - Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — complete and production-smoked
 - Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — complete and production-smoked
-- Phase 2 admin roster mutations: [`docs/plans/openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) — planned, awaiting Avi approval before implementation
+- Phase 2 admin roster mutations: [`docs/plans/openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) — implemented and production-deployed; full mutation QA pending an open session
+- Phase 2.1 human-friendly roster commands: [`docs/plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) — planned, awaiting Avi approval before implementation
 
 These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
 
