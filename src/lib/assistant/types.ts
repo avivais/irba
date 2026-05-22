@@ -3,7 +3,8 @@ export type AssistantOperation =
   | "session_status"
   | "next_session"
   | "session_roster_add"
-  | "session_roster_remove";
+  | "session_roster_remove"
+  | "player_lookup";
 
 export type AssistantErrorCode =
   | "UNAUTHORIZED"
@@ -18,7 +19,8 @@ export type AssistantErrorCode =
   | "SESSION_CLOSED"
   | "PLAYER_NOT_FOUND"
   | "ALREADY_REGISTERED"
-  | "NOT_REGISTERED";
+  | "NOT_REGISTERED"
+  | "MIXED_LANGUAGE_AMBIGUOUS";
 
 export type AssistantError = {
   code: AssistantErrorCode;

@@ -135,6 +135,7 @@ describe("POST /api/assistant/v1", () => {
           { name: "next_session", level: "any" },
           { name: "session_roster_add", level: "admin" },
           { name: "session_roster_remove", level: "admin" },
+          { name: "player_lookup", level: "admin" },
         ],
         actor: { level: "guest", phone: "0501234567" },
       },

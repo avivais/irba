@@ -1,6 +1,6 @@
 import type { AssistantActor, AssistantOperation } from "./types";
 
-const ADMIN_ONLY_OPERATIONS = new Set<AssistantOperation>(["session_roster_add", "session_roster_remove"]);
+const ADMIN_ONLY_OPERATIONS = new Set<AssistantOperation>(["session_roster_add", "session_roster_remove", "player_lookup"]);
 const ANY_LEVEL_OPERATIONS = new Set<AssistantOperation>(["help", "session_status", "next_session"]);
 
 export function isKnownAssistantOperation(operation: string): operation is AssistantOperation {

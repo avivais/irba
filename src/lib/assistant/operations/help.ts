@@ -19,6 +19,7 @@ const OPERATIONS: AssistantHelpOperation[] = [
   { name: "next_session", level: "any" },
   { name: "session_roster_add", level: "admin" },
   { name: "session_roster_remove", level: "admin" },
+  { name: "player_lookup", level: "admin" },
 ];
 
 export function getAssistantHelp(actor: AssistantActor): AssistantHelpData {
