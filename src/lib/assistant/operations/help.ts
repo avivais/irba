@@ -1,16 +1,29 @@
 import type { AssistantActor } from "../types";
 
+export type AssistantHelpOperation = {
+  name: string;
+  level: "any" | "admin";
+};
+
 export type AssistantHelpData = {
-  operations: string[];
+  operations: AssistantHelpOperation[];
   actor: {
     level: AssistantActor["level"];
     phone: string | null;
   };
 };
 
+const OPERATIONS: AssistantHelpOperation[] = [
+  { name: "help", level: "any" },
+  { name: "session_status", level: "any" },
+  { name: "next_session", level: "any" },
+  { name: "session_roster_add", level: "admin" },
+  { name: "session_roster_remove", level: "admin" },
+];
+
 export function getAssistantHelp(actor: AssistantActor): AssistantHelpData {
   return {
-    operations: ["help", "session_status", "next_session"],
+    operations: OPERATIONS,
     actor: {
       level: actor.level,
       phone: actor.normalizedPhone,

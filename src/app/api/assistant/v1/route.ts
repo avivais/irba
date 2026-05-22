@@ -10,6 +10,8 @@ import { getAssistantIdempotency, storeAssistantResult } from "@/lib/assistant/i
 import { getAssistantNextSession } from "@/lib/assistant/operations/next-session";
 import { getAssistantHelp } from "@/lib/assistant/operations/help";
 import { getAssistantSessionStatus } from "@/lib/assistant/operations/session-status";
+import { assistantRosterAdd } from "@/lib/assistant/operations/session-roster-add";
+import { assistantRosterRemove } from "@/lib/assistant/operations/session-roster-remove";
 import { canRunAssistantOperation, isKnownAssistantOperation } from "@/lib/assistant/permissions";
 import { parseAssistantEnvelope } from "@/lib/assistant/schema";
 import type { AssistantActor, AssistantEnvelope, AssistantResponse } from "@/lib/assistant/types";
@@ -64,9 +66,9 @@ export async function POST(request: Request) {
 
   const actor = await resolveAssistantActor(envelope.actor_phone);
   if (!canRunAssistantOperation(actor, envelope.operation)) {
-    const response = errorResponse("UNKNOWN_OPERATION", "Unknown assistant operation");
-    await storeAssistantResultSafe(envelope, "UNKNOWN_OPERATION", response);
-    return json(response, 400);
+    const response = errorResponse("FORBIDDEN_OPERATION", "Permission denied for this operation");
+    await storeAssistantResultSafe(envelope, "FORBIDDEN_OPERATION", response);
+    return json(response, 403);
   }
 
   try {
@@ -75,6 +77,11 @@ export async function POST(request: Request) {
     await storeAssistantResultSafe(envelope, "OK", response);
     return json(response, 200);
   } catch (error) {
+    if (error instanceof AssistantApiError) {
+      const response = errorResponse(error.code, error.message, error.detail);
+      await storeAssistantResultSafe(envelope, error.code, response);
+      return json(response, error.status);
+    }
     if (error instanceof ZodError) {
       const response = errorResponse("VALIDATION_ERROR", "Invalid assistant operation params", error.flatten());
       await storeAssistantResultSafe(envelope, "VALIDATION_ERROR", response);
@@ -95,6 +102,10 @@ async function runAssistantOperation(envelope: AssistantEnvelope, actor: Assista
       return getAssistantSessionStatus(envelope.params);
     case "next_session":
       return getAssistantNextSession();
+    case "session_roster_add":
+      return assistantRosterAdd(envelope.params, actor);
+    case "session_roster_remove":
+      return assistantRosterRemove(envelope.params, actor);
     default:
       throw new Error("unknown assistant operation");
   }
@@ -107,6 +118,7 @@ function json(response: AssistantResponse, status: number) {
 function statusForCode(code: string | undefined): number {
   switch (code) {
     case "FORBIDDEN_GROUP":
+    case "FORBIDDEN_OPERATION":
       return 403;
     case "UNKNOWN_OPERATION":
     case "INVALID_JSON":
@@ -116,6 +128,13 @@ function statusForCode(code: string | undefined): number {
       return 422;
     case "UNAUTHORIZED":
       return 401;
+    case "SESSION_NOT_FOUND":
+    case "PLAYER_NOT_FOUND":
+      return 404;
+    case "SESSION_CLOSED":
+    case "ALREADY_REGISTERED":
+    case "NOT_REGISTERED":
+      return 409;
     default:
       return 500;
   }

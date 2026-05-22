@@ -14,15 +14,26 @@ vi.mock("@/lib/prisma", () => ({
     },
     gameSession: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     playerYearAggregate: { findMany: vi.fn() },
     playerAdjustment: { findMany: vi.fn() },
-    attendance: { groupBy: vi.fn() },
+    attendance: { groupBy: vi.fn(), create: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
     yearWeight: { findMany: vi.fn() },
+    auditLog: { create: vi.fn() },
   },
 }));
 
+vi.mock("@/lib/audit", () => ({
+  writeAuditLog: vi.fn(),
+}));
+
+vi.mock("@/lib/sort-attendances", () => ({
+  sortAttendancesByPrecedence: vi.fn(async (attendances) => attendances),
+}));
+
 import { prisma } from "@/lib/prisma";
+import { sortAttendancesByPrecedence } from "@/lib/sort-attendances";
 import { POST } from "./route";
 
 const secret = "s".repeat(32);
@@ -53,10 +64,16 @@ describe("POST /api/assistant/v1", () => {
     vi.mocked(prisma.assistantRequestLog.findUnique).mockReset();
     vi.mocked(prisma.assistantRequestLog.create).mockReset();
     vi.mocked(prisma.gameSession.findFirst).mockReset();
+    vi.mocked(prisma.gameSession.findUnique).mockReset();
     vi.mocked(prisma.playerYearAggregate.findMany).mockReset();
     vi.mocked(prisma.playerAdjustment.findMany).mockReset();
     vi.mocked(prisma.attendance.groupBy).mockReset();
+    vi.mocked(prisma.attendance.create).mockReset();
+    vi.mocked(prisma.attendance.findFirst).mockReset();
+    vi.mocked(prisma.attendance.delete).mockReset();
     vi.mocked(prisma.yearWeight.findMany).mockReset();
+    vi.mocked(sortAttendancesByPrecedence).mockReset();
+    vi.mocked(sortAttendancesByPrecedence).mockImplementation(async (attendances) => attendances);
     vi.mocked(prisma.appConfig.findUnique).mockResolvedValue({
       key: "assistant_allowed_groups",
       value: body.group_jid,
@@ -111,7 +128,16 @@ describe("POST /api/assistant/v1", () => {
     expect(res.status).toBe(200);
     expect(json).toMatchObject({
       ok: true,
-      data: { operations: ["help", "session_status", "next_session"], actor: { level: "guest", phone: "0501234567" } },
+      data: {
+        operations: [
+          { name: "help", level: "any" },
+          { name: "session_status", level: "any" },
+          { name: "next_session", level: "any" },
+          { name: "session_roster_add", level: "admin" },
+          { name: "session_roster_remove", level: "admin" },
+        ],
+        actor: { level: "guest", phone: "0501234567" },
+      },
       error: null,
       idempotent_replay: false,
     });
@@ -171,6 +197,165 @@ describe("POST /api/assistant/v1", () => {
     });
 
     const res = await POST(request());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.idempotent_replay).toBe(true);
+    expect(prisma.assistantRequestLog.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 FORBIDDEN_OPERATION when a member calls session_roster_add", async () => {
+    vi.mocked(prisma.player.findUnique).mockResolvedValue({
+      id: "member-id",
+      phone: "0501234567",
+      nickname: null,
+      firstNameHe: null,
+      lastNameHe: null,
+      isAdmin: false,
+    } as never);
+
+    const res = await POST(request({ ...body, operation: "session_roster_add", params: { player_phone: "0509999999" } }));
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error.code).toBe("FORBIDDEN_OPERATION");
+    expect(prisma.assistantRequestLog.create).toHaveBeenCalled();
+  });
+
+  it("returns 200 when admin calls session_roster_add (mocked happy path)", async () => {
+    const adminPlayer = {
+      id: "admin-id",
+      phone: "0501234567",
+      nickname: null,
+      firstNameHe: null,
+      lastNameHe: null,
+      isAdmin: true,
+    };
+    const targetPlayer = {
+      id: "target-id",
+      phone: "0507654321",
+      nickname: "יוסי",
+      firstNameHe: null,
+      lastNameHe: null,
+      firstNameEn: null,
+      lastNameEn: null,
+    };
+    const session = {
+      id: "s1",
+      date: new Date("2026-05-29T18:00:00.000Z"),
+      maxPlayers: 14,
+      isClosed: false,
+      isArchived: false,
+      cancelledAt: null,
+      attendances: [],
+    };
+
+    vi.mocked(prisma.player.findUnique)
+      .mockResolvedValueOnce(adminPlayer as never)  // actor lookup
+      .mockResolvedValueOnce(targetPlayer as never); // target player lookup
+    vi.mocked(prisma.gameSession.findFirst).mockResolvedValue(session as never);
+    vi.mocked(prisma.attendance.create).mockResolvedValue({ id: "new-att-id" } as never);
+    vi.mocked(prisma.gameSession.findUnique).mockResolvedValue({
+      ...session,
+      attendances: [{ id: "new-att-id", playerId: "target-id", gameSessionId: "s1", createdAt: new Date(), player: targetPlayer }],
+    } as never);
+
+    const res = await POST(
+      request({ ...body, operation: "session_roster_add", params: { player_phone: "0507654321" } }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.data.status).toBe("confirmed");
+  });
+
+  it("returns 200 when admin calls session_roster_remove (mocked happy path)", async () => {
+    const adminPlayer = {
+      id: "admin-id",
+      phone: "0501234567",
+      nickname: null,
+      firstNameHe: null,
+      lastNameHe: null,
+      isAdmin: true,
+    };
+    const targetPlayer = {
+      id: "target-id",
+      phone: "0507654321",
+      nickname: "יוסי",
+      firstNameHe: null,
+      lastNameHe: null,
+      firstNameEn: null,
+      lastNameEn: null,
+    };
+    const session = {
+      id: "s1",
+      date: new Date("2026-05-29T18:00:00.000Z"),
+      maxPlayers: 14,
+      isClosed: false,
+      isArchived: false,
+      cancelledAt: null,
+      attendances: [],
+    };
+    const attWithPlayer = {
+      id: "att-target",
+      playerId: "target-id",
+      gameSessionId: "s1",
+      createdAt: new Date(),
+      player: targetPlayer,
+    };
+
+    vi.mocked(prisma.player.findUnique)
+      .mockResolvedValueOnce(adminPlayer as never)
+      .mockResolvedValueOnce(targetPlayer as never);
+    vi.mocked(prisma.gameSession.findFirst).mockResolvedValue(session as never);
+    vi.mocked(prisma.attendance.findFirst).mockResolvedValue({ id: "att-target" } as never);
+    vi.mocked(prisma.gameSession.findUnique)
+      .mockResolvedValueOnce({ ...session, attendances: [attWithPlayer] } as never)
+      .mockResolvedValueOnce({ ...session, attendances: [] } as never);
+    vi.mocked(prisma.attendance.delete).mockResolvedValue({} as never);
+
+    const res = await POST(
+      request({ ...body, operation: "session_roster_remove", params: { player_phone: "0507654321" } }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.data.was_confirmed).toBe(true);
+  });
+
+  it("returns 400 VALIDATION_ERROR for session_roster_add with missing player_phone", async () => {
+    vi.mocked(prisma.player.findUnique).mockResolvedValue({
+      id: "admin-id",
+      phone: "0501234567",
+      nickname: null,
+      firstNameHe: null,
+      lastNameHe: null,
+      isAdmin: true,
+    } as never);
+
+    const res = await POST(request({ ...body, operation: "session_roster_add", params: {} }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("replays an idempotent mutation response", async () => {
+    vi.mocked(prisma.assistantRequestLog.findUnique).mockResolvedValue({
+      operation: "session_roster_add",
+      resultSnapshot: {
+        ok: true,
+        data: { session_id: "s1", status: "confirmed" },
+        error: null,
+        idempotent_replay: false,
+      },
+    } as never);
+
+    const res = await POST(
+      request({ ...body, operation: "session_roster_add", params: { player_phone: "0507654321" } }),
+    );
     const json = await res.json();
 
     expect(res.status).toBe(200);

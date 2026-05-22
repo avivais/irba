@@ -76,7 +76,9 @@ export type AuditAction =
   | "REVERT_SHARED_EXPENSE"
   | "RETRO_CLOSE_DEBT"
   | "BROADCAST_SESSION_ROSTER"
-  | "BROADCAST_DEBTORS";
+  | "BROADCAST_DEBTORS"
+  | "ASSISTANT_ROSTER_ADD"
+  | "ASSISTANT_ROSTER_REMOVE";
 
 export type AuditParams = {
   actor: string;

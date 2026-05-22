@@ -31,10 +31,12 @@ describe("assistant permissions", () => {
     expect(canRunAssistantOperation(admin, "help")).toBe(true);
   });
 
-  it("recognizes phase 1 read-only operations", () => {
+  it("recognizes all known operations including phase 2 mutations", () => {
     expect(isKnownAssistantOperation("help")).toBe(true);
     expect(isKnownAssistantOperation("session_status")).toBe(true);
     expect(isKnownAssistantOperation("next_session")).toBe(true);
+    expect(isKnownAssistantOperation("session_roster_add")).toBe(true);
+    expect(isKnownAssistantOperation("session_roster_remove")).toBe(true);
     expect(isKnownAssistantOperation("roster.add")).toBe(false);
   });
 
@@ -45,5 +47,20 @@ describe("assistant permissions", () => {
       expect(canRunAssistantOperation(admin, operation)).toBe(true);
     }
     expect(canRunAssistantOperation(admin, "roster.add")).toBe(false);
+  });
+
+  it("denies guest actor from calling admin-only mutation ops", () => {
+    expect(canRunAssistantOperation(guest, "session_roster_add")).toBe(false);
+    expect(canRunAssistantOperation(guest, "session_roster_remove")).toBe(false);
+  });
+
+  it("denies member actor from calling admin-only mutation ops", () => {
+    expect(canRunAssistantOperation(member, "session_roster_add")).toBe(false);
+    expect(canRunAssistantOperation(member, "session_roster_remove")).toBe(false);
+  });
+
+  it("allows admin actor to call mutation ops", () => {
+    expect(canRunAssistantOperation(admin, "session_roster_add")).toBe(true);
+    expect(canRunAssistantOperation(admin, "session_roster_remove")).toBe(true);
   });
 });

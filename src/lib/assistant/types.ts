@@ -1,4 +1,9 @@
-export type AssistantOperation = "help" | "session_status" | "next_session";
+export type AssistantOperation =
+  | "help"
+  | "session_status"
+  | "next_session"
+  | "session_roster_add"
+  | "session_roster_remove";
 
 export type AssistantErrorCode =
   | "UNAUTHORIZED"
@@ -7,7 +12,13 @@ export type AssistantErrorCode =
   | "FORBIDDEN_GROUP"
   | "UNKNOWN_OPERATION"
   | "IDEMPOTENCY_CONFLICT"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  | "FORBIDDEN_OPERATION"
+  | "SESSION_NOT_FOUND"
+  | "SESSION_CLOSED"
+  | "PLAYER_NOT_FOUND"
+  | "ALREADY_REGISTERED"
+  | "NOT_REGISTERED";
 
 export type AssistantError = {
   code: AssistantErrorCode;
