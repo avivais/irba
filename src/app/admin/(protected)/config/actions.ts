@@ -8,6 +8,7 @@ import type { ConfigKey } from "@/lib/config";
 import { autoCreateNextSession } from "@/lib/auto-create-session";
 import { writeAuditLog } from "@/lib/audit";
 import { recalculateAllComputedRanks } from "@/lib/computed-rank";
+import { normalizeConfigFormRaw } from "@/lib/config-form-normalize";
 
 export type ConfigActionState = {
   ok: boolean;
@@ -25,27 +26,15 @@ export async function updateConfigAction(
   for (const key of formData.keys()) {
     raw[key] = formData.get(key)?.toString() ?? "";
   }
-  // Checkboxes omit their key when unchecked — supply the "off" value explicitly.
-  raw[CONFIG.SESSION_SCHEDULE_ENABLED] ??= "false";
-  raw[CONFIG.ALERT_LOW_ATTENDANCE_ENABLED] ??= "false";
-  raw[CONFIG.ALERT_EARLY_ENABLED] ??= "false";
-  raw[CONFIG.ALERT_CRITICAL_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_SESSION_OPEN_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_SESSION_CLOSE_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_SESSION_CANCELLED_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_PLAYER_REGISTERED_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_PLAYER_CANCELLED_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_WAITLIST_PROMOTE_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_SESSION_ROSTER_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_DEBTORS_ENABLED] ??= "false";
-  raw[CONFIG.WA_NOTIFY_DEBTORS_TAG_ENABLED] ??= "false";
 
-  const parsed = parseConfigForm(raw);
+  const before = await getAllConfigs();
+  const normalizedRaw = normalizeConfigFormRaw(raw, before);
+
+  const parsed = parseConfigForm(normalizedRaw);
   if (!parsed.ok) {
     return { ok: false, errors: parsed.errors };
   }
 
-  const before = await getAllConfigs();
   await setConfigs(parsed.data);
 
   writeAuditLog({
@@ -115,4 +104,3 @@ export async function runAutoCreateAction(): Promise<RunAutoCreateResult> {
   };
   return { ok: false, message: reasons[result.reason] ?? result.reason };
 }
-
