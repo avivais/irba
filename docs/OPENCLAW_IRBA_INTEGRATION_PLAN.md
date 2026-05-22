@@ -547,9 +547,15 @@ Deliverables: Admin can add/remove players from a session via WhatsApp message.
 - [x] Same curl twice with same `idempotency_key` → second returns 200 with `idempotent_replay: true`
 
 **Phase 1 (read-only):**
-- [ ] Mikey: ask "מה הסטטוס?" in group → Mikey replies with roster
-- [ ] Mikey: ask "מה היתרה שלי?" → Mikey replies (group or DM based on operation type)
-- [ ] Unknown sender asks balance of another player → `PERMISSION_DENIED` → Mikey replies gracefully
+- [x] Unit coverage: assistant auth/schema/actor/allowlist/permissions/idempotency/route/read-only operations pass locally (`npm test -- src/lib/assistant src/app/api/assistant/v1/route.test.ts` — 42 tests, 2026-05-22)
+- [x] Full Vitest suite passes locally (`npm test` — 350 tests, 2026-05-22)
+- [x] Lint passes with existing warnings only (`npm run lint` — 0 errors, 9 pre-existing unused-var warnings, 2026-05-22)
+- [x] Production helper smoke: `help` returns operations + admin actor
+- [x] Production helper smoke: `next_session` returns valid response (`session: null` when no upcoming active session)
+- [x] Production helper smoke: `session_status {"include_waitlist":true}` returns valid empty counts/rosters when no upcoming active session
+- [ ] Group-language QA: ask "מה הסטטוס?" in IRBA Coding → Mikey formats the API response clearly in Hebrew
+
+Note: balance/payment questions were explicitly deferred out of Phase 1. Do not use balance checks as Phase 1 acceptance criteria unless a balance read-only operation is reintroduced.
 
 **Phase 2 (mutations):**
 - [ ] Admin types "תוסיף את [name] למפגש" → Mikey confirms → Admin confirms → Attendance row in DB
