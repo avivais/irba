@@ -47,6 +47,7 @@ Data model reference: [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md).
 - Financial balances are computed from payments and charges; there is no stored `balance` field.
 - Admin/runtime mutations should remain audited through `AuditLog` or purpose-specific request logs.
 - WhatsApp-related work is operationally sensitive; prefer smoke tests and rollback notes before production changes.
+- OpenClaw ↔ IRBA assistant integration is active: read-only operations, admin roster mutations, and admin-only `player_lookup` are production-deployed. Natural roster commands are orchestrated by the local OpenClaw skill `/root/.openclaw/skills/irba-assistant/`; full real add/remove QA still needs an open upcoming session.
 
 ## Next recommended steps
 

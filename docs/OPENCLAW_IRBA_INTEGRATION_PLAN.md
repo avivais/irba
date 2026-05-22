@@ -1,7 +1,7 @@
 # OpenClaw ↔ IRBA Integration Plan
 
 > **Replaces**: `docs/WHATSAPP_COMMAND_API_PLAN.md`
-> **Status**: Phase 1 read-only MVP complete and production-smoked; OpenClaw helper configured
+> **Status**: Phases 1, 2, and 2.1 lookup layer complete and production-smoked; OpenClaw IRBA skill configured
 > **Date**: 2026-05-22
 
 ---
@@ -11,7 +11,7 @@
 - Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — complete and production-smoked
 - Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — complete and production-smoked
 - Phase 2 admin roster mutations: [`docs/plans/openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) — implemented and production-deployed; full mutation QA pending an open session
-- Phase 2.1 human-friendly roster commands: [`docs/plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) — planned, awaiting Avi approval before implementation
+- Phase 2.1 human-friendly roster commands: [`docs/plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) — `player_lookup` implemented/deployed; OpenClaw `irba-assistant` skill created for natural command orchestration; real add/remove QA pending an open session
 
 These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
 
@@ -55,6 +55,10 @@ Enable Mikey (OpenClaw's AI assistant) to respond to natural-language WhatsApp m
 - Mikey is the AI assistant within OpenClaw
 - Mikey handles: message reception, NLU/intent classification, entity extraction, ambiguity handling, confirmation UX, reply formatting, and sending the reply back into the group
 - OpenClaw calls external HTTP APIs today — this integration adds one more tool to Mikey's toolbox
+- Production OpenClaw has a dedicated local skill at `/root/.openclaw/skills/irba-assistant/`:
+  - `SKILL.md` declares when to use the IRBA assistant workflow.
+  - `scripts/irba_roster_command.py` implements safe natural roster orchestration: parse → `player_lookup` → all-or-clarify → `session_roster_add/remove`.
+  - `references/COMMANDS.md` documents supported command words, target splitting, and safety behavior.
 
 ---
 

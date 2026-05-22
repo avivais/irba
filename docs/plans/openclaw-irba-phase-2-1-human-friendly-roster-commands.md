@@ -1,5 +1,28 @@
 # Phase 2.1 — OpenClaw ↔ IRBA Integration: Human-Friendly Roster Commands Execution Plan
 
+## Implementation status — 2026-05-22
+
+Approved by Avi and partially implemented/deployed.
+
+Completed:
+
+- IRBA production API commit `7c1f5dd` adds admin-only `player_lookup`.
+- Production deploy succeeded and `/api/health.version` reports `7c1f5dd`.
+- Production smoke: `help` lists `player_lookup`; admin lookup for `פוגל` returns `unique` by `nickname`; non-admin lookup returns `FORBIDDEN_OPERATION`.
+- OpenClaw local skill created at `/root/.openclaw/skills/irba-assistant/` with:
+  - `SKILL.md`
+  - `scripts/irba_roster_command.py`
+  - `references/COMMANDS.md`
+- Skill smoke tests passed for Hebrew multi-target parsing, dry-run lookup, phone/JID mention resolution, and safe refusal for LID-only mentions.
+
+Still pending before marking Phase 2.1 fully complete:
+
+- Real WhatsApp/group add/remove by name against an upcoming/open session.
+- Ambiguous-name group QA against real data.
+- Unknown-name group QA against real data.
+- Mention QA using actual inbound OpenClaw WhatsApp mention metadata.
+- Remove-by-name and duplicate/not-registered edge cases against an open session.
+
 ## Context
 
 Phase 2 shipped admin-only roster mutations in the production assistant API:
@@ -372,11 +395,14 @@ If OpenClaw-side command handling is implemented in repo scripts/helpers:
 
 Before marking Phase 2.1 complete:
 
-- [ ] Unit tests pass for lookup priority and parser behavior.
-- [ ] Full test suite passes.
-- [ ] Lint passes with no new errors.
-- [ ] Production deploy completed and `/api/health.version` reports the Phase 2.1 commit.
-- [ ] WhatsApp group QA: `help`/capability text still works.
+- [x] Unit tests pass for lookup priority and parser behavior. (`src/lib/assistant/player-lookup.test.ts`, 23 tests)
+- [x] Full test suite passes. (`398 passed` on 2026-05-22)
+- [x] Lint passes with no new errors. (`0 errors`, 9 pre-existing warnings)
+- [x] Production deploy completed and `/api/health.version` reports the Phase 2.1 commit. (`7c1f5dd`)
+- [x] WhatsApp/API smoke: `help`/capability text lists `player_lookup` as admin-only.
+- [x] OpenClaw skill smoke: Hebrew multi-target parse works in `irba_roster_command.py`.
+- [x] OpenClaw skill smoke: `תוסיף את פוגל --dry-run` resolves through production `player_lookup` without mutating.
+- [x] OpenClaw skill smoke: mention with phone/JID resolves; LID-only mention fails safely.
 - [ ] WhatsApp group QA: add by unique Hebrew nickname works on a safe/open session.
 - [ ] WhatsApp group QA: add two players in one Hebrew command works or asks before partial execution.
 - [ ] WhatsApp group QA: ambiguous name asks clarification and does not mutate.
@@ -389,22 +415,22 @@ Before marking Phase 2.1 complete:
 
 ## 10. Implementation sequence
 
-1. Inspect current OpenClaw WhatsApp inbound metadata for mentions in this group.
-2. Inspect IRBA `Player` schema and existing display-name helpers.
-3. Implement deterministic player lookup helper with priority order:
+1. [blocked for real-message QA] Inspect current OpenClaw WhatsApp inbound metadata for mentions in this group.
+2. [x] Inspect IRBA `Player` schema and existing display-name helpers.
+3. [x] Implement deterministic player lookup helper with priority order:
    - `nickname`
    - language-specific last name
    - language-specific first name
-4. Add parser for one/multiple command targets.
-5. Choose final architecture:
+4. [x] Add parser for one/multiple command targets. Implemented in the OpenClaw `irba-assistant` skill script.
+5. [x] Choose final architecture:
    - preferred: `player_lookup` resolver operation + OpenClaw orchestration,
    - fallback: extend mutation params with `player_query` only if resolver operation is too awkward.
-6. Add tests for lookup, parser, route/permissions, and orchestration.
-7. Run targeted tests.
-8. Run full tests + lint.
-9. Commit and push implementation only after Avi approves this plan.
-10. Deploy to production.
-11. Run group QA before marking Phase 2.1 complete.
+6. [x] Add tests for lookup, parser, route/permissions, and orchestration. IRBA tests cover lookup/route/permissions; OpenClaw skill smoke covers parser/orchestration safety.
+7. [x] Run targeted tests.
+8. [x] Run full tests + lint.
+9. [x] Commit and push implementation after Avi approved this plan.
+10. [x] Deploy to production.
+11. [pending] Run real group QA before marking Phase 2.1 complete.
 
 ---
 
