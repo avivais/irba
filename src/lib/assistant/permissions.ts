@@ -1,6 +1,6 @@
 import type { AssistantActor, AssistantOperation } from "./types";
 
-const ADMIN_ONLY_OPERATIONS = new Set<AssistantOperation>(["session_roster_add", "session_roster_remove", "player_lookup", "finance_summary_get", "payment_add"]);
+const ADMIN_ONLY_OPERATIONS = new Set<AssistantOperation>(["session_roster_add", "session_roster_remove", "player_lookup", "finance_summary_get", "payment_add", "assistant_allowed_groups_set"]);
 const ANY_LEVEL_OPERATIONS = new Set<AssistantOperation>(["help", "session_status", "next_session"]);
 const KNOWN_PLAYER_OPERATIONS = new Set<AssistantOperation>([
   "player_register_add",

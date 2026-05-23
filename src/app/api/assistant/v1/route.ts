@@ -25,6 +25,7 @@ import {
   assistantPlayerPaymentsList,
 } from "@/lib/assistant/operations/finance";
 import { canRunAssistantOperation, isKnownAssistantOperation } from "@/lib/assistant/permissions";
+import { assistantAllowedGroupsSet } from "@/lib/assistant/operations/config";
 import { parseAssistantEnvelope } from "@/lib/assistant/schema";
 import type { AssistantActor, AssistantEnvelope, AssistantResponse } from "@/lib/assistant/types";
 
@@ -134,6 +135,8 @@ async function runAssistantOperation(envelope: AssistantEnvelope, actor: Assista
       return assistantPlayerPaymentsList(envelope.params, actor);
     case "payment_add":
       return assistantPaymentAdd(envelope.params, actor);
+    case "assistant_allowed_groups_set":
+      return assistantAllowedGroupsSet(envelope.params, actor);
     default:
       throw new Error("unknown assistant operation");
   }

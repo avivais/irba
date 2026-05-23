@@ -11,7 +11,8 @@ export type AssistantOperation =
   | "finance_summary_get"
   | "player_balance_get"
   | "player_payments_list"
-  | "payment_add";
+  | "payment_add"
+  | "assistant_allowed_groups_set";
 
 export type AssistantErrorCode =
   | "UNAUTHORIZED"
