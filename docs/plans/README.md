@@ -15,6 +15,7 @@ For the current source-of-truth roadmap, start with:
 | 2 | [`openclaw-irba-phase-2-admin-mutations.md`](openclaw-irba-phase-2-admin-mutations.md) | Complete | Admin `session_roster_add` / `session_roster_remove` |
 | 2.1 | [`openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](openclaw-irba-phase-2-1-human-friendly-roster-commands.md) | Operational | Natural admin commands via `player_lookup` + OpenClaw skill; some edge QA remains |
 | 3 | [`openclaw-irba-phase-3-self-service-rsvp.md`](openclaw-irba-phase-3-self-service-rsvp.md) | Complete | `player_register_add`, `player_register_cancel`, `player_register_status`; live QA passed |
+| 4 | [`openclaw-irba-phase-4-mikey-ux-polish.md`](openclaw-irba-phase-4-mikey-ux-polish.md) | Implemented locally | Mikey/OpenClaw Hebrew reply templates and group-safe help for existing operations; live mutation QA deferred |
 
 ## Remaining work tracked in the master plan
 
