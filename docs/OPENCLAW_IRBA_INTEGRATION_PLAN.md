@@ -1,6 +1,6 @@
 # OpenClaw ↔ IRBA Integration Plan
 
-> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Phase 4 is implemented locally in Mikey/OpenClaw. Phase 5 finance assistant is in progress locally with targeted tests passing; deploy/live QA pending. Remaining work is mainly production-group rollout validation, notification/automation alignment QA, and hardening triage.
+> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Phase 4 is implemented locally in Mikey/OpenClaw. Phase 5 finance assistant is live with core production smoke passed; real payment mutation/receipt QA is deferred to the next real session. Remaining work is mainly production-group rollout validation, notification/automation alignment QA, and hardening triage.
 >
 > **Last updated:** 2026-05-23
 >
@@ -41,7 +41,7 @@ Detailed implementation plans live in `docs/plans/`:
 | 2.1 | [`openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) | Complete enough for operational use; some edge QA deferred |
 | 3 | [`openclaw-irba-phase-3-self-service-rsvp.md`](plans/openclaw-irba-phase-3-self-service-rsvp.md) | Complete, deployed, live WhatsApp QA passed |
 | 4 | [`openclaw-irba-phase-4-mikey-ux-polish.md`](plans/openclaw-irba-phase-4-mikey-ux-polish.md) | Implemented locally, lightweight QA passed |
-| 5 | [`openclaw-irba-phase-5-finance-assistant.md`](plans/openclaw-irba-phase-5-finance-assistant.md) | In progress locally; targeted tests passing; deploy pending |
+| 5 | [`openclaw-irba-phase-5-finance-assistant.md`](plans/openclaw-irba-phase-5-finance-assistant.md) | Live / core complete; real payment/receipt QA deferred to next real session |
 
 This document is the master/source-of-truth roadmap. Phase documents are execution notes and should be updated when their implementation or QA status changes.
 
@@ -415,7 +415,7 @@ Acceptance:
 
 - Common user/admin questions get consistent replies without manual improvisation.
 
-### 9.4 Finance assistant operations — Phase 5 in progress locally
+### 9.4 Finance assistant operations — Phase 5 live / core complete
 
 Original master-plan candidates included balance/payment operations. Avi approved Phase 5 as finance summary, balances, explicit payment history, and confirmation-gated admin payment recording.
 
@@ -441,11 +441,13 @@ Decisions:
 5. Admin payment recording is included in Phase 5, but must be confirmation-gated.
 6. Screenshot/photo receipt support may draft payment details through OCR/image analysis, but cannot create a payment without explicit admin confirmation.
 
-Local implementation status:
+Implementation status:
 
-- IRBA assistant operations implemented locally.
+- IRBA assistant operations implemented and deployed on `db605e6`.
 - OpenClaw/Mikey finance routing implemented locally.
-- Targeted tests/lint passed locally; deploy and live QA pending.
+- Targeted tests/lint passed.
+- Production smoke passed for health, help, summary, balance, payment history, and `payment_add` preview/confirmation-token generation.
+- Real payment confirmation, non-admin negative live QA, and receipt/OCR QA are deferred to the next real session to avoid dummy finance data.
 
 Acceptance:
 

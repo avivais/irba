@@ -16,7 +16,7 @@ For the current source-of-truth roadmap, start with:
 | 2.1 | [`openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](openclaw-irba-phase-2-1-human-friendly-roster-commands.md) | Operational | Natural admin commands via `player_lookup` + OpenClaw skill; some edge QA remains |
 | 3 | [`openclaw-irba-phase-3-self-service-rsvp.md`](openclaw-irba-phase-3-self-service-rsvp.md) | Complete | `player_register_add`, `player_register_cancel`, `player_register_status`; live QA passed |
 | 4 | [`openclaw-irba-phase-4-mikey-ux-polish.md`](openclaw-irba-phase-4-mikey-ux-polish.md) | Implemented locally | Mikey/OpenClaw Hebrew reply templates and group-safe help for existing operations; live mutation QA deferred |
-| 5 | [`openclaw-irba-phase-5-finance-assistant.md`](openclaw-irba-phase-5-finance-assistant.md) | In progress locally | Finance summary, balances, explicit payment history, and confirmation-gated admin payment recording; targeted tests passing, deploy pending |
+| 5 | [`openclaw-irba-phase-5-finance-assistant.md`](openclaw-irba-phase-5-finance-assistant.md) | Live / core complete | Finance summary, balances, explicit payment history, and confirmation-gated admin payment recording; production smoke passed, real payment/receipt QA deferred to next real session |
 
 ## Remaining work tracked in the master plan
 
@@ -31,4 +31,4 @@ Current completion workstreams:
 3. Mikey UX/help/reply polish.
 4. Notification/automation alignment QA — IRBA already owns the configured automations; do not rebuild them in OpenClaw.
 5. Security/ops hardening triage.
-6. Phase 5 finance deploy/live QA, then remaining security/ops hardening triage.
+6. Real-session Phase 5 payment mutation/receipt QA, then remaining security/ops hardening triage.

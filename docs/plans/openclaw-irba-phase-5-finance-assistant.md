@@ -1,7 +1,7 @@
 # OpenClaw ↔ IRBA Phase 5 — Finance Assistant
 
-Status: In progress locally — Avi approved scope; implementation/tests added locally; deploy pending  
-Scope: finance summary, player balances, explicit payment history, and admin payment recording through typed assistant API operations.  
+Status: Live — core API deployed and production-smoked; real payment mutation / receipt OCR QA deferred to the next real session
+Scope: finance summary, player balances, explicit payment history, and admin payment recording through typed assistant API operations.
 This phase includes one audited mutation: recording a payment. No edits/deletes.
 
 ## Decisions from Avi
@@ -279,7 +279,7 @@ Mikey should:
 
 ### IRBA server
 
-Local status: implemented, targeted tests passing; deploy pending.
+Status: implemented, deployed, and production-smoked. Real `payment_add` confirmation QA is deferred to the next real session to avoid dummy finance data.
 
 - [x] Add finance operation schemas to assistant API operation registry.
 - [x] Implement `finance_summary_get` using existing balance helpers and player list logic from the finance page.
@@ -307,7 +307,7 @@ Local status: implemented, targeted tests passing; deploy pending.
 
 ### OpenClaw skill
 
-Local status: implemented locally in `/root/.openclaw/skills/irba-assistant/`; parse/dry-run QA passing; live API QA pending deploy.
+Status: implemented locally in `/root/.openclaw/skills/irba-assistant/`; parse/dry-run QA passing; live finance summary/balance/history API QA passed. Real payment confirmation and receipt/OCR QA are deferred to the next real session.
 
 - [x] Extend command router to detect finance questions/actions:
   - “מה מצב הקופה?”
@@ -319,8 +319,8 @@ Local status: implemented locally in `/root/.openclaw/skills/irba-assistant/`; p
 - [x] Reuse existing safe name resolution for admin target questions.
 - [x] Add concise Hebrew reply templates.
 - [x] Add a confirmation state/flow for `payment_add`.
-- [ ] Add image/OCR extraction flow for receipt screenshots, gated by confirmation.
-- [ ] Add/keep finance capabilities in help only after deployed and smoke-tested.
+- [ ] Add/image-test OCR extraction flow for receipt screenshots, gated by confirmation — deferred to the next real session.
+- [x] Add/keep finance capabilities in help after deploy and smoke test.
 
 ### Docs
 
@@ -340,6 +340,26 @@ Local status: implemented locally in `/root/.openclaw/skills/irba-assistant/`; p
 - Payment creation writes normal `Payment` data and an audit log.
 - OpenClaw replies are concise Hebrew and never raw JSON.
 - Existing finance calculations remain owned by IRBA.
+
+## Production smoke / deferred QA
+
+Completed on production commit `db605e6`:
+
+- Health returned `status=ok`, DB up, WA up, version `db605e6`.
+- `help` exposed all Phase 5 operations.
+- `finance_summary_get` returned a valid summary.
+- `player_balance_get` worked for Avi/self.
+- `player_payments_list` worked for Avi/self and for admin lookup of Adir.
+- `payment_add` first step returned `requires_confirmation=true` with a confirmation token; no confirmation was sent, so no smoke payment was created.
+- Mikey/OpenClaw skill returned a formatted finance summary from production.
+
+Deferred by Avi on 2026-05-23 until a real session/payment exists:
+
+- Confirming a real `payment_add` mutation via “אשר תשלום”.
+- Negative live QA for non-admin attempts to query other players or record payments.
+- Receipt/screenshot Bit/PayBox OCR flow.
+
+Rationale: avoid creating dummy finance data in production.
 
 ## Rollback
 
