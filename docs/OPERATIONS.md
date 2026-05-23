@@ -71,6 +71,8 @@ Idempotent endpoint, called hourly by EC2 cron. Bearer-token auth (`CRON_SECRET`
 1. Check `SESSION_SCHEDULE_ENABLED=true` in AppConfig
 2. Compute next scheduled session datetime (`src/lib/schedule.ts` — DST-safe via `Intl.DateTimeFormat`)
 3. If `now ≥ sessionTime − autoCreateHours` and no session exists for that Israel day (any status, including cancelled — tombstones block recreation) → create + auto-attend admin + notify WA group
+
+Production cron runs every 5 minutes, not hourly, so a deploy/restart at the exact lead-window boundary only delays creation by a few minutes. The endpoint is idempotent and returns `already exists` after creation.
 4. Otherwise → `{ created: false, reason }`
 
 Core in `src/lib/auto-create-session.ts`. Admin config has a **"הרץ עכשיו"** button (in לוח זמנים) calling `runAutoCreateAction({ force: true })` to bypass the lead-time check.

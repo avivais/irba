@@ -92,8 +92,9 @@ Add these lines:
 # Daily database backup at 03:00
 0 3 * * * /opt/irba/scripts/backup.sh >> /opt/irba/backups/backup.log 2>&1
 
-# Hourly check to auto-create the next session when the lead window opens
-0 * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/auto-create >> /opt/irba/cron.log 2>&1
+# Every-5-minute idempotent check to auto-create the next session when the lead window opens
+# Runs more often than hourly so a deploy/restart cannot permanently miss the opening minute.
+*/5 * * * * /opt/irba/scripts/cron-auto-create.sh >> /opt/irba/cron.log 2>&1
 
 # Every-minute check to auto-close ended sessions and fire configured low-attendance alerts
 * * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/auto-close >> /opt/irba/cron.log 2>&1

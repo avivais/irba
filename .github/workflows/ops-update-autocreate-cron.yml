@@ -1,0 +1,60 @@
+name: Ops update auto-create cron
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    name: Update auto-create cron cadence
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+          ssh-keyscan -H ec2-98-84-90-118.compute-1.amazonaws.com >> ~/.ssh/known_hosts
+
+      - name: Inspect, update crontab, and verify
+        run: |
+          ssh -i ~/.ssh/deploy_key.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com bash <<'REMOTE'
+            set -euo pipefail
+            cd /opt/irba
+
+            echo "## Times"
+            date
+            TZ=Asia/Jerusalem date
+
+            echo "## Deployed commit"
+            git rev-parse --short HEAD || true
+
+            echo "## Existing crontab"
+            crontab -l 2>/dev/null || true
+
+            echo "## Auto-create wrapper"
+            if [ -f /opt/irba/scripts/cron-auto-create.sh ]; then
+              sed -n '1,120p' /opt/irba/scripts/cron-auto-create.sh
+            else
+              echo "MISSING /opt/irba/scripts/cron-auto-create.sh"
+            fi
+
+            echo "## Cron log around missed 20:00 Israel / 17:00 UTC window"
+            grep -E '^\[2026-05-23 16:5|^\[2026-05-23 17:0|^\[2026-05-23 17:1|^\[2026-05-23 17:2' /opt/irba/cron.log 2>/dev/null || true
+
+            echo "## Updating crontab auto-create to every 5 minutes"
+            tmp=$(mktemp)
+            crontab -l 2>/dev/null | grep -vE 'cron-auto-create\.sh|/api/cron/auto-create' > "$tmp" || true
+            printf '%s\n' '*/5 * * * * /opt/irba/scripts/cron-auto-create.sh >> /opt/irba/cron.log 2>&1' >> "$tmp"
+            crontab "$tmp"
+            rm -f "$tmp"
+
+            echo "## New crontab"
+            crontab -l
+
+            echo "## Current next session via assistant API health path"
+            CRON_SECRET=$(grep '^CRON_SECRET=' /opt/irba/.env | cut -d= -f2- | tr -d '"')
+            curl -sS --fail -H "Authorization: Bearer $CRON_SECRET" http://localhost:3004/api/cron/auto-create
+            echo
+          REMOTE
