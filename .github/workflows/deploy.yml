@@ -69,6 +69,7 @@ jobs:
             cd /opt/irba
             git fetch origin
             git checkout ${{ github.event.inputs.ref || 'main' }}
+            git clean -fd -- scripts/ .github/workflows/
             git pull --ff-only origin ${{ github.event.inputs.ref || 'main' }}
 
             export IRBA_APP_IMAGE=ghcr.io/avivais/irba/app:$SHA
