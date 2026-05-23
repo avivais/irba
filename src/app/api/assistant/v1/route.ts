@@ -12,6 +12,11 @@ import { getAssistantHelp } from "@/lib/assistant/operations/help";
 import { getAssistantSessionStatus } from "@/lib/assistant/operations/session-status";
 import { assistantRosterAdd } from "@/lib/assistant/operations/session-roster-add";
 import { assistantRosterRemove } from "@/lib/assistant/operations/session-roster-remove";
+import {
+  assistantPlayerRegisterAdd,
+  assistantPlayerRegisterCancel,
+  assistantPlayerRegisterStatus,
+} from "@/lib/assistant/operations/player-register";
 import { assistantPlayerLookup } from "@/lib/assistant/operations/player-lookup";
 import { canRunAssistantOperation, isKnownAssistantOperation } from "@/lib/assistant/permissions";
 import { parseAssistantEnvelope } from "@/lib/assistant/schema";
@@ -103,6 +108,12 @@ async function runAssistantOperation(envelope: AssistantEnvelope, actor: Assista
       return getAssistantSessionStatus(envelope.params);
     case "next_session":
       return getAssistantNextSession();
+    case "player_register_add":
+      return assistantPlayerRegisterAdd(envelope.params, actor);
+    case "player_register_cancel":
+      return assistantPlayerRegisterCancel(envelope.params, actor);
+    case "player_register_status":
+      return assistantPlayerRegisterStatus(envelope.params, actor);
     case "session_roster_add":
       return assistantRosterAdd(envelope.params, actor);
     case "session_roster_remove":
@@ -136,6 +147,7 @@ function statusForCode(code: string | undefined): number {
     case "PLAYER_NOT_FOUND":
       return 404;
     case "SESSION_CLOSED":
+    case "CANCEL_WINDOW_CLOSED":
     case "ALREADY_REGISTERED":
     case "NOT_REGISTERED":
       return 409;

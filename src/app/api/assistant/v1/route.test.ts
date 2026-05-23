@@ -133,6 +133,9 @@ describe("POST /api/assistant/v1", () => {
           { name: "help", level: "any" },
           { name: "session_status", level: "any" },
           { name: "next_session", level: "any" },
+          { name: "player_register_add", level: "member" },
+          { name: "player_register_cancel", level: "member" },
+          { name: "player_register_status", level: "member" },
           { name: "session_roster_add", level: "admin" },
           { name: "session_roster_remove", level: "admin" },
           { name: "player_lookup", level: "admin" },
@@ -221,6 +224,49 @@ describe("POST /api/assistant/v1", () => {
     expect(res.status).toBe(403);
     expect(json.error.code).toBe("FORBIDDEN_OPERATION");
     expect(prisma.assistantRequestLog.create).toHaveBeenCalled();
+  });
+
+  it("returns 403 FORBIDDEN_OPERATION when a guest calls player_register_add", async () => {
+    const res = await POST(request({ ...body, operation: "player_register_add", params: {} }));
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error.code).toBe("FORBIDDEN_OPERATION");
+    expect(prisma.assistantRequestLog.create).toHaveBeenCalled();
+  });
+
+  it("returns 200 when a member calls player_register_status", async () => {
+    const memberPlayer = {
+      id: "member-id",
+      phone: "0501234567",
+      nickname: "אבי",
+      firstNameHe: null,
+      lastNameHe: null,
+      firstNameEn: null,
+      lastNameEn: null,
+      isAdmin: false,
+    };
+    const session = {
+      id: "s1",
+      date: new Date("2026-05-29T18:00:00.000Z"),
+      maxPlayers: 14,
+      isClosed: false,
+      isArchived: false,
+      cancelledAt: null,
+      attendances: [
+        { id: "att-member", playerId: "member-id", gameSessionId: "s1", createdAt: new Date(), player: memberPlayer },
+      ],
+    };
+
+    vi.mocked(prisma.player.findUnique).mockResolvedValue(memberPlayer as never);
+    vi.mocked(prisma.gameSession.findFirst).mockResolvedValue(session as never);
+
+    const res = await POST(request({ ...body, operation: "player_register_status", params: {} }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.data).toMatchObject({ registered: true, status: "confirmed", position: 1 });
   });
 
   it("returns 200 when admin calls session_roster_add (mocked happy path)", async () => {

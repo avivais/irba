@@ -35,6 +35,9 @@ describe("assistant permissions", () => {
     expect(isKnownAssistantOperation("help")).toBe(true);
     expect(isKnownAssistantOperation("session_status")).toBe(true);
     expect(isKnownAssistantOperation("next_session")).toBe(true);
+    expect(isKnownAssistantOperation("player_register_add")).toBe(true);
+    expect(isKnownAssistantOperation("player_register_cancel")).toBe(true);
+    expect(isKnownAssistantOperation("player_register_status")).toBe(true);
     expect(isKnownAssistantOperation("session_roster_add")).toBe(true);
     expect(isKnownAssistantOperation("session_roster_remove")).toBe(true);
     expect(isKnownAssistantOperation("roster.add")).toBe(false);
@@ -52,6 +55,14 @@ describe("assistant permissions", () => {
   it("denies guest actor from calling admin-only mutation ops", () => {
     expect(canRunAssistantOperation(guest, "session_roster_add")).toBe(false);
     expect(canRunAssistantOperation(guest, "session_roster_remove")).toBe(false);
+  });
+
+  it("allows known members and admins, but not guests, to call self-service RSVP ops", () => {
+    for (const operation of ["player_register_add", "player_register_cancel", "player_register_status"]) {
+      expect(canRunAssistantOperation(guest, operation)).toBe(false);
+      expect(canRunAssistantOperation(member, operation)).toBe(true);
+      expect(canRunAssistantOperation(admin, operation)).toBe(true);
+    }
   });
 
   it("denies member actor from calling admin-only mutation ops", () => {

@@ -2,6 +2,9 @@ export type AssistantOperation =
   | "help"
   | "session_status"
   | "next_session"
+  | "player_register_add"
+  | "player_register_cancel"
+  | "player_register_status"
   | "session_roster_add"
   | "session_roster_remove"
   | "player_lookup";
@@ -17,6 +20,7 @@ export type AssistantErrorCode =
   | "FORBIDDEN_OPERATION"
   | "SESSION_NOT_FOUND"
   | "SESSION_CLOSED"
+  | "CANCEL_WINDOW_CLOSED"
   | "PLAYER_NOT_FOUND"
   | "ALREADY_REGISTERED"
   | "NOT_REGISTERED"
