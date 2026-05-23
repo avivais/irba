@@ -2,6 +2,10 @@ name: Ops switch assistant group
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ops-switch-assistant-group.yml
 
 jobs:
   run:
