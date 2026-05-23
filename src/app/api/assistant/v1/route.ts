@@ -18,6 +18,12 @@ import {
   assistantPlayerRegisterStatus,
 } from "@/lib/assistant/operations/player-register";
 import { assistantPlayerLookup } from "@/lib/assistant/operations/player-lookup";
+import {
+  assistantFinanceSummary,
+  assistantPaymentAdd,
+  assistantPlayerBalance,
+  assistantPlayerPaymentsList,
+} from "@/lib/assistant/operations/finance";
 import { canRunAssistantOperation, isKnownAssistantOperation } from "@/lib/assistant/permissions";
 import { parseAssistantEnvelope } from "@/lib/assistant/schema";
 import type { AssistantActor, AssistantEnvelope, AssistantResponse } from "@/lib/assistant/types";
@@ -120,6 +126,14 @@ async function runAssistantOperation(envelope: AssistantEnvelope, actor: Assista
       return assistantRosterRemove(envelope.params, actor);
     case "player_lookup":
       return assistantPlayerLookup(envelope.params);
+    case "finance_summary_get":
+      return assistantFinanceSummary(actor);
+    case "player_balance_get":
+      return assistantPlayerBalance(envelope.params, actor);
+    case "player_payments_list":
+      return assistantPlayerPaymentsList(envelope.params, actor);
+    case "payment_add":
+      return assistantPaymentAdd(envelope.params, actor);
     default:
       throw new Error("unknown assistant operation");
   }
@@ -140,6 +154,7 @@ function statusForCode(code: string | undefined): number {
       return 400;
     case "IDEMPOTENCY_CONFLICT":
     case "MIXED_LANGUAGE_AMBIGUOUS":
+    case "INVALID_CONFIRMATION":
       return 422;
     case "UNAUTHORIZED":
       return 401;

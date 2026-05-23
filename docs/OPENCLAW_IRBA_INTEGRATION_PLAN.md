@@ -1,6 +1,6 @@
 # OpenClaw ↔ IRBA Integration Plan
 
-> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Remaining work is mainly production-group rollout validation, Mikey UX polish, notification/automation alignment QA, hardening triage, and a separate decision on sensitive financial operations.
+> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Phase 4 is implemented locally in Mikey/OpenClaw. Phase 5 finance assistant is in progress locally with targeted tests passing; deploy/live QA pending. Remaining work is mainly production-group rollout validation, notification/automation alignment QA, and hardening triage.
 >
 > **Last updated:** 2026-05-23
 >
@@ -40,6 +40,8 @@ Detailed implementation plans live in `docs/plans/`:
 | 2 | [`openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) | Complete, deployed, OpenClaw QA-smoked |
 | 2.1 | [`openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) | Complete enough for operational use; some edge QA deferred |
 | 3 | [`openclaw-irba-phase-3-self-service-rsvp.md`](plans/openclaw-irba-phase-3-self-service-rsvp.md) | Complete, deployed, live WhatsApp QA passed |
+| 4 | [`openclaw-irba-phase-4-mikey-ux-polish.md`](plans/openclaw-irba-phase-4-mikey-ux-polish.md) | Implemented locally, lightweight QA passed |
+| 5 | [`openclaw-irba-phase-5-finance-assistant.md`](plans/openclaw-irba-phase-5-finance-assistant.md) | In progress locally; targeted tests passing; deploy pending |
 
 This document is the master/source-of-truth roadmap. Phase documents are execution notes and should be updated when their implementation or QA status changes.
 
@@ -74,7 +76,7 @@ These are intentional boundaries, not missing features:
 | Creating unknown players from free text | Too risky; unknown/ambiguous people require clarification or admin UI |
 | Mutating arbitrary sessions from chat | Current workflow targets the next upcoming active session only |
 | IRBA sending duplicate assistant replies | Mikey owns group reply formatting; avoid double/noisy messages |
-| Financial details in group replies | Sensitive data should use DM/private routing if added later |
+| Financial details in group replies | Phase 5 allows self balance in group and admin-requested compact balances/history; non-admin access to others is forbidden; payment mutations are admin-only and confirmation-gated |
 
 ---
 
@@ -391,51 +393,64 @@ Acceptance:
 - Mention resolution is either proven or clearly documented as “name/phone fallback required”.
 - No unsafe mutation occurs from unresolved mentions.
 
-### 9.3 Mikey UX polish / command help
+### 9.3 Mikey UX polish / command help — implemented locally
 
 Purpose: make the assistant feel reliable and discoverable, not like a raw API wrapper.
 
-Tasks:
+Status:
 
-- Add/standardize concise Hebrew reply templates for all success/error cases.
-- Add a group-safe “מה אפשר לבקש ממני?” response.
-- Add consistent replies for:
-  - no upcoming session;
-  - already registered;
-  - not registered;
-  - close-window cancellation blocked;
-  - waitlist position;
-  - ambiguous player lookup;
-  - unresolved mention.
-- Keep replies short and avoid noisy duplicate broadcasts.
+- Implemented locally in the OpenClaw skill on 2026-05-23.
+- Phase doc: `docs/plans/openclaw-irba-phase-4-mikey-ux-polish.md`.
+- Lightweight QA passed for help, next session, session status, self-status, dry-run self register/cancel, dry-run admin add, and unresolved LID blocking.
+- Live mutation QA remains deferred to the production-group QA window.
+
+Implemented:
+
+- Concise Hebrew reply templates for common existing operation results/errors.
+- Group-safe “מה אפשר לבקש ממני?” response.
+- Consistent replies for no upcoming session, already/not registered, cancellation blocked, waitlist position, ambiguous lookup, and unresolved mention.
+- Short replies that avoid raw JSON and avoid duplicating IRBA-native broadcasts.
 
 Acceptance:
 
 - Common user/admin questions get consistent replies without manual improvisation.
 
-### 9.4 Sensitive financial operations — optional but originally part of broader vision
+### 9.4 Finance assistant operations — Phase 5 in progress locally
 
-Original master-plan candidates included balance/payment operations. These were intentionally deferred from the first RSVP/roster rollout.
+Original master-plan candidates included balance/payment operations. Avi approved Phase 5 as finance summary, balances, explicit payment history, and confirmation-gated admin payment recording.
 
-Possible operations:
+Phase doc:
+
+- `docs/plans/openclaw-irba-phase-5-finance-assistant.md`
+
+Proposed Phase 5 operations:
 
 | Operation | Access | Routing policy |
 |---|---|---|
-| `player_balance_get` | self, admin | DM/private for self; admin-only for others |
-| `player_payments_list` | self, admin | DM/private always |
-| `payment_add` | admin only | requires explicit confirmation before mutation |
+| `finance_summary_get` | admin | compact group-safe summary |
+| `player_balance_get` | self, admin | self for own balance; admin for others after safe lookup |
+| `player_payments_list` | self, admin | explicit recent payment history; admin for others |
+| `payment_add` | admin | confirmation-gated payment recording |
 
-Before implementation, decide:
+Decisions:
 
-1. Do we still want financial data in the OpenClaw integration?
-2. Should financial replies ever appear in a group? Recommended: no.
-3. Does Mikey have reliable private-DM routing for every requesting member?
-4. Should `payment_add` require a confirmation step every time? Recommended: yes.
+1. Self-balance replies are allowed in group when the player explicitly asks.
+2. Admin requests for other players’ compact balances are allowed in group.
+3. Non-admin users cannot see another player’s balance/history.
+4. Explicit admin payment-history requests are included in Phase 5.
+5. Admin payment recording is included in Phase 5, but must be confirmation-gated.
+6. Screenshot/photo receipt support may draft payment details through OCR/image analysis, but cannot create a payment without explicit admin confirmation.
+
+Local implementation status:
+
+- IRBA assistant operations implemented locally.
+- OpenClaw/Mikey finance routing implemented locally.
+- Targeted tests/lint passed locally; deploy and live QA pending.
 
 Acceptance:
 
-- No financial operation ships without a written plan and Avi approval.
-- Sensitive replies are routed privately.
+- No financial operation ships without written plan and Avi approval.
+- Payment recording is the only Phase 5 mutation and must require explicit admin confirmation; edits/deletes remain out of scope.
 
 ### 9.5 Security hardening
 

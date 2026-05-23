@@ -80,7 +80,8 @@ export type AuditAction =
   | "ASSISTANT_ROSTER_ADD"
   | "ASSISTANT_ROSTER_REMOVE"
   | "ASSISTANT_SELF_REGISTER_ADD"
-  | "ASSISTANT_SELF_REGISTER_CANCEL";
+  | "ASSISTANT_SELF_REGISTER_CANCEL"
+  | "ASSISTANT_PAYMENT_ADD";
 
 export type AuditParams = {
   actor: string;

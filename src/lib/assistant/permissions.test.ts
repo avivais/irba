@@ -40,6 +40,10 @@ describe("assistant permissions", () => {
     expect(isKnownAssistantOperation("player_register_status")).toBe(true);
     expect(isKnownAssistantOperation("session_roster_add")).toBe(true);
     expect(isKnownAssistantOperation("session_roster_remove")).toBe(true);
+    expect(isKnownAssistantOperation("finance_summary_get")).toBe(true);
+    expect(isKnownAssistantOperation("player_balance_get")).toBe(true);
+    expect(isKnownAssistantOperation("player_payments_list")).toBe(true);
+    expect(isKnownAssistantOperation("payment_add")).toBe(true);
     expect(isKnownAssistantOperation("roster.add")).toBe(false);
   });
 
@@ -55,10 +59,12 @@ describe("assistant permissions", () => {
   it("denies guest actor from calling admin-only mutation ops", () => {
     expect(canRunAssistantOperation(guest, "session_roster_add")).toBe(false);
     expect(canRunAssistantOperation(guest, "session_roster_remove")).toBe(false);
+    expect(canRunAssistantOperation(guest, "finance_summary_get")).toBe(false);
+    expect(canRunAssistantOperation(guest, "payment_add")).toBe(false);
   });
 
   it("allows known members and admins, but not guests, to call self-service RSVP ops", () => {
-    for (const operation of ["player_register_add", "player_register_cancel", "player_register_status"]) {
+    for (const operation of ["player_register_add", "player_register_cancel", "player_register_status", "player_balance_get", "player_payments_list"]) {
       expect(canRunAssistantOperation(guest, operation)).toBe(false);
       expect(canRunAssistantOperation(member, operation)).toBe(true);
       expect(canRunAssistantOperation(admin, operation)).toBe(true);
@@ -68,10 +74,14 @@ describe("assistant permissions", () => {
   it("denies member actor from calling admin-only mutation ops", () => {
     expect(canRunAssistantOperation(member, "session_roster_add")).toBe(false);
     expect(canRunAssistantOperation(member, "session_roster_remove")).toBe(false);
+    expect(canRunAssistantOperation(member, "finance_summary_get")).toBe(false);
+    expect(canRunAssistantOperation(member, "payment_add")).toBe(false);
   });
 
   it("allows admin actor to call mutation ops", () => {
     expect(canRunAssistantOperation(admin, "session_roster_add")).toBe(true);
     expect(canRunAssistantOperation(admin, "session_roster_remove")).toBe(true);
+    expect(canRunAssistantOperation(admin, "finance_summary_get")).toBe(true);
+    expect(canRunAssistantOperation(admin, "payment_add")).toBe(true);
   });
 });

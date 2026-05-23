@@ -7,7 +7,11 @@ export type AssistantOperation =
   | "player_register_status"
   | "session_roster_add"
   | "session_roster_remove"
-  | "player_lookup";
+  | "player_lookup"
+  | "finance_summary_get"
+  | "player_balance_get"
+  | "player_payments_list"
+  | "payment_add";
 
 export type AssistantErrorCode =
   | "UNAUTHORIZED"
@@ -24,7 +28,8 @@ export type AssistantErrorCode =
   | "PLAYER_NOT_FOUND"
   | "ALREADY_REGISTERED"
   | "NOT_REGISTERED"
-  | "MIXED_LANGUAGE_AMBIGUOUS";
+  | "MIXED_LANGUAGE_AMBIGUOUS"
+  | "INVALID_CONFIRMATION";
 
 export type AssistantError = {
   code: AssistantErrorCode;
