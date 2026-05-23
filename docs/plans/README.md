@@ -18,11 +18,15 @@ For the current source-of-truth roadmap, start with:
 
 ## Remaining work tracked in the master plan
 
-The remaining work is no longer basic API enablement. It is tracked in the master plan as:
+The remaining work is no longer basic API enablement. It is tracked in the master plan and the completion plan:
 
-1. Documentation cleanup/status alignment.
+- [`openclaw-irba-completion-plan.md`](openclaw-irba-completion-plan.md)
+
+Current completion workstreams:
+
+1. Documentation truth pass.
 2. Production-group rollout QA, especially mention identity behavior.
 3. Mikey UX/help/reply polish.
-4. Optional sensitive financial operations, with private-routing requirements.
-5. Optional security hardening.
-6. Optional proactive automation, only with explicit approval and anti-noise controls.
+4. Notification/automation alignment QA — IRBA already owns the configured automations; do not rebuild them in OpenClaw.
+5. Security/ops hardening triage.
+6. Optional sensitive financial operations decision, with private-routing requirements if ever approved.

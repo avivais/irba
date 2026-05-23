@@ -1,6 +1,6 @@
 # OpenClaw ↔ IRBA Integration Plan
 
-> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Remaining work is mainly hardening, production-group rollout validation, sensitive financial operations, and optional automation.
+> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Remaining work is mainly production-group rollout validation, Mikey UX polish, notification/automation alignment QA, hardening triage, and a separate decision on sensitive financial operations.
 >
 > **Last updated:** 2026-05-23
 >
@@ -454,27 +454,35 @@ Acceptance:
 - A compromised/replayed request is harder to abuse.
 - Debugging assistant failures does not require digging through raw logs.
 
-### 9.6 Optional proactive automation
+### 9.6 Notification / automation alignment — IRBA-native, not new OpenClaw work
 
-This is deliberately last because it can be noisy.
+Earlier versions of this plan treated proactive automation as possible future OpenClaw work. That is misleading: IRBA already owns the notification and scheduling layer.
 
-Possible features:
+Existing IRBA capabilities include:
 
-- Reminder before session.
-- “חסרים X שחקנים” group nudge.
-- Admin-only summary before close window.
-- Waitlist/promotion notifications.
+- Auto-create session cron.
+- Auto-close session cron.
+- Low-attendance alerts with early/critical tiers and config toggles.
+- Session open/close/cancelled WhatsApp notifications.
+- Player registered/cancelled WhatsApp notifications.
+- Waitlist promotion private DM.
+- Manual roster broadcast.
+- Manual debtors broadcast with optional WhatsApp tagging.
+- Competition winner notification.
+- Audit/assistant request log pruning.
 
-Before implementation, decide:
+Remaining work here is alignment, not feature implementation:
 
-- Exact trigger times.
-- Who receives messages.
-- Quiet hours / anti-spam rules.
-- Whether OpenClaw or IRBA owns scheduling.
+- Verify production config values for the relevant notification toggles.
+- Verify EC2 cron is calling the expected endpoints.
+- Update runbook/docs if cron examples are stale.
+- Document which notifications are group broadcasts vs private DMs.
+- Confirm assistant-driven OpenClaw replies do not duplicate IRBA-native broadcasts.
 
 Acceptance:
 
-- No proactive automation runs without explicit Avi approval and a rollback/off switch.
+- Automation ownership is clear: IRBA schedules and sends configured notifications; Mikey/OpenClaw only responds to user requests and calls typed API operations.
+- No duplicate/noisy WhatsApp behavior remains unexplained.
 
 ---
 
@@ -524,8 +532,8 @@ The integration can be considered fully complete when:
 - [ ] Final production-group mention QA is complete or documented as name/phone-only fallback.
 - [ ] Ambiguous/unknown/not-registered edge paths are QA-smoked in group context.
 - [ ] User-facing Hebrew reply templates are consistent enough for normal group use.
+- [ ] Existing IRBA-native notifications/automations are documented, config/cron status is verified, and assistant replies do not duplicate broadcasts.
 - [ ] Sensitive operations, if added, are private-routed and separately approved.
-- [ ] Optional automation, if added, has explicit approval and anti-noise controls.
 
 ---
 

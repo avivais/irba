@@ -95,11 +95,14 @@ Add these lines:
 # Hourly check to auto-create the next session when the lead window opens
 0 * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/auto-create >> /opt/irba/cron.log 2>&1
 
+# Every-minute check to auto-close ended sessions and fire configured low-attendance alerts
+* * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/auto-close >> /opt/irba/cron.log 2>&1
+
 # Daily audit-log prune at 03:30 (default retention: 90 days; override with AUDIT_LOG_RETENTION_DAYS in .env)
 30 3 * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/prune-audit >> /opt/irba/cron.log 2>&1
 ```
 
-Auto-create only fires if `SESSION_SCHEDULE_ENABLED=true` is set in admin config.
+Auto-create only fires if `SESSION_SCHEDULE_ENABLED=true` is set in admin config. Low-attendance alerts only fire when `alert_low_attendance_enabled` and the relevant tier toggle are enabled.
 
 ---
 
