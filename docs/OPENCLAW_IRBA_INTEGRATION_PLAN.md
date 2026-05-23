@@ -1,663 +1,532 @@
 # OpenClaw ↔ IRBA Integration Plan
 
-> **Replaces**: `docs/WHATSAPP_COMMAND_API_PLAN.md`
-> **Status**: Phases 1, 2, and 2.1 complete enough for operational use; OpenClaw IRBA skill configured and QA-smoked; final live mention QA in the future production group deferred until real use
-> **Date**: 2026-05-22
+> **Status:** Core WhatsApp assistant integration is live in production. Phases 0, 1, 2, 2.1, and 3 are implemented, deployed, and smoke/QA tested. Remaining work is mainly hardening, production-group rollout validation, sensitive financial operations, and optional automation.
+>
+> **Last updated:** 2026-05-23
+>
+> **Replaces:** `docs/WHATSAPP_COMMAND_API_PLAN.md`
 
 ---
 
-## Execution Plans
+## 0. Executive Summary
 
-- Phase 0 infrastructure: [`docs/plans/openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) — complete and production-smoked
-- Phase 1 read-only MVP: [`docs/plans/openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) — complete and production-smoked
-- Phase 2 admin roster mutations: [`docs/plans/openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) — implemented, production-deployed, and QA-smoked through OpenClaw roster commands against an upcoming session
-- Phase 2.1 human-friendly roster commands: [`docs/plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) — `player_lookup` implemented/deployed; OpenClaw `irba-assistant` skill created and QA-smoked for natural command orchestration; final live mention QA in the future production group remains deferred
+The integration goal is to let Mikey/OpenClaw participate in the IRBA WhatsApp group and answer or execute IRBA actions through a **narrow, typed, authenticated API** on the IRBA production server.
 
-These phase execution plans are the working implementation guides. This document remains the architecture/source-of-truth overview and should be updated after each phase is completed.
+The important architectural decision remains unchanged:
+
+- **OpenClaw/Mikey owns conversation:** WhatsApp inbound messages, natural-language understanding, mention/name parsing, ambiguity handling, Hebrew replies, and group/DM routing.
+- **IRBA owns deterministic execution:** authentication, group allowlist, actor resolution, permission checks, typed operation validation, business logic, DB mutations, idempotency, and audit logging.
+
+The core integration is now live:
+
+- Mikey can answer next-session and roster/status questions.
+- Admins can add/remove known players by natural WhatsApp commands.
+- Known players can self-register, self-cancel, and check their own RSVP status.
+- Production health and assistant API smoke checks passed on commit `b2d2433`.
+- Live IRBA Coding QA with Avi covered status, duplicate self-register, self-cancel, and re-register.
+
+What remains is not “make the integration work” — it works. The remaining work is to make it complete, safer, clearer, and ready for broader real-world group usage.
 
 ---
 
-## 1. Goal and Non-Goals
+## 1. Execution Plan Index
 
-### Goal
+Detailed implementation plans live in `docs/plans/`:
 
-Enable Mikey (OpenClaw's AI assistant) to respond to natural-language WhatsApp messages in the IRBA group by calling a **narrow, typed, authenticated API** on the IRBA production server. IRBA executes operations deterministically; OpenClaw handles everything conversational.
+| Phase | Plan | Current status |
+|---|---|---|
+| 0 | [`openclaw-irba-phase-0-infrastructure.md`](plans/openclaw-irba-phase-0-infrastructure.md) | Complete, deployed, production-smoked |
+| 1 | [`openclaw-irba-phase-1-read-only-mvp.md`](plans/openclaw-irba-phase-1-read-only-mvp.md) | Complete, deployed, production-smoked |
+| 2 | [`openclaw-irba-phase-2-admin-mutations.md`](plans/openclaw-irba-phase-2-admin-mutations.md) | Complete, deployed, OpenClaw QA-smoked |
+| 2.1 | [`openclaw-irba-phase-2-1-human-friendly-roster-commands.md`](plans/openclaw-irba-phase-2-1-human-friendly-roster-commands.md) | Complete enough for operational use; some edge QA deferred |
+| 3 | [`openclaw-irba-phase-3-self-service-rsvp.md`](plans/openclaw-irba-phase-3-self-service-rsvp.md) | Complete, deployed, live WhatsApp QA passed |
 
-### Non-Goals
+This document is the master/source-of-truth roadmap. Phase documents are execution notes and should be updated when their implementation or QA status changes.
 
-| What we are NOT doing | Rationale |
+---
+
+## 2. Product Goal
+
+Enable natural WhatsApp workflows in the IRBA group:
+
+- “מתי המפגש?” → Mikey answers from IRBA production data.
+- “מי רשום?” / “כמה מקומות נשארו?” → Mikey returns roster/status.
+- Admin: “תוסיף את פוגל” → Mikey resolves the player safely and IRBA mutates the roster.
+- Admin: “תסיר את @player” → Mikey resolves the mention safely and IRBA removes the player.
+- Player: “תרשום אותי” → IRBA registers the actor.
+- Player: “תבטל אותי” → IRBA cancels the actor if allowed by the RSVP window.
+- Player: “אני רשום?” → IRBA returns the actor’s current RSVP status.
+
+The target UX is that the group can treat Mikey as a reliable IRBA assistant, while the server remains deterministic and safe.
+
+---
+
+## 3. Non-Goals / Boundaries
+
+These are intentional boundaries, not missing features:
+
+| Not doing | Why |
 |---|---|
-| Inbound WhatsApp listener on the IRBA server | Separation of concerns; Baileys already runs in OpenClaw |
-| Raw natural-language execution on the IRBA server | Security; server must only receive typed, validated intent |
-| IRBA sending WhatsApp replies | Mikey owns group presence and reply formatting |
-| LLM access to the IRBA database | Trust boundary violation |
-| Modifying the existing Baileys sidecar (`wa/`) | It is outbound-only and should remain so |
-| Building a general-purpose API | Narrow surface only; every operation is explicit and purposeful |
+| Inbound WhatsApp listener inside IRBA | OpenClaw already owns inbound WhatsApp/Baileys handling |
+| Raw natural-language execution on IRBA | Server must only accept typed, validated operations |
+| LLM database access | Strong trust boundary; IRBA business logic stays server-side |
+| Generic admin/database API | Keep the assistant surface narrow and auditable |
+| Creating unknown players from free text | Too risky; unknown/ambiguous people require clarification or admin UI |
+| Mutating arbitrary sessions from chat | Current workflow targets the next upcoming active session only |
+| IRBA sending duplicate assistant replies | Mikey owns group reply formatting; avoid double/noisy messages |
+| Financial details in group replies | Sensitive data should use DM/private routing if added later |
 
 ---
 
-## 2. Current IRBA / OpenClaw Context
+## 4. Current Architecture
 
-### IRBA App (irba.club)
-
-- **Stack**: Next.js 16 App Router, PostgreSQL + Prisma 7, HTTP-only JWT auth, deployed on EC2 behind Apache TLS
-- **WhatsApp sidecar** (`wa/`, port 3100): Baileys + Express, **outbound only** — `POST /send`, `POST /send-group`, `POST /send-poll`. No inbound message handling.
-- **Notification client** (`src/lib/wa-notify.ts`): thin wrapper around the sidecar; all calls are best-effort, no-throw
-- **Existing API routes**: only `/api/cron/*` (bearer token auth via `CRON_SECRET`) and `/api/health`
-- **`AuditLog` table**: append-only, used for all admin mutations today
-- **`AppConfig` table**: key-value store for all admin-editable settings (40+ keys, live — no deploy needed to change)
-- **Auth model**: `Player.isAdmin` boolean; phone (`05XXXXXXXX`) is the identity key; JWT session cookie
-- **Phone normalization**: `05XXXXXXXX` ↔ `972XXXXXXXX@s.whatsapp.net` (logic in `wa/src/index.ts:toJid()`)
-
-### OpenClaw / Mikey
-
-- OpenClaw already receives all WhatsApp group messages for the IRBA group via its own Baileys connection
-- Mikey is the AI assistant within OpenClaw
-- Mikey handles: message reception, NLU/intent classification, entity extraction, ambiguity handling, confirmation UX, reply formatting, and sending the reply back into the group
-- OpenClaw calls external HTTP APIs today — this integration adds one more tool to Mikey's toolbox
-- Production OpenClaw has a dedicated local skill at `/root/.openclaw/skills/irba-assistant/`:
-  - `SKILL.md` declares when to use the IRBA assistant workflow.
-  - `scripts/irba_roster_command.py` implements safe natural roster orchestration: parse → `player_lookup` → all-or-clarify → `session_roster_add/remove`.
-  - `references/COMMANDS.md` documents supported command words, target splitting, and safety behavior.
-  - Mention handling is intentionally conservative: phone/JID mentions resolve directly; LID mentions resolve only through an existing local WhatsApp/Baileys LID→phone mapping; unresolved LIDs block mutation and ask for a name/phone.
-
----
-
-## 3. Target Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  WhatsApp Group                                                   │
-│  "מיקי תוסיף את אבי למפגש ביום שישי"                            │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ (raw message + metadata)
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  OpenClaw — Baileys listener                                      │
-│  • Receives: sender JID, group JID, text, timestamp              │
-│  • Routes to Mikey if IRBA group                                 │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  OpenClaw — Mikey (NLU + orchestration layer)                    │
-│  • Classifies intent → typed operation name                      │
-│  • Extracts + resolves parameters (player name/phone, session)   │
-│  • Handles ambiguity ("which Avi?") with follow-up questions     │
-│  • Confirms destructive mutations before calling API             │
-│  • Formats Hebrew reply from structured API response             │
-│  • Decides: group reply or private DM                            │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ POST /api/assistant/v1
-                               │ Authorization: Bearer <SECRET>
-                               │ Body: { operation, actor_phone,
-                               │         group_jid, idempotency_key,
-                               │         params }
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  IRBA — POST /api/assistant/v1  (new, Next.js route handler)     │
-│  1. Verify Bearer token (ASSISTANT_API_SECRET)                   │
-│  2. Check group_jid in AppConfig:assistant_allowed_groups        │
-│  3. Check idempotency_key (dedup window: 24h)                    │
-│  4. Resolve actor_phone → Player (unknown → guest context)       │
-│  5. Check operation permission for actor level                   │
-│  6. Validate params (Zod)                                        │
-│  7. Execute typed handler (deterministic, transactional)         │
-│  8. Write AssistantRequestLog entry (audit)                      │
-│  9. Return structured JSON result                                │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ { ok, data, error }
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Mikey formats reply → sends to group (or DM)                    │
-└─────────────────────────────────────────────────────────────────┘
+```text
+WhatsApp group message
+        │
+        ▼
+OpenClaw / Mikey
+- receives inbound WhatsApp metadata
+- decides whether to respond
+- classifies intent
+- extracts actor, target names, mentions, or self-service intent
+- resolves ambiguity when needed
+- calls typed IRBA assistant API
+- formats Hebrew group/DM reply
+        │
+        ▼
+IRBA production API: POST /api/assistant/v1
+- verifies Bearer token
+- enforces `assistant_allowed_groups`
+- resolves `actor_phone` to Player/admin/member/guest
+- checks operation permission
+- validates params
+- executes deterministic handler
+- stores idempotency/request log
+- writes AuditLog for mutations
+        │
+        ▼
+Structured `{ ok, data, error }` response
+        │
+        ▼
+Mikey replies in WhatsApp
 ```
 
-### Responsibility Split (explicit)
+### Responsibility Split
 
 | Concern | Owner |
 |---|---|
-| Raw message reception | OpenClaw (Baileys) |
-| Natural-language understanding | Mikey |
-| Ambiguity resolution / follow-up questions | Mikey |
-| Mutation confirmation UX ("בטוח?") | Mikey |
-| Reply formatting (Hebrew, context-aware) | Mikey |
-| Reply destination (group vs. DM) | Mikey |
-| Rate limiting per user/group (chat-side) | Mikey / OpenClaw |
-| Authentication of API caller | IRBA |
-| Group allowlist enforcement | IRBA |
-| Actor resolution (phone → Player) | IRBA |
-| Permission checks | IRBA |
-| Business logic + DB access | IRBA |
-| Idempotency | IRBA |
-| Audit trail | IRBA |
-| Error semantics (typed error codes) | IRBA |
+| Raw WhatsApp inbound handling | OpenClaw |
+| Natural-language parsing | Mikey / OpenClaw skill |
+| Mention/name/LID handling | Mikey / OpenClaw skill |
+| Ambiguity and clarification UX | Mikey |
+| Hebrew reply formatting | Mikey |
+| Group vs DM routing | Mikey |
+| API authentication | IRBA |
+| Group allowlist | IRBA |
+| Actor/permission model | IRBA |
+| Business logic and DB writes | IRBA |
+| Idempotency and audit trail | IRBA |
 
 ---
 
-## 4. Trust Boundaries and Security Model
+## 5. Production API Contract
 
-### 4.1 Authentication
+Endpoint:
 
-- **Mechanism (MVP)**: `Authorization: Bearer <ASSISTANT_API_SECRET>` HTTP header
-- Secret is a random 40+ character hex string, stored as `ASSISTANT_API_SECRET` env var on the IRBA EC2 instance
-- Same secret configured in OpenClaw/Mikey
-- Constant-time comparison on IRBA side (prevents timing attacks)
-- **Upgrade path** (post-MVP): HMAC-SHA256 request signing (`X-Signature: sha256=<hmac>` over the raw body) prevents replay attacks if the channel is ever compromised. Worth considering for phase 2.
-
-### 4.2 Group Allowlist
-
-- `AppConfig` key: `assistant_allowed_groups` — comma-separated WhatsApp group JIDs (e.g., `120363123456789012@g.us`)
-- Requests with an unknown `group_jid` → `403 FORBIDDEN_GROUP`
-- Managed via AppConfig (live change, no deploy needed)
-- Empty list = feature disabled entirely
-
-### 4.3 Actor Model
-
-- `actor_phone` in request body is the normalized Israeli phone of the WhatsApp sender, as extracted by OpenClaw
-- IRBA resolves it to a `Player` record (or `null` for guest)
-- IRBA never trusts Mikey's claim about permission level — it re-derives it from the DB
-
-### 4.4 No Raw Text Execution
-
-- The API body contains `operation` (string enum) and `params` (typed object) only
-- No `message` or `raw_text` field exists in the API contract
-- The IRBA handler never sees the original Hebrew message
-
-### 4.5 Transport
-
-- HTTPS only (Apache TLS terminator on EC2)
-- No direct port exposure
-- Same security posture as the existing app
-
-### 4.6 Sensitive Data in Responses
-
-- `player.balance.get` returns financial data — Mikey should DM the result privately unless actor is admin querying in an appropriate context
-- `player.payments.list` returns payment history — always DM
-- These policies are **Mikey's responsibility** to enforce; IRBA returns data to any authorized actor and trusts Mikey to route appropriately
-
----
-
-## 5. Assistant API Contract
-
-### Endpoint
-
-```
+```http
 POST https://irba.club/api/assistant/v1
 Content-Type: application/json
 Authorization: Bearer <ASSISTANT_API_SECRET>
 ```
 
-### Request Schema
+Request envelope:
 
 ```jsonc
 {
-  "operation": "session.roster.status",   // typed enum (see operations below)
-  "actor_phone": "0501234567",            // sender's Israeli phone, normalized
-  "group_jid": "120363123456789012@g.us", // WhatsApp group JID
-  "idempotency_key": "uuid-v4-here",      // client-generated UUID v4
-  "params": {
-    // operation-specific fields — see each operation below
-  }
+  "operation": "next_session",
+  "actor_phone": "0507666550",
+  "group_jid": "120363409761679942@g.us",
+  "idempotency_key": "uuid-v4",
+  "params": {}
 }
 ```
 
-### Response Schema
+Success response:
 
-**Success:**
 ```jsonc
 {
   "ok": true,
-  "data": { /* operation-specific payload */ },
-  "error": null
+  "data": {},
+  "error": null,
+  "idempotent_replay": false
 }
 ```
 
-**Error:**
+Error response:
+
 ```jsonc
 {
   "ok": false,
   "data": null,
   "error": {
-    "code": "PERMISSION_DENIED",          // machine-readable code
+    "code": "FORBIDDEN_OPERATION",
     "message": "Actor cannot access this operation",
-    "detail": null                        // optional extra context
-  }
-}
-```
-
-### Error Codes
-
-| Code | HTTP | Meaning |
-|---|---|---|
-| `UNAUTHORIZED` | 401 | Missing or invalid Bearer token |
-| `FORBIDDEN_GROUP` | 403 | `group_jid` not in allowlist |
-| `UNKNOWN_OPERATION` | 400 | `operation` value not recognized |
-| `PERMISSION_DENIED` | 403 | Actor lacks permission for this operation |
-| `PLAYER_NOT_FOUND` | 404 | Target player phone doesn't match any Player |
-| `SESSION_NOT_FOUND` | 404 | `session_id` not found, or no open session exists |
-| `SESSION_CLOSED` | 409 | Session exists but is not open for registration |
-| `VALIDATION_ERROR` | 422 | `params` failed Zod schema validation |
-| `IDEMPOTENT_REPLAY` | 200 | Duplicate `idempotency_key`; cached result returned |
-| `INTERNAL_ERROR` | 500 | Unexpected server error (no stack trace in response) |
-
----
-
-### Operations
-
-#### `help`
-> Returns the list of available operations for the actor's permission level.
-
-**Params**: `{}`
-**Returns**: `{ operations: string[] }`
-**Access**: everyone (including unknown actor)
-
----
-
-#### `session.roster.status`
-> Returns the current roster for the next open session (or a specific session).
-
-**Params**:
-```jsonc
-{
-  "session_id": "cuid"   // optional; omit to use next open session
-}
-```
-**Returns**:
-```jsonc
-{
-  "session": {
-    "id": "cuid",
-    "date": "2026-05-23T08:00:00.000Z",
-    "location": "מגרש ורד הגליל",
-    "max_players": 14,
-    "status": "open"
+    "detail": null
   },
-  "registered": [
-    { "rank": 1, "name_he": "אבי", "is_dropin": false }
-  ],
-  "waitlist": [
-    { "position": 1, "name_he": "יוסי", "is_dropin": true }
-  ]
+  "idempotent_replay": false
 }
 ```
-**Access**: everyone
 
 ---
 
-#### `player.balance.get`
-> Returns the computed balance for the actor or a named player.
+## 6. Implemented Operations
 
-**Params**:
-```jsonc
-{
-  "target_phone": "0509876543"  // optional; omit = self (actor_phone)
-}
-```
-**Returns**:
-```jsonc
-{
-  "player": { "name_he": "אבי", "phone": "0501234567" },
-  "balance": -120,   // negative = debt, positive = credit (₪)
-  "as_of": "2026-05-20T12:00:00.000Z"
-}
-```
-**Access**: self always; any target if admin
+### 6.1 Public/read-only operations
 
----
+| Operation | Access | Purpose | Status |
+|---|---|---|---|
+| `help` | guest/member/admin | List operations available to actor | Live |
+| `next_session` | guest/member/admin | Next session time/location/counts | Live |
+| `session_status` | guest/member/admin | Roster/status/counts/waitlist | Live |
 
-#### `player.payments.list`
-> Lists recent payments for a player.
+### 6.2 Admin roster operations
 
-**Params**:
-```jsonc
-{
-  "target_phone": "0509876543",
-  "limit": 5   // optional, default 5, max 20
-}
-```
-**Returns**:
-```jsonc
-{
-  "player": { "name_he": "אבי" },
-  "payments": [
-    { "date": "2026-05-10", "amount": 200, "note": "מזומן" }
-  ]
-}
-```
-**Access**: admin only (phase 1); self in phase 3
+| Operation | Access | Purpose | Status |
+|---|---|---|---|
+| `player_lookup` | admin | Resolve name/nickname/phone query to known player(s) | Live |
+| `session_roster_add` | admin | Add known player to next upcoming session | Live |
+| `session_roster_remove` | admin | Remove known player from next upcoming session | Live |
+
+### 6.3 Self-service RSVP operations
+
+| Operation | Access | Purpose | Status |
+|---|---|---|---|
+| `player_register_add` | known member/admin | Actor registers themself | Live |
+| `player_register_cancel` | known member/admin | Actor cancels themself when allowed | Live |
+| `player_register_status` | known member/admin | Actor checks own RSVP status | Live |
 
 ---
 
-#### `session.roster.add`
-> Adds a player to the next open session (or a specific session). Idempotent.
+## 7. Completed Work and Evidence
 
-**Params**:
-```jsonc
-{
-  "player_phone": "0509876543",
-  "session_id": "cuid"   // optional; omit = next open session
-}
-```
-**Returns**:
-```jsonc
-{
-  "player": { "name_he": "אבי" },
-  "session_date": "2026-05-23T08:00:00.000Z",
-  "was_already_registered": false,   // true = idempotent no-op
-  "slot": "registered"               // "registered" | "waitlist"
-}
-```
-**Access**: admin only
-**Side effects**: writes `Attendance` row (if not already present), writes `AssistantRequestLog`
+### Phase 0 — Infrastructure
+
+Complete and production-smoked on 2026-05-22.
+
+Delivered:
+
+- `POST /api/assistant/v1` route.
+- Bearer token auth via `ASSISTANT_API_SECRET`.
+- AppConfig group allowlist via `assistant_allowed_groups`.
+- Actor resolution from `actor_phone`.
+- Permission model.
+- `AssistantRequestLog` with idempotency.
+- Prune support through existing audit pruning flow.
+- `help` skeleton operation.
+
+Evidence:
+
+- Commit: `eb048a3 feat(assistant): add OpenClaw integration infrastructure`.
+- Production smoke covered valid help, replay, unauthenticated request, forbidden group, and unknown operation.
+
+### Phase 1 — Read-only MVP
+
+Complete and production-smoked on 2026-05-22.
+
+Delivered:
+
+- `help`
+- `next_session`
+- `session_status`
+- OpenClaw helper at `/root/.openclaw/workspace/bin/irba-assistant-api`.
+- Mikey can answer next-session/status/count questions from production data.
+
+Evidence:
+
+- Commits: `63d6d96 feat(assistant): add read-only session operations`, `fd2f245 docs: mark assistant phase 1 complete`.
+- Production smoke passed for `help`, `next_session`, `session_status`, idempotency replay, validation error, and forbidden group.
+
+### Phase 2 — Admin roster mutations
+
+Complete, deployed, and QA-smoked.
+
+Delivered:
+
+- `session_roster_add`
+- `session_roster_remove`
+- Admin-only permission enforcement.
+- Audit logging for mutations.
+- Waitlist promotion semantics through existing attendance sorting.
+- Clear errors: `FORBIDDEN_OPERATION`, `PLAYER_NOT_FOUND`, `ALREADY_REGISTERED`, `NOT_REGISTERED`, `SESSION_CLOSED`, etc.
+
+Evidence:
+
+- Commit: `df8aaea feat: add assistant roster mutations`.
+- Production deploy succeeded.
+- OpenClaw QA covered add/remove flows against an upcoming session.
+
+### Phase 2.1 — Human-friendly roster commands
+
+Complete enough for operational use; specific edge QA remains tracked below.
+
+Delivered:
+
+- `player_lookup` production API operation.
+- Local OpenClaw skill at `/root/.openclaw/skills/irba-assistant/`.
+- Natural admin commands such as:
+  - `תוסיף את פוגל`
+  - `תוסיף את אדיר ויקיר`
+  - `תסיר את @player`
+- Safe all-or-clarify behavior for natural-name mutations.
+- Conservative mention handling:
+  - phone/JID mentions resolve directly;
+  - LID/internal IDs resolve only if OpenClaw has a local LID→phone mapping;
+  - unresolved LIDs do not mutate.
+
+Evidence:
+
+- Commit: `7c1f5dd feat: add assistant player lookup`.
+- Skill files created under `/root/.openclaw/skills/irba-assistant/`.
+- QA passed for Hebrew multi-target parsing, dry-run lookup, phone/JID mention resolution, LID mapping, safe refusal for unmapped LID, duplicate add, status reply, and selected real group roster flows.
+
+Deferred QA still worth doing later:
+
+- Live mention QA in the final/real production WhatsApp group if its LID/JID behavior differs from IRBA Coding.
+- Ambiguous-name QA against real data.
+- Unknown-name QA against real data.
+- Not-registered remove edge case against an open session.
+
+### Phase 3 — Self-service RSVP
+
+Complete, deployed, and live WhatsApp QA passed on 2026-05-23.
+
+Delivered:
+
+- `player_register_add`
+- `player_register_cancel`
+- `player_register_status`
+- `CANCEL_WINDOW_CLOSED` for clear cancellation-window failures.
+- Known members/admins can self-register/cancel/status.
+- Guests are denied.
+- Confirmed players cannot cancel inside the close window.
+- Waitlisted players can cancel inside the close window.
+- No extra server-side WhatsApp roster broadcast; Mikey replies once in the group.
+
+Evidence:
+
+- Commit: `b2d2433 Add assistant self-service RSVP operations`.
+- Build-image workflow succeeded.
+- Deploy workflow succeeded.
+- Production health verified: `status ok`, DB up, WA up, version `b2d2433`.
+- Production `help` exposes `player_register_add`, `player_register_cancel`, `player_register_status`.
+- Live IRBA Coding QA with Avi covered:
+  - duplicate self-register → `ALREADY_REGISTERED`, Mikey replied “already registered”;
+  - self-status + next session details;
+  - self-cancel removed Avi from the upcoming session;
+  - self-register re-added Avi successfully.
 
 ---
 
-#### `session.roster.remove`
-> Removes a player from the next open session. Idempotent.
+## 8. Current OpenClaw Skill State
 
-**Params**:
-```jsonc
-{
-  "player_phone": "0509876543",
-  "session_id": "cuid"   // optional; omit = next open session
-}
+Production OpenClaw uses the `irba-assistant` skill:
+
+```text
+/root/.openclaw/skills/irba-assistant/
+  SKILL.md
+  scripts/irba_roster_command.py
+  references/COMMANDS.md
 ```
-**Returns**:
-```jsonc
-{
-  "player": { "name_he": "אבי" },
-  "session_date": "2026-05-23T08:00:00.000Z",
-  "was_not_registered": false   // true = idempotent no-op
-}
-```
-**Access**: admin only
-**Side effects**: deletes `Attendance` row (if present), may promote waitlisted player, writes `AssistantRequestLog`
+
+The skill currently handles:
+
+- Read-only questions through the low-level helper.
+- Admin natural roster commands through parse → lookup → mutation.
+- Self-service RSVP commands directly through `player_register_*` operations.
+- Mention safety and LID handling.
+
+Operational rule:
+
+- For direct API questions, use `/root/.openclaw/workspace/bin/irba-assistant-api`.
+- For natural admin roster add/remove commands, use `/root/.openclaw/skills/irba-assistant/scripts/irba_roster_command.py` unless the task is a clearly self-service `אותי` command.
+- Never mutate based on ambiguous names or unresolved LIDs.
 
 ---
 
-### Phase 3+ Operations (not in MVP)
+## 9. Remaining Work to Finish the Full Integration
 
-| Operation | Description | Access |
+The remaining work should be treated as planned follow-up, not as blockers for the core RSVP/roster integration.
+
+### 9.1 Documentation cleanup and status alignment — recommended next
+
+Purpose: make the repo tell the truth so future work does not drift.
+
+Tasks:
+
+- Update phase docs to clearly say complete/deployed/QA status.
+- Keep `docs/plans/README.md` as an index of phase status.
+- Update `PROJECT_STATE.md` assistant/API section if it still reflects older status.
+- Ensure operation names are consistently documented in the current underscore format:
+  - `session_status`, not `session.roster.status`
+  - `session_roster_add`, not `session.roster.add`
+  - `player_register_add`, not `player.register.add`
+
+Acceptance:
+
+- A new contributor can read this master plan plus `docs/plans/README.md` and understand exactly what exists and what remains.
+
+### 9.2 Production-group rollout QA
+
+Purpose: verify behavior in the real intended WhatsApp environment, especially mentions.
+
+Tasks:
+
+- Test mention add/remove in the final production IRBA group, not only IRBA Coding.
+- Test ambiguous-name and unknown-name paths with real roster data.
+- Test not-registered remove path.
+- Confirm reply threading/quoting behavior is good enough in the group.
+
+Acceptance:
+
+- Mention resolution is either proven or clearly documented as “name/phone fallback required”.
+- No unsafe mutation occurs from unresolved mentions.
+
+### 9.3 Mikey UX polish / command help
+
+Purpose: make the assistant feel reliable and discoverable, not like a raw API wrapper.
+
+Tasks:
+
+- Add/standardize concise Hebrew reply templates for all success/error cases.
+- Add a group-safe “מה אפשר לבקש ממני?” response.
+- Add consistent replies for:
+  - no upcoming session;
+  - already registered;
+  - not registered;
+  - close-window cancellation blocked;
+  - waitlist position;
+  - ambiguous player lookup;
+  - unresolved mention.
+- Keep replies short and avoid noisy duplicate broadcasts.
+
+Acceptance:
+
+- Common user/admin questions get consistent replies without manual improvisation.
+
+### 9.4 Sensitive financial operations — optional but originally part of broader vision
+
+Original master-plan candidates included balance/payment operations. These were intentionally deferred from the first RSVP/roster rollout.
+
+Possible operations:
+
+| Operation | Access | Routing policy |
 |---|---|---|
-| `player.register.add` | Self-service RSVP | known player (self) |
-| `player.register.cancel` | Self-service cancel | known player (self) |
-| `session.info` | Next session time/location | everyone |
-| `payment.add` | Record a cash payment | admin only |
+| `player_balance_get` | self, admin | DM/private for self; admin-only for others |
+| `player_payments_list` | self, admin | DM/private always |
+| `payment_add` | admin only | requires explicit confirmation before mutation |
+
+Before implementation, decide:
+
+1. Do we still want financial data in the OpenClaw integration?
+2. Should financial replies ever appear in a group? Recommended: no.
+3. Does Mikey have reliable private-DM routing for every requesting member?
+4. Should `payment_add` require a confirmation step every time? Recommended: yes.
+
+Acceptance:
+
+- No financial operation ships without a written plan and Avi approval.
+- Sensitive replies are routed privately.
+
+### 9.5 Security hardening
+
+Not required for current trusted deployment, but worthwhile before broader expansion.
+
+Candidates:
+
+- HMAC request signing over raw body in addition to Bearer token.
+- Secret rotation runbook.
+- Assistant API rate limiting per actor/group/operation.
+- Admin UI or CLI for assistant request logs.
+- More structured observability around failed assistant calls.
+
+Acceptance:
+
+- A compromised/replayed request is harder to abuse.
+- Debugging assistant failures does not require digging through raw logs.
+
+### 9.6 Optional proactive automation
+
+This is deliberately last because it can be noisy.
+
+Possible features:
+
+- Reminder before session.
+- “חסרים X שחקנים” group nudge.
+- Admin-only summary before close window.
+- Waitlist/promotion notifications.
+
+Before implementation, decide:
+
+- Exact trigger times.
+- Who receives messages.
+- Quiet hours / anti-spam rules.
+- Whether OpenClaw or IRBA owns scheduling.
+
+Acceptance:
+
+- No proactive automation runs without explicit Avi approval and a rollback/off switch.
 
 ---
 
-## 6. Permission / Actor Model
+## 10. Recommended Next Step
 
-| Actor Type | Detection | Allowed Operations (MVP) |
-|---|---|---|
-| **Guest** | `actor_phone` not in Player table | `help`, `session.roster.status` |
-| **Known player** | Player record, `isAdmin=false` | + `player.balance.get` (self only) |
-| **Admin** | Player record, `isAdmin=true` | all operations |
+Do **not** start another feature phase immediately.
 
-**Phone normalization**: Mikey sends `05XXXXXXXX`; IRBA applies the same normalization as the rest of the app (strip leading zero, etc.) before the DB lookup.
+Recommended immediate next step:
 
-**No permission config file**: permissions are hardcoded in `src/lib/assistant/permissions.ts` as a constant map. The permission model is intentionally simple; if granularity is needed later, it can be extended.
+1. Finish documentation cleanup in this PR/commit:
+   - master plan updated;
+   - `docs/plans/README.md` added/updated;
+   - phase status headers aligned;
+   - `PROJECT_STATE.md` checked.
+2. Then choose between:
+   - production-group rollout QA; or
+   - Mikey UX/help polish.
 
----
-
-## 7. Auditing / Idempotency / Error Handling
-
-### Idempotency
-
-- Every request includes a client-generated `idempotency_key` (UUID v4)
-- IRBA stores all keys in `AssistantRequestLog` with a 24-hour TTL
-- On duplicate key: return the stored result immediately, skip re-execution
-- On same operation, same key → cached result (200 with `idempotent_replay: true` in data)
-- On different operation, same key → reject as `VALIDATION_ERROR` (key collision is a client bug)
-- This makes Mikey safe to retry on network timeout with the same key
-
-### Audit Trail
-
-Every request (read and write) is logged to `AssistantRequestLog`:
-
-```prisma
-model AssistantRequestLog {
-  id              String   @id @default(cuid())
-  idempotencyKey  String   @unique
-  operation       String
-  actorPhone      String
-  groupJid        String
-  resultCode      String   // "ok" | error code
-  resultSnapshot  Json?    // sanitized response data (no PII beyond what's in Player)
-  createdAt       DateTime @default(now())
-
-  @@index([idempotencyKey])
-  @@index([createdAt])
-}
-```
-
-All mutating operations additionally write to the existing `AuditLog` table (consistent with how admin mutations work today), with `action: "ASSISTANT_ROSTER_ADD"` etc.
-
-### Error Handling
-
-- All unhandled exceptions caught at route level → `INTERNAL_ERROR` response (no stack traces in production)
-- Mutating handlers wrapped in Prisma transactions (both DB write + log write in same transaction)
-- Network errors on Mikey side: safe to retry with same `idempotency_key`
-- IRBA does not retry internally; it responds synchronously
-
-### Log Pruning
-
-Extend the existing `prune-audit` cron to also delete `AssistantRequestLog` rows older than 7 days (configurable via `AppConfig:assistant_log_retention_days`).
+My recommendation after this cleanup: **production-group rollout QA first**, because it validates the riskiest remaining integration surface — WhatsApp mention identity — before we add more capability.
 
 ---
 
-## 8. MVP Scope and Phased Rollout
+## 11. Rollback / Disable Strategy
 
-### Phase 0 — Infrastructure (complete)
+If assistant behavior becomes unsafe or noisy:
 
-Deliverables: API endpoint exists, auth works, group check works, actor resolution works, audit log table in DB. Implemented in `eb048a3 feat(assistant): add OpenClaw integration infrastructure`; production config and smoke test verified on 2026-05-22.
+1. Disable at IRBA level by clearing/removing the target group from `assistant_allowed_groups`.
+2. Or disable at OpenClaw level by avoiding the `irba-assistant` skill/command path.
+3. For bad code deploys, roll back to the previous GHCR image SHA using the runbook.
+4. Because operations are additive, older read-only/admin flows should remain unaffected by disabling self-service skill handling.
 
-- [x] Add `ASSISTANT_API_SECRET` to `.env.example`
-- [x] Add `ASSISTANT_API_SECRET` to production EC2 `.env` and OpenClaw config
-- [x] Add `assistant_allowed_groups` seed row to `AppConfig`
-- [x] Add `assistant_log_retention_days` seed row to `AppConfig` (default: 7)
-- [x] Write Prisma migration: `AssistantRequestLog` model
-- [x] Create `src/app/api/assistant/v1/route.ts` — request routing skeleton
-- [x] `src/lib/assistant/auth.ts` — bearer token verification (constant-time)
-- [x] `src/lib/assistant/actor.ts` — phone → Player + permission level
-- [x] `src/lib/assistant/idempotency.ts` — check/store idempotency key
-- [x] `src/lib/assistant/schema.ts` — outer Zod envelope validation
-- [x] Production smoke test: `help` returns 200, replay returns `idempotent_replay: true`, unauthenticated request returns 401, non-allowlisted group returns 403, unknown operation returns 400
-
-### Phase 1 — Read-only MVP (complete and production-smoked)
-
-Deliverables: Mikey can answer roster/status and next-session questions from the group via deterministic read-only assistant API operations. Avi accepted the Phase 1 plan recommendations: balances stay out of Phase 1, date-specific session selection is deferred, and group-visible roster names are allowed while private fields remain omitted.
-
-- [x] `src/lib/assistant/operations/help.ts` lists `help`, `session_status`, and `next_session`
-- [x] `src/lib/assistant/operations/session-status.ts` returns next active session roster/status using existing attendance precedence sorting
-- [x] `src/lib/assistant/operations/next-session.ts` returns next-session metadata and counts
-- [x] Route dispatch validates params, preserves auth/allowlist/permission/idempotency/logging behavior, and stores validation errors
-- [x] Wire up OpenClaw helper: Mikey can call IRBA API with correct params and format Hebrew replies
-- [x] Manual production smoke in the allowlisted IRBA Coding group (see §9)
-
-### Phase 2 — Admin Mutations (est. 2–3 days)
-
-Deliverables: Admin can add/remove players from a session via WhatsApp message.
-
-- [ ] `src/lib/assistant/operations/session-roster-add.ts` (Prisma transaction + promote waitlist + AuditLog)
-- [ ] `src/lib/assistant/operations/session-roster-remove.ts`
-- [ ] Mikey: confirmation UX before calling mutating operations
-- [ ] Manual QA with real admin in group
-
-### Phase 3 — Self-service RSVP (future, requires product decision)
-
-- `player.register.add` / `player.register.cancel` for non-admin players
-- Respect `rsvp_close_hours` window (return `SESSION_CLOSED` if past deadline)
-- IRBA-side rate limiting per actor (leverage existing rate-limit utilities)
-
-### Phase 4 — Extended Operations (future)
-
-- `payment.add` (admin only, with confirmation)
-- `session.info` (next session time/location for any member)
-- `player.register.list` ("am I registered?")
-- `player.payments.list` self-service
+Rollback reference: `RUNBOOK.md` → Deploy / Rollback.
 
 ---
 
-## 9. Test Plan and Manual QA
+## 12. Final Acceptance for “Full Integration Complete”
 
-### Unit Tests (Vitest, no Postgres)
+The integration can be considered fully complete when:
 
-**Auth middleware** (`src/lib/assistant/auth.ts`):
-- Valid Bearer token → passes
-- Wrong token → throws `UNAUTHORIZED`
-- Missing header → throws `UNAUTHORIZED`
-
-**Group allowlist** (`route.ts`):
-- JID in allowlist → passes
-- JID not in allowlist → throws `FORBIDDEN_GROUP`
-- Empty allowlist config → all JIDs rejected
-
-**Actor resolution** (`src/lib/assistant/actor.ts`):
-- Known admin phone → `{ player, level: 'admin' }`
-- Known non-admin phone → `{ player, level: 'member' }`
-- Unknown phone → `{ player: null, level: 'guest' }`
-
-**Permission map** (`src/lib/assistant/permissions.ts`):
-- `help` allowed for guest, member, admin
-- `player.balance.get` denied for guest; allowed for member (self) and admin
-- `session.roster.add` denied for guest and member; allowed for admin
-
-**Idempotency** (`src/lib/assistant/idempotency.ts`):
-- New key → `null` (execute fresh)
-- Duplicate key + same operation → cached result
-- Expired key (>24h) → `null` (treat as fresh)
-
-**Roster status handler**:
-- No open session → `SESSION_NOT_FOUND`
-- Session with waitlist → waitlist populated correctly
-
-**Balance handler**:
-- Non-admin querying other player → `PERMISSION_DENIED`
-- Admin querying any player → returns balance
-
-### Integration Tests (with Postgres, extend existing Vitest setup if possible)
-
-- `session.roster.add` happy path: Attendance row created, AuditLog entry written, AssistantRequestLog entry written
-- `session.roster.add` idempotent: second call with same key returns cached result, no duplicate Attendance row
-- `session.roster.add` to closed session: `SESSION_CLOSED` error
-- `session.roster.remove` happy path: Attendance row deleted
-- `session.roster.remove` idempotent: player not present → `was_not_registered: true`
-
-### Manual QA Checklist
-
-**Phase 0 (infrastructure):**
-- [x] `curl -X POST /api/assistant/v1` with correct token + valid body → 200 `help` response
-- [x] Same curl without/wrong token → 401
-- [x] Same curl with non-allowlisted group JID → 403
-- [x] Same curl twice with same `idempotency_key` → second returns 200 with `idempotent_replay: true`
-
-**Phase 1 (read-only):**
-- [x] Unit coverage: assistant auth/schema/actor/allowlist/permissions/idempotency/route/read-only operations pass locally (`npm test -- src/lib/assistant src/app/api/assistant/v1/route.test.ts` — 42 tests, 2026-05-22)
-- [x] Full Vitest suite passes locally (`npm test` — 350 tests, 2026-05-22)
-- [x] Lint passes with existing warnings only (`npm run lint` — 0 errors, 9 pre-existing unused-var warnings, 2026-05-22)
-- [x] Production helper smoke: `help` returns operations + admin actor
-- [x] Production helper smoke: `next_session` returns valid response (`session: null` when no upcoming active session)
-- [x] Production helper smoke: `session_status {"include_waitlist":true}` returns valid empty counts/rosters when no upcoming active session
-- [x] Group-language QA: ask "מה הסטטוס של IRBA?" in IRBA Coding → Mikey formats the API response clearly in Hebrew (2026-05-22)
-
-Note: balance/payment questions were explicitly deferred out of Phase 1. Do not use balance checks as Phase 1 acceptance criteria unless a balance read-only operation is reintroduced.
-
-**Phase 2 (mutations):**
-- [ ] Admin types "תוסיף את [name] למפגש" → Mikey confirms → Admin confirms → Attendance row in DB
-- [ ] Admin adds player who is already registered → no duplicate row, Mikey says "already registered"
-- [ ] Admin removes player → Attendance row deleted, next waitlisted player promoted
-- [ ] Non-admin attempts `session.roster.add` → `PERMISSION_DENIED` → Mikey declines gracefully
+- [x] Assistant API infrastructure is deployed and logged.
+- [x] Read-only session/status operations work from OpenClaw.
+- [x] Admin roster mutations work through typed API.
+- [x] Natural name/mention admin commands are operational with safe ambiguity handling.
+- [x] Self-service RSVP works for known members.
+- [x] Production health and API smoke checks pass after deploys.
+- [x] Live QA covers self-register/status/cancel/re-register.
+- [ ] Final production-group mention QA is complete or documented as name/phone-only fallback.
+- [ ] Ambiguous/unknown/not-registered edge paths are QA-smoked in group context.
+- [ ] User-facing Hebrew reply templates are consistent enough for normal group use.
+- [ ] Sensitive operations, if added, are private-routed and separately approved.
+- [ ] Optional automation, if added, has explicit approval and anti-noise controls.
 
 ---
 
-## 10. Open Questions for Avi
-
-1. **Auth mechanism depth**: Start with simple Bearer token, or implement HMAC-SHA256 request signing from day 1? HMAC prevents replay if the secret leaks, but adds ~20 lines of code on both sides.
-
-2. **Reply destination for sensitive data**: When a member asks "מה היתרה שלי?" in the group, should Mikey reply in the group (everyone sees) or send a private DM? My instinct: DM for balance/payments, group for roster status.
-
-3. **Self-service RSVP (phase 3)**: Is this in scope at all, or should the IRBA WhatsApp remain admin-only commands only?
-
-4. **Confirmation flow in Mikey**: For `session.roster.add/remove`, should Mikey always ask "בטוח שאתה רוצה?" before calling IRBA, or trust the admin's message as confirmed intent? (I lean toward confirming once, then proceeding.)
-
-5. **Rate limiting**: Should IRBA enforce per-actor rate limits on the API (e.g., max 20 requests/minute per phone), or leave all throttling to Mikey?
-
-6. **Secret rotation procedure**: If `ASSISTANT_API_SECRET` is compromised, how do we rotate it? Suggest: EC2 env var change + `docker compose up -d app` → zero downtime. Should we document this in the runbook?
-
-7. **Allowlist management**: Managed via `AppConfig` (preferred — live change) or env var? AppConfig means admin can add groups from the UI without an EC2 SSH.
-
-8. **Phase 3 timing**: Any target date for self-service RSVP, or is phase 2 the end state for the next quarter?
-
-9. **OpenClaw readiness**: Is Mikey's tool-calling scaffolding (calling external HTTPS APIs with a bearer token) already in place, or does that need to be built first on the OpenClaw side?
-
-10. **`player.payments.list` access level**: Currently planned as admin-only. Should a player be able to request their own payment history from the group in phase 1, or hold for phase 3?
-
----
-
-## 11. Concrete Implementation Checklist
-
-### Prisma Migration
-
-- [ ] Add `AssistantRequestLog` model to `prisma/schema.prisma`:
-  - `id`, `idempotencyKey` (unique), `operation`, `actorPhone`, `groupJid`, `resultCode`, `resultSnapshot` (Json?), `createdAt`
-  - Index on `idempotencyKey`, index on `createdAt`
-- [ ] Run `npx prisma migrate dev --name add_assistant_request_log`
-- [ ] Add seed/migration for new `AppConfig` keys: `assistant_allowed_groups`, `assistant_log_retention_days`
-
-### Environment
-
-- [ ] Add `ASSISTANT_API_SECRET` to `.env.example` with placeholder and comment
-- [ ] Set `ASSISTANT_API_SECRET` on EC2 in `/opt/irba/.env`
-- [ ] Add same secret to OpenClaw/Mikey configuration
-
-### New Source Files
-
-```
-src/
-  app/
-    api/
-      assistant/
-        v1/
-          route.ts              ← POST handler, orchestrates all steps
-  lib/
-    assistant/
-      auth.ts                   ← bearer token verify (constant-time)
-      actor.ts                  ← phone → Player + PermissionLevel
-      permissions.ts            ← operation → required PermissionLevel map
-      schema.ts                 ← Zod envelope schema + per-operation params schemas
-      idempotency.ts            ← check/store AssistantRequestLog
-      audit.ts                  ← write to AuditLog for mutating ops
-      operations/
-        help.ts
-        session-roster-status.ts
-        player-balance-get.ts
-        player-payments-list.ts
-        session-roster-add.ts   ← phase 2
-        session-roster-remove.ts ← phase 2
-```
-
-### Existing Files to Reuse (do not duplicate logic)
-
-| Utility | Location | Used by |
-|---|---|---|
-| `computePlayerBalance()` | `src/lib/balance.ts` | `player-balance-get.ts` |
-| Attendance add/promote logic | `src/app/admin/sessions/[id]/actions.ts` or similar | `session-roster-add.ts` |
-| Attendance remove logic | same | `session-roster-remove.ts` |
-| AuditLog write | used throughout admin actions | `audit.ts` |
-| Phone normalization | `src/lib/phone.ts` (or inline in wa-notify) | `actor.ts` |
-| `AppConfig` reader | `src/lib/config.ts` | `route.ts` for allowlist |
-
-### Cron Extension
-
-- [ ] Extend `src/app/api/cron/prune-audit/route.ts` to also prune `AssistantRequestLog` rows older than `assistant_log_retention_days` days
-
-### Docs
-
-- [x] Delete the superseded `docs/WHATSAPP_COMMAND_API_PLAN.md` document
-- [ ] Update `PROJECT_STATE.md` assistant API section once phase 0 ships
-
----
-
-*End of plan.*
+*End of master plan.*

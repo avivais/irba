@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft plan for Avi approval. Do not implement until approved.
+Completed and deployed to production.
+
+- Commit: `b2d2433` — `Add assistant self-service RSVP operations`.
+- Production health verified on `b2d2433` with database and WA up.
+- Production assistant API verified: `help` exposes `player_register_add`, `player_register_cancel`, and `player_register_status` for known members/admins.
+- Live IRBA Coding QA with Avi verified self-register duplicate handling (`ALREADY_REGISTERED`) and self-status/next-session reply.
 
 ## Goal
 
@@ -115,7 +120,7 @@ Self-service cancel the actor's own RSVP for the next upcoming active session.
 }
 ```
 
-### Optional: `player_register_status`
+### `player_register_status`
 
 Self-service “am I registered?” check.
 
@@ -123,7 +128,7 @@ Self-service “am I registered?” check.
 
 **Params**: `{}`
 
-**Recommendation**: include this if it is cheap, because it avoids players needing the full roster just to ask whether they personally are in.
+Included in Phase 3 because it avoids players needing the full roster just to ask whether they personally are in.
 
 **Return shape**:
 
@@ -165,7 +170,7 @@ Update `/root/.openclaw/skills/irba-assistant/` after IRBA API deploy:
 
 ## Notification decision
 
-Need Avi decision before implementation:
+Resolved by Avi before implementation: use Option A for Phase 3.
 
 Option A — no extra WA broadcast from IRBA assistant operations.
 
@@ -177,7 +182,7 @@ Option B — reuse existing `notifyPlayerRegistered` / `notifyPlayerCancelled` i
 - Pros: behavior matches web RSVP; group roster is broadcast in the same format.
 - Cons: if Mikey also replies in the group, users may see two messages per RSVP.
 
-Recommendation: **Option A for Phase 3**. Keep assistant operation response rich enough for Mikey to answer once. Revisit broadcast fanout later with notification preferences.
+Decision: **Option A for Phase 3**. Keep assistant operation response rich enough for Mikey to answer once. Revisit broadcast fanout later with notification preferences.
 
 ## Implementation plan
 
@@ -235,9 +240,9 @@ Recommendation: **Option A for Phase 3**. Keep assistant operation response rich
 - Production health and smoke checks pass.
 - Docs updated with deployed status.
 
-## Open questions for Avi
+## Avi decisions / resolved questions
 
-1. Should Phase 3 include `player_register_status` (`אני רשום?`) now? Recommendation: yes.
-2. Should assistant self-service RSVP trigger the existing WA roster broadcast templates, or should Mikey’s group reply be the only visible message? Recommendation: Mikey reply only for now.
-3. If a player writes a cancellation inside the close window, should we return a hard block only, or optionally notify/tag admin? Recommendation: hard block only in Phase 3.
-4. Should admins using `תרשום אותי` go through self-service or admin mutation? Recommendation: self-service, because it is safer and semantically exact.
+1. Include `player_register_status` (`אני רשום?`) now: **yes**.
+2. Assistant self-service RSVP should not trigger existing WA roster broadcast templates: **Mikey’s group reply is the only visible message for now**.
+3. Confirmed-player cancellation inside the close window: **hard block only** in Phase 3; do not notify/tag admin automatically.
+4. Admins using `תרשום אותי`: **self-service operation**, because it is safer and semantically exact.

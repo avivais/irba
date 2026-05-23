@@ -1,5 +1,7 @@
 # Phase 2 — OpenClaw ↔ IRBA Integration: Admin Roster Mutations Execution Plan
 
+> **Status:** Complete, deployed, and OpenClaw QA-smoked. Implemented in `df8aaea feat: add assistant roster mutations`.
+
 ## Context
 
 Phase 1 shipped read-only assistant operations (`help`, `session_status`, `next_session`) — fully tested and production-smoked on 2026-05-22. The assistant API lives at `POST /api/assistant/v1` and is called by OpenClaw's Mikey agent over Bearer token auth. All requests are idempotent-keyed and logged in `AssistantRequestLog`.

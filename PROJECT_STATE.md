@@ -47,7 +47,7 @@ Data model reference: [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md).
 - Financial balances are computed from payments and charges; there is no stored `balance` field.
 - Admin/runtime mutations should remain audited through `AuditLog` or purpose-specific request logs.
 - WhatsApp-related work is operationally sensitive; prefer smoke tests and rollback notes before production changes.
-- OpenClaw ↔ IRBA assistant integration is active: read-only operations, admin roster mutations, and admin-only `player_lookup` are production-deployed. Natural roster commands are orchestrated by the local OpenClaw skill `/root/.openclaw/skills/irba-assistant/`; real add/remove, multi-add, duplicate-add, self-remove/add, and LID-mapped mention-remove were QA-smoked against an upcoming session on 2026-05-22. Final live mention QA in the future production WhatsApp group is deferred until real use next week.
+- OpenClaw ↔ IRBA assistant integration is active in production through Phase 3: read-only operations, admin roster mutations, admin-only `player_lookup`, and self-service RSVP (`player_register_add/cancel/status`) are deployed. Natural roster/self-service commands are orchestrated by the local OpenClaw skill `/root/.openclaw/skills/irba-assistant/`. Live QA covered status, duplicate self-register, self-cancel, and re-register on 2026-05-23. Remaining assistant work is tracked in [`docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md`](./docs/OPENCLAW_IRBA_INTEGRATION_PLAN.md): production-group mention QA, UX/help polish, optional sensitive financial ops, hardening, and optional automation.
 
 ## Next recommended steps
 
