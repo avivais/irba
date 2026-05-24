@@ -56,6 +56,20 @@ export type AssistantPlayerBalanceData = {
   shared_expense_charges_total?: number;
 };
 
+export type AssistantRegisteredPlayerBalancesData = {
+  players: AssistantPlayerBalanceData[];
+  totals: {
+    players_count: number;
+    total_paid: number;
+    total_charged: number;
+    total_balance: number;
+    debtors_count: number;
+    total_debt: number;
+    credits_count: number;
+    total_credit: number;
+  };
+};
+
 export type AssistantPlayerPaymentsListData = {
   player: { id: string; display_name: string; phone: string };
   payments: Array<{
@@ -97,6 +111,7 @@ export type AssistantPaymentAddData =
 type FinancePlayer = {
   id: string;
   phone: string;
+  playerKind?: string | null;
   nickname: string | null;
   firstNameHe: string | null;
   lastNameHe: string | null;
@@ -160,6 +175,32 @@ export async function assistantPlayerBalance(params: unknown, actor: AssistantAc
   const player = await resolveFinanceTarget(parsed.player_phone, actor);
   const balance = await computePlayerBalance(player.id);
   return formatBalanceData(player, balance, parsed.include_breakdown);
+}
+
+export async function assistantRegisteredPlayerBalances(actor: AssistantActor): Promise<AssistantRegisteredPlayerBalancesData> {
+  requireAdmin(actor);
+
+  const players = await prisma.player.findMany({
+    where: { playerKind: "REGISTERED" },
+    orderBy: [{ nickname: "asc" }, { firstNameHe: "asc" }, { lastNameHe: "asc" }, { phone: "asc" }],
+    select: {
+      id: true,
+      phone: true,
+      playerKind: true,
+      nickname: true,
+      firstNameHe: true,
+      lastNameHe: true,
+      firstNameEn: true,
+      lastNameEn: true,
+    },
+  });
+  const balances = await computePlayerBalances(players.map((p) => p.id));
+  const formatted = players.map((player) => formatBalanceData(player, balances.get(player.id) ?? emptyBalance(), false));
+
+  return {
+    players: formatted,
+    totals: summarizeBalances(formatted),
+  };
 }
 
 export async function assistantPlayerPaymentsList(
@@ -318,6 +359,44 @@ function formatBalanceData(
           shared_expense_charges_total: balance.sharedExpenseChargesTotal,
         }
       : {}),
+  };
+}
+
+function emptyBalance(): Awaited<ReturnType<typeof computePlayerBalance>> {
+  return { totalPaid: 0, totalCharged: 0, balance: 0, sessionChargesTotal: 0, sharedExpenseChargesTotal: 0 };
+}
+
+function summarizeBalances(players: AssistantPlayerBalanceData[]): AssistantRegisteredPlayerBalancesData["totals"] {
+  let totalPaid = 0;
+  let totalCharged = 0;
+  let totalBalance = 0;
+  let debtorsCount = 0;
+  let totalDebt = 0;
+  let creditsCount = 0;
+  let totalCredit = 0;
+
+  for (const p of players) {
+    totalPaid += p.total_paid;
+    totalCharged += p.total_charged;
+    totalBalance += p.balance;
+    if (p.balance < 0) {
+      debtorsCount += 1;
+      totalDebt += Math.abs(p.balance);
+    } else if (p.balance > 0) {
+      creditsCount += 1;
+      totalCredit += p.balance;
+    }
+  }
+
+  return {
+    players_count: players.length,
+    total_paid: totalPaid,
+    total_charged: totalCharged,
+    total_balance: totalBalance,
+    debtors_count: debtorsCount,
+    total_debt: totalDebt,
+    credits_count: creditsCount,
+    total_credit: totalCredit,
   };
 }
 

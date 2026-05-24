@@ -42,6 +42,7 @@ describe("assistant permissions", () => {
     expect(isKnownAssistantOperation("session_roster_remove")).toBe(true);
     expect(isKnownAssistantOperation("finance_summary_get")).toBe(true);
     expect(isKnownAssistantOperation("player_balance_get")).toBe(true);
+    expect(isKnownAssistantOperation("registered_player_balances_get")).toBe(true);
     expect(isKnownAssistantOperation("player_payments_list")).toBe(true);
     expect(isKnownAssistantOperation("payment_add")).toBe(true);
     expect(isKnownAssistantOperation("roster.add")).toBe(false);
@@ -60,6 +61,7 @@ describe("assistant permissions", () => {
     expect(canRunAssistantOperation(guest, "session_roster_add")).toBe(false);
     expect(canRunAssistantOperation(guest, "session_roster_remove")).toBe(false);
     expect(canRunAssistantOperation(guest, "finance_summary_get")).toBe(false);
+    expect(canRunAssistantOperation(guest, "registered_player_balances_get")).toBe(false);
     expect(canRunAssistantOperation(guest, "payment_add")).toBe(false);
   });
 
@@ -75,6 +77,7 @@ describe("assistant permissions", () => {
     expect(canRunAssistantOperation(member, "session_roster_add")).toBe(false);
     expect(canRunAssistantOperation(member, "session_roster_remove")).toBe(false);
     expect(canRunAssistantOperation(member, "finance_summary_get")).toBe(false);
+    expect(canRunAssistantOperation(member, "registered_player_balances_get")).toBe(false);
     expect(canRunAssistantOperation(member, "payment_add")).toBe(false);
   });
 
@@ -82,6 +85,7 @@ describe("assistant permissions", () => {
     expect(canRunAssistantOperation(admin, "session_roster_add")).toBe(true);
     expect(canRunAssistantOperation(admin, "session_roster_remove")).toBe(true);
     expect(canRunAssistantOperation(admin, "finance_summary_get")).toBe(true);
+    expect(canRunAssistantOperation(admin, "registered_player_balances_get")).toBe(true);
     expect(canRunAssistantOperation(admin, "payment_add")).toBe(true);
   });
 });

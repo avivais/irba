@@ -22,6 +22,7 @@ import {
   assistantFinanceSummary,
   assistantPaymentAdd,
   assistantPlayerBalance,
+  assistantRegisteredPlayerBalances,
   assistantPlayerPaymentsList,
 } from "@/lib/assistant/operations/finance";
 import { canRunAssistantOperation, isKnownAssistantOperation } from "@/lib/assistant/permissions";
@@ -131,6 +132,8 @@ async function runAssistantOperation(envelope: AssistantEnvelope, actor: Assista
       return assistantFinanceSummary(actor);
     case "player_balance_get":
       return assistantPlayerBalance(envelope.params, actor);
+    case "registered_player_balances_get":
+      return assistantRegisteredPlayerBalances(actor);
     case "player_payments_list":
       return assistantPlayerPaymentsList(envelope.params, actor);
     case "payment_add":

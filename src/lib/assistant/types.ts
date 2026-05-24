@@ -10,6 +10,7 @@ export type AssistantOperation =
   | "player_lookup"
   | "finance_summary_get"
   | "player_balance_get"
+  | "registered_player_balances_get"
   | "player_payments_list"
   | "payment_add"
   | "assistant_allowed_groups_set";

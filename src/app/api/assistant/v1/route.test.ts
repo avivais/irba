@@ -141,6 +141,7 @@ describe("POST /api/assistant/v1", () => {
           { name: "player_lookup", level: "admin" },
           { name: "finance_summary_get", level: "admin" },
           { name: "player_balance_get", level: "member" },
+          { name: "registered_player_balances_get", level: "admin" },
           { name: "player_payments_list", level: "member" },
           { name: "payment_add", level: "admin" },
         ],
