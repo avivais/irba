@@ -77,8 +77,8 @@ async function getRateForDate(date: Date): Promise<number | null> {
 }
 
 /**
- * Compute the retro-close-debt diff: walk back from the focal player's most recent
- * charge through trailing consecutive DROP_IN charges, re-run proposeSessionCharges
+ * Compute the retro-close-debt diff: find all historical DROP_IN charges for the
+ * focal registered player, re-run proposeSessionCharges
  * for each affected session with the focal player flipped to not-in-debt, and
  * collect every changed charge across the session — both the focal player's and
  * the teammates whose discount-from-his-debt-surplus disappears.
@@ -106,11 +106,7 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
     },
   });
 
-  const streak: typeof allCharges = [];
-  for (const c of allCharges) {
-    if (c.chargeType === "DROP_IN") streak.push(c);
-    else break;
-  }
+  const streak = allCharges.filter((c) => c.chargeType === "DROP_IN");
   if (streak.length === 0) {
     const balance = (await computePlayerBalance(playerId)).balance;
     return {
@@ -257,13 +253,10 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
   const projectedBalance = currentBalance - focalDiff;
   const amountToPayNow = Math.max(-projectedBalance, 0);
   const allChanges = affectedSessions.flatMap((s) => s.changes);
-  const focalNewChargesTotal = allChanges
-    .filter((ch) => ch.isFocalPlayer)
-    .reduce((sum, ch) => sum + ch.newAmount, 0);
   const unchangedDebtComponents = buildUnchangedDebtComponents({
     allCharges,
     changedChargeIds: new Set(allChanges.filter((ch) => ch.isFocalPlayer).map((ch) => ch.chargeId)),
-    amountToExplain: Math.max(amountToPayNow - focalNewChargesTotal, 0),
+    amountToExplain: amountToPayNow,
   });
   const balanceImpacts = await buildBalanceImpacts(allChanges, playerId);
 
