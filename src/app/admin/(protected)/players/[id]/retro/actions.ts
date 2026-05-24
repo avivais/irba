@@ -7,7 +7,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { getAllConfigs } from "@/lib/config";
 import { CONFIG } from "@/lib/config-keys";
 import { proposeSessionCharges, type ChargeType, type PlayerKind } from "@/lib/charging";
-import { computePlayerBalance } from "@/lib/balance";
+import { computePlayerBalance, computePlayerBalances } from "@/lib/balance";
 import { getPlayerDisplayName } from "@/lib/player-display";
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
@@ -30,12 +30,34 @@ export type RetroSessionEntry = {
   skipped?: "admin_override_present";
 };
 
+export type RetroDebtComponent = {
+  chargeId: string;
+  sessionId: string;
+  sessionDate: Date;
+  amount: number;
+  includedAmount: number;
+  chargeType: ChargeType | "FREE_ENTRY";
+};
+
+export type RetroBalanceImpact = {
+  playerId: string;
+  playerName: string;
+  isFocalPlayer: boolean;
+  chargeDiff: number;
+  balanceDiff: number;
+  currentBalance: number;
+  projectedBalance: number;
+};
+
 export type RetroPreview = {
   affectedSessions: RetroSessionEntry[];
   skippedSessions: { sessionId: string; sessionDate: Date; reason: "admin_override_present" }[];
   totals: { focalDiff: number; othersDiff: number; residual: number };
   currentBalance: number;
   projectedBalance: number;
+  amountToPayNow: number;
+  unchangedDebtComponents: RetroDebtComponent[];
+  balanceImpacts: RetroBalanceImpact[];
   streakCount: number;
 };
 
@@ -76,6 +98,8 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
     select: {
       id: true,
       chargeType: true,
+      amount: true,
+      calculatedAmount: true,
       session: {
         select: { id: true, date: true, durationMinutes: true },
       },
@@ -95,6 +119,9 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
       totals: { focalDiff: 0, othersDiff: 0, residual: 0 },
       currentBalance: balance,
       projectedBalance: balance,
+      amountToPayNow: Math.max(-balance, 0),
+      unchangedDebtComponents: [],
+      balanceImpacts: [],
       streakCount: 0,
     };
   }
@@ -228,6 +255,17 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
   const currentBalance = (await computePlayerBalance(playerId)).balance;
   // focalDiff < 0 means his charge dropped → balance improves by |focalDiff|
   const projectedBalance = currentBalance - focalDiff;
+  const amountToPayNow = Math.max(-projectedBalance, 0);
+  const allChanges = affectedSessions.flatMap((s) => s.changes);
+  const focalNewChargesTotal = allChanges
+    .filter((ch) => ch.isFocalPlayer)
+    .reduce((sum, ch) => sum + ch.newAmount, 0);
+  const unchangedDebtComponents = buildUnchangedDebtComponents({
+    allCharges,
+    changedChargeIds: new Set(allChanges.filter((ch) => ch.isFocalPlayer).map((ch) => ch.chargeId)),
+    amountToExplain: Math.max(amountToPayNow - focalNewChargesTotal, 0),
+  });
+  const balanceImpacts = await buildBalanceImpacts(allChanges, playerId);
 
   return {
     affectedSessions,
@@ -235,8 +273,78 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
     totals: { focalDiff, othersDiff, residual: focalDiff + othersDiff },
     currentBalance,
     projectedBalance,
+    amountToPayNow,
+    unchangedDebtComponents,
+    balanceImpacts,
     streakCount: streak.length,
   };
+}
+
+function buildUnchangedDebtComponents({
+  allCharges,
+  changedChargeIds,
+  amountToExplain,
+}: {
+  allCharges: Array<{
+    id: string;
+    amount: number;
+    chargeType: string;
+    session: { id: string; date: Date };
+  }>;
+  changedChargeIds: Set<string>;
+  amountToExplain: number;
+}): RetroDebtComponent[] {
+  if (amountToExplain <= 0) return [];
+
+  const components: RetroDebtComponent[] = [];
+  let remaining = amountToExplain;
+  for (const charge of allCharges) {
+    if (remaining <= 0) break;
+    if (changedChargeIds.has(charge.id)) continue;
+    if (charge.amount <= 0) continue;
+
+    const includedAmount = Math.min(charge.amount, remaining);
+    components.push({
+      chargeId: charge.id,
+      sessionId: charge.session.id,
+      sessionDate: charge.session.date,
+      amount: charge.amount,
+      includedAmount,
+      chargeType: charge.chargeType as ChargeType | "FREE_ENTRY",
+    });
+    remaining -= includedAmount;
+  }
+  return components;
+}
+
+async function buildBalanceImpacts(changes: RetroChargeChange[], focalPlayerId: string): Promise<RetroBalanceImpact[]> {
+  const byPlayer = new Map<string, { playerName: string; isFocalPlayer: boolean; chargeDiff: number }>();
+  for (const ch of changes) {
+    const current = byPlayer.get(ch.playerId) ?? {
+      playerName: ch.playerName,
+      isFocalPlayer: ch.playerId === focalPlayerId,
+      chargeDiff: 0,
+    };
+    current.chargeDiff += ch.newAmount - ch.oldAmount;
+    byPlayer.set(ch.playerId, current);
+  }
+
+  const balances = await computePlayerBalances([...byPlayer.keys()]);
+  return [...byPlayer.entries()]
+    .map(([playerId, impact]) => {
+      const currentBalance = balances.get(playerId)?.balance ?? 0;
+      const balanceDiff = -impact.chargeDiff;
+      return {
+        playerId,
+        playerName: impact.playerName,
+        isFocalPlayer: impact.isFocalPlayer,
+        chargeDiff: impact.chargeDiff,
+        balanceDiff,
+        currentBalance,
+        projectedBalance: currentBalance + balanceDiff,
+      };
+    })
+    .sort((a, b) => Number(b.isFocalPlayer) - Number(a.isFocalPlayer) || a.playerName.localeCompare(b.playerName, "he"));
 }
 
 export async function previewRetroCloseDebtAction(
