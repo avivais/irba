@@ -16,6 +16,15 @@ const TYPE_LABEL: Record<string, string> = {
   FREE_ENTRY: "כניסה חינם",
 };
 
+const UNRECALCULATED_REASON_LABEL: Record<string, string> = {
+  admin_override_present: "יש עקיפת מנהל במפגש",
+  missing_duration: "חסר משך מפגש",
+  missing_rate: "חסר תעריף לתאריך הזה",
+  below_min_players: "מתחת למינימום שחקנים לחישוב",
+  no_matching_proposal: "לא נמצא חיוב תואם בחישוב החדש",
+  no_change: "החישוב החדש לא משנה את החיוב",
+};
+
 function formatDate(d: Date | string): string {
   return new Intl.DateTimeFormat("he-IL", {
     day: "numeric",
@@ -35,10 +44,10 @@ function formatMoney(n: number): string {
 
 export function PlayerRetroButton({
   playerId,
-  streakCount,
+  dropInCount,
 }: {
   playerId: string;
-  streakCount: number;
+  dropInCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<RetroPreview | null>(null);
@@ -97,7 +106,8 @@ export function PlayerRetroButton({
               סגירת חוב רטרואקטיבית
             </h3>
             <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-              חישוב מחדש של {streakCount} המפגשים האחרונים שחויבו כמזדמן (חוב), כאילו שולמו כקבוע. שאר השחקנים באותם מפגשים יחויבו מחדש בהתאם.
+              חישוב מחדש של {dropInCount} חיובי מזדמן היסטוריים לשחקן קבוע,
+              כאילו החוב נסגר בזמן. שאר השחקנים באותם מפגשים יחויבו מחדש בהתאם.
             </p>
           </div>
           <button
@@ -136,7 +146,9 @@ export function PlayerRetroButton({
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {loading && (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">טוען תצוגה מקדימה…</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  טוען תצוגה מקדימה…
+                </p>
               )}
               {error && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-400">
@@ -145,9 +157,11 @@ export function PlayerRetroButton({
               )}
               {preview && !loading && (
                 <>
-                  {preview.affectedSessions.length === 0 && preview.skippedSessions.length === 0 ? (
+                  {preview.affectedSessions.length === 0 &&
+                  preview.skippedSessions.length === 0 ? (
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      אין שינויים לבצע — לשחקן אין רצף חיובי מזדמן בסוף ההיסטוריה.
+                      אין שינויים לבצע — לשחקן אין רצף חיובי מזדמן בסוף
+                      ההיסטוריה.
                     </p>
                   ) : (
                     <>
@@ -156,11 +170,18 @@ export function PlayerRetroButton({
                         <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
                           לתשלום עכשיו כדי להתאפס
                         </p>
-                        <p dir="ltr" className="mt-1 text-3xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
+                        <p
+                          dir="ltr"
+                          className="mt-1 text-3xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300"
+                        >
                           ₪{preview.amountToPayNow}
                         </p>
                         <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
-                          יתרה נוכחית {formatMoney(preview.currentBalance)} → אחרי השינויים {formatMoney(preview.projectedBalance)}.
+                          יתרה נוכחית {formatMoney(preview.currentBalance)} →
+                          אחרי השינויים {formatMoney(preview.projectedBalance)}.
+                        </p>
+                        <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+                          זה הסכום שצריך לגבות אחרי הרטרו כדי שהיתרה תהיה ₪0.
                         </p>
                       </div>
 
@@ -170,11 +191,21 @@ export function PlayerRetroButton({
                           <h3 className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                             שינויים שיבוצעו בפועל
                           </h3>
+                          <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+                            רק השורות כאן יעודכנו בדאטהבייס. לחיצה על מפגש מציגה
+                            גם את השחקנים האחרים שמושפעים מהחלוקה מחדש.
+                          </p>
                           <ul className="flex flex-col gap-2">
                             {preview.affectedSessions.map((session) => {
-                              const isExpanded = expanded.has(session.sessionId);
-                              const focal = session.changes.find((c) => c.isFocalPlayer);
-                              const others = session.changes.filter((c) => !c.isFocalPlayer);
+                              const isExpanded = expanded.has(
+                                session.sessionId,
+                              );
+                              const focal = session.changes.find(
+                                (c) => c.isFocalPlayer,
+                              );
+                              const others = session.changes.filter(
+                                (c) => !c.isFocalPlayer,
+                              );
                               return (
                                 <li
                                   key={session.sessionId}
@@ -182,14 +213,22 @@ export function PlayerRetroButton({
                                 >
                                   <button
                                     type="button"
-                                    onClick={() => toggleSession(session.sessionId)}
+                                    onClick={() =>
+                                      toggleSession(session.sessionId)
+                                    }
                                     className="flex w-full items-center justify-between gap-3 px-3 py-2 text-right hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                   >
                                     <span className="flex items-center gap-2">
                                       {isExpanded ? (
-                                        <ChevronUp className="h-4 w-4 text-zinc-500" aria-hidden />
+                                        <ChevronUp
+                                          className="h-4 w-4 text-zinc-500"
+                                          aria-hidden
+                                        />
                                       ) : (
-                                        <ChevronDown className="h-4 w-4 text-zinc-500" aria-hidden />
+                                        <ChevronDown
+                                          className="h-4 w-4 text-zinc-500"
+                                          aria-hidden
+                                        />
                                       )}
                                       <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                                         {formatDate(session.sessionDate)}
@@ -206,64 +245,168 @@ export function PlayerRetroButton({
                                         ₪{focal.oldAmount} → ₪{focal.newAmount}
                                         <span
                                           className={`ms-2 ${
-                                            focal.newAmount - focal.oldAmount < 0
+                                            focal.newAmount - focal.oldAmount <
+                                            0
                                               ? "text-green-700 dark:text-green-400"
                                               : "text-red-600 dark:text-red-400"
                                           }`}
                                         >
-                                          ({formatSigned(focal.newAmount - focal.oldAmount)})
+                                          (
+                                          {formatSigned(
+                                            focal.newAmount - focal.oldAmount,
+                                          )}
+                                          )
                                         </span>
                                       </span>
                                     )}
                                   </button>
 
-                                {isExpanded && (
-                                  <div className="border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
-                                    {focal && (
-                                      <div className="mb-2 flex items-center justify-between gap-2 rounded bg-amber-50 px-2 py-1.5 text-xs dark:bg-amber-950/20">
-                                        <span className="font-medium text-amber-900 dark:text-amber-200">
-                                          {focal.playerName}{" "}
-                                          <span className="text-amber-700 dark:text-amber-400">
-                                            ({TYPE_LABEL[focal.oldChargeType] ?? focal.oldChargeType} → {TYPE_LABEL[focal.newChargeType] ?? focal.newChargeType})
-                                          </span>
-                                        </span>
-                                        <span dir="ltr" className="tabular-nums text-amber-900 dark:text-amber-200">
-                                          ₪{focal.oldAmount} → ₪{focal.newAmount}{" "}
-                                          <span className="font-semibold">
-                                            ({formatSigned(focal.newAmount - focal.oldAmount)})
-                                          </span>
-                                        </span>
-                                      </div>
-                                    )}
-                                    {others.length > 0 && (
-                                      <ul className="flex flex-col gap-1 text-xs">
-                                        {others.map((ch) => (
-                                          <li
-                                            key={ch.chargeId}
-                                            className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
-                                          >
-                                            <span>{ch.playerName}</span>
-                                            <span dir="ltr" className="tabular-nums">
-                                              ₪{ch.oldAmount} → ₪{ch.newAmount}{" "}
-                                              <span
-                                                className={
-                                                  ch.newAmount - ch.oldAmount < 0
-                                                    ? "text-green-700 dark:text-green-400"
-                                                    : "text-red-600 dark:text-red-400"
-                                                }
-                                              >
-                                                ({formatSigned(ch.newAmount - ch.oldAmount)})
-                                              </span>
+                                  {isExpanded && (
+                                    <div className="border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
+                                      {focal && (
+                                        <div className="mb-2 flex items-center justify-between gap-2 rounded bg-amber-50 px-2 py-1.5 text-xs dark:bg-amber-950/20">
+                                          <span className="font-medium text-amber-900 dark:text-amber-200">
+                                            {focal.playerName}{" "}
+                                            <span className="text-amber-700 dark:text-amber-400">
+                                              (
+                                              {TYPE_LABEL[
+                                                focal.oldChargeType
+                                              ] ?? focal.oldChargeType}{" "}
+                                              →{" "}
+                                              {TYPE_LABEL[
+                                                focal.newChargeType
+                                              ] ?? focal.newChargeType}
+                                              )
                                             </span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    )}
-                                  </div>
-                                )}
+                                          </span>
+                                          <span
+                                            dir="ltr"
+                                            className="tabular-nums text-amber-900 dark:text-amber-200"
+                                          >
+                                            ₪{focal.oldAmount} → ₪
+                                            {focal.newAmount}{" "}
+                                            <span className="font-semibold">
+                                              (
+                                              {formatSigned(
+                                                focal.newAmount -
+                                                  focal.oldAmount,
+                                              )}
+                                              )
+                                            </span>
+                                          </span>
+                                        </div>
+                                      )}
+                                      {others.length > 0 && (
+                                        <ul className="flex flex-col gap-1 text-xs">
+                                          {others.map((ch) => (
+                                            <li
+                                              key={ch.chargeId}
+                                              className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
+                                            >
+                                              <span>{ch.playerName}</span>
+                                              <span
+                                                dir="ltr"
+                                                className="tabular-nums"
+                                              >
+                                                ₪{ch.oldAmount} → ₪
+                                                {ch.newAmount}{" "}
+                                                <span
+                                                  className={
+                                                    ch.newAmount -
+                                                      ch.oldAmount <
+                                                    0
+                                                      ? "text-green-700 dark:text-green-400"
+                                                      : "text-red-600 dark:text-red-400"
+                                                  }
+                                                >
+                                                  (
+                                                  {formatSigned(
+                                                    ch.newAmount - ch.oldAmount,
+                                                  )}
+                                                  )
+                                                </span>
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  )}
                                 </li>
                               );
                             })}
+                          </ul>
+                        </section>
+                      )}
+
+                      {preview.balanceImpacts.length > 0 && (
+                        <section className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900/60 dark:bg-sky-950/20">
+                          <h3 className="mb-2 text-sm font-semibold text-sky-900 dark:text-sky-200">
+                            השפעה על יתרות כולם
+                          </h3>
+                          <p className="mb-2 text-xs text-sky-800 dark:text-sky-300">
+                            הדלתא המצטברת לכל שחקן מכל השינויים למעלה.
+                          </p>
+                          <ul className="flex flex-col gap-1.5 text-xs">
+                            {preview.balanceImpacts.map((impact) => (
+                              <li
+                                key={impact.playerId}
+                                className="flex items-center justify-between gap-2 text-zinc-800 dark:text-zinc-200"
+                              >
+                                <span
+                                  className={
+                                    impact.isFocalPlayer
+                                      ? "font-semibold text-amber-800 dark:text-amber-300"
+                                      : ""
+                                  }
+                                >
+                                  {impact.playerName}
+                                  {impact.isFocalPlayer ? " (השחקן)" : ""}
+                                </span>
+                                <span dir="ltr" className="tabular-nums">
+                                  {formatMoney(impact.currentBalance)} →{" "}
+                                  {formatMoney(impact.projectedBalance)}{" "}
+                                  <span
+                                    className={
+                                      impact.balanceDiff >= 0
+                                        ? "text-green-700 dark:text-green-400"
+                                        : "text-red-600 dark:text-red-400"
+                                    }
+                                  >
+                                    ({formatSigned(impact.balanceDiff)})
+                                  </span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      )}
+
+                      {preview.unrecalculatedDropIns.length > 0 && (
+                        <section className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/20">
+                          <h3 className="mb-2 text-sm font-semibold text-red-900 dark:text-red-200">
+                            חיובי מזדמן שלא חושבו מחדש
+                          </h3>
+                          <p className="mb-2 text-xs text-red-800 dark:text-red-300">
+                            אלה חיובי מזדמן של השחקן שלא ייכנסו לשינוי. אם אחד
+                            מהם אמור להשתנות — לא להחיל לפני בדיקה.
+                          </p>
+                          <ul className="flex flex-col gap-1 text-xs">
+                            {preview.unrecalculatedDropIns.map((charge) => (
+                              <li
+                                key={charge.chargeId}
+                                className="flex items-center justify-between gap-2 text-red-900 dark:text-red-200"
+                              >
+                                <span>
+                                  {formatDate(charge.sessionDate)} ·{" "}
+                                  {UNRECALCULATED_REASON_LABEL[charge.reason] ??
+                                    charge.reason}
+                                </span>
+                                <span dir="ltr" className="tabular-nums">
+                                  ₪{charge.amount}
+                                </span>
+                              </li>
+                            ))}
                           </ul>
                         </section>
                       )}
@@ -273,29 +416,43 @@ export function PlayerRetroButton({
                           <h3 className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                             מרכיבי חוב שלא משתנים
                           </h3>
+                          <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+                            חיובים/חלקי חיובים שמסבירים את הסכום שנותר לגבייה,
+                            אבל לא יעודכנו ברטרו.
+                          </p>
                           <ul className="flex flex-col gap-1 text-xs">
-                            {preview.unchangedDebtComponents.map((component) => (
-                              <li
-                                key={component.chargeId}
-                                className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
-                              >
-                                <span>
-                                  {formatDate(component.sessionDate)} · {TYPE_LABEL[component.chargeType] ?? component.chargeType}
-                                  {component.includedAmount < component.amount ? " · חלקי" : ""}
-                                </span>
-                                <span dir="ltr" className="tabular-nums">
-                                  ₪{component.includedAmount}
-                                  {component.includedAmount < component.amount ? ` מתוך ₪${component.amount}` : ""}
-                                </span>
-                              </li>
-                            ))}
+                            {preview.unchangedDebtComponents.map(
+                              (component) => (
+                                <li
+                                  key={component.chargeId}
+                                  className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
+                                >
+                                  <span>
+                                    {formatDate(component.sessionDate)} ·{" "}
+                                    {TYPE_LABEL[component.chargeType] ??
+                                      component.chargeType}
+                                    {component.includedAmount < component.amount
+                                      ? " · חלקי"
+                                      : ""}
+                                  </span>
+                                  <span dir="ltr" className="tabular-nums">
+                                    ₪{component.includedAmount}
+                                    {component.includedAmount < component.amount
+                                      ? ` מתוך ₪${component.amount}`
+                                      : ""}
+                                  </span>
+                                </li>
+                              ),
+                            )}
                           </ul>
                         </section>
                       )}
 
                       {preview.skippedSessions.length > 0 && (
                         <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
-                          <p className="mb-1 font-medium">דולגו ({preview.skippedSessions.length}):</p>
+                          <p className="mb-1 font-medium">
+                            דולגו ({preview.skippedSessions.length}):
+                          </p>
                           <ul className="flex flex-wrap gap-x-3 gap-y-1">
                             {preview.skippedSessions.map((s) => (
                               <li key={s.sessionId}>
@@ -309,7 +466,9 @@ export function PlayerRetroButton({
                       {/* Totals */}
                       <div className="rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                          <span className="text-zinc-600 dark:text-zinc-400">החזר לשחקן:</span>
+                          <span className="text-zinc-600 dark:text-zinc-400">
+                            החזר לשחקן:
+                          </span>
                           <span
                             dir="ltr"
                             className={`tabular-nums text-left font-medium ${
@@ -320,7 +479,9 @@ export function PlayerRetroButton({
                           >
                             {formatSigned(-preview.totals.focalDiff)}
                           </span>
-                          <span className="text-zinc-600 dark:text-zinc-400">תוספת לשאר השחקנים:</span>
+                          <span className="text-zinc-600 dark:text-zinc-400">
+                            תוספת לשאר השחקנים:
+                          </span>
                           <span
                             dir="ltr"
                             className={`tabular-nums text-left font-medium ${
@@ -333,8 +494,13 @@ export function PlayerRetroButton({
                           </span>
                           {preview.totals.residual !== 0 && (
                             <>
-                              <span className="text-zinc-500 dark:text-zinc-500">שארית עיגול:</span>
-                              <span dir="ltr" className="tabular-nums text-left text-zinc-500">
+                              <span className="text-zinc-500 dark:text-zinc-500">
+                                שארית עיגול:
+                              </span>
+                              <span
+                                dir="ltr"
+                                className="tabular-nums text-left text-zinc-500"
+                              >
                                 {formatSigned(preview.totals.residual)}
                               </span>
                             </>
@@ -363,38 +529,6 @@ export function PlayerRetroButton({
                           </span>
                         </div>
                       </div>
-
-                      {preview.balanceImpacts.length > 0 && (
-                        <section className="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-                          <h3 className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                            השפעה על יתרות כולם
-                          </h3>
-                          <ul className="flex flex-col gap-1 text-xs">
-                            {preview.balanceImpacts.map((impact) => (
-                              <li
-                                key={impact.playerId}
-                                className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
-                              >
-                                <span className={impact.isFocalPlayer ? "font-semibold text-amber-800 dark:text-amber-300" : ""}>
-                                  {impact.playerName}{impact.isFocalPlayer ? " (השחקן)" : ""}
-                                </span>
-                                <span dir="ltr" className="tabular-nums">
-                                  {formatMoney(impact.currentBalance)} → {formatMoney(impact.projectedBalance)}{" "}
-                                  <span
-                                    className={
-                                      impact.balanceDiff >= 0
-                                        ? "text-green-700 dark:text-green-400"
-                                        : "text-red-600 dark:text-red-400"
-                                    }
-                                  >
-                                    ({formatSigned(impact.balanceDiff)})
-                                  </span>
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </section>
-                      )}
                     </>
                   )}
                 </>

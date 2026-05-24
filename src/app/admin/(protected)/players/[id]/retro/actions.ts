@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
 import { getAllConfigs } from "@/lib/config";
 import { CONFIG } from "@/lib/config-keys";
-import { proposeSessionCharges, type ChargeType, type PlayerKind } from "@/lib/charging";
+import {
+  proposeSessionCharges,
+  type ChargeType,
+  type PlayerKind,
+} from "@/lib/charging";
 import { computePlayerBalance, computePlayerBalances } from "@/lib/balance";
 import { getPlayerDisplayName } from "@/lib/player-display";
 
@@ -39,6 +43,20 @@ export type RetroDebtComponent = {
   chargeType: ChargeType | "FREE_ENTRY";
 };
 
+export type RetroUnrecalculatedDropIn = {
+  chargeId: string;
+  sessionId: string;
+  sessionDate: Date;
+  amount: number;
+  reason:
+    | "admin_override_present"
+    | "missing_duration"
+    | "missing_rate"
+    | "below_min_players"
+    | "no_matching_proposal"
+    | "no_change";
+};
+
 export type RetroBalanceImpact = {
   playerId: string;
   playerName: string;
@@ -51,12 +69,17 @@ export type RetroBalanceImpact = {
 
 export type RetroPreview = {
   affectedSessions: RetroSessionEntry[];
-  skippedSessions: { sessionId: string; sessionDate: Date; reason: "admin_override_present" }[];
+  skippedSessions: {
+    sessionId: string;
+    sessionDate: Date;
+    reason: "admin_override_present";
+  }[];
   totals: { focalDiff: number; othersDiff: number; residual: number };
   currentBalance: number;
   projectedBalance: number;
   amountToPayNow: number;
   unchangedDebtComponents: RetroDebtComponent[];
+  unrecalculatedDropIns: RetroUnrecalculatedDropIn[];
   balanceImpacts: RetroBalanceImpact[];
   streakCount: number;
 };
@@ -85,7 +108,9 @@ async function getRateForDate(date: Date): Promise<number | null> {
  *
  * Sessions containing any ADMIN_OVERRIDE charge are skipped entirely.
  */
-async function computeRetroChanges(playerId: string): Promise<RetroPreview | null> {
+async function computeRetroChanges(
+  playerId: string,
+): Promise<RetroPreview | null> {
   const player = await prisma.player.findUnique({
     where: { id: playerId },
     select: { playerKind: true },
@@ -117,6 +142,7 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
       projectedBalance: balance,
       amountToPayNow: Math.max(-balance, 0),
       unchangedDebtComponents: [],
+      unrecalculatedDropIns: [],
       balanceImpacts: [],
       streakCount: 0,
     };
@@ -160,6 +186,7 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
 
   const affectedSessions: RetroSessionEntry[] = [];
   const skippedSessions: RetroPreview["skippedSessions"] = [];
+  const unrecalculatedDropIns: RetroUnrecalculatedDropIn[] = [];
   let focalDiff = 0;
   let othersDiff = 0;
 
@@ -175,14 +202,41 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
         sessionDate: focalCharge.session.date,
         reason: "admin_override_present",
       });
+      unrecalculatedDropIns.push({
+        chargeId: focalCharge.id,
+        sessionId: focalCharge.session.id,
+        sessionDate: focalCharge.session.date,
+        amount: focalCharge.amount,
+        reason: "admin_override_present",
+      });
       continue;
     }
 
-    if (!focalCharge.session.durationMinutes) continue;
+    if (!focalCharge.session.durationMinutes) {
+      unrecalculatedDropIns.push({
+        chargeId: focalCharge.id,
+        sessionId: focalCharge.session.id,
+        sessionDate: focalCharge.session.date,
+        amount: focalCharge.amount,
+        reason: "missing_duration",
+      });
+      continue;
+    }
     const hourlyRate = await getRateForDate(focalCharge.session.date);
-    if (!hourlyRate) continue;
+    if (!hourlyRate) {
+      unrecalculatedDropIns.push({
+        chargeId: focalCharge.id,
+        sessionId: focalCharge.session.id,
+        sessionDate: focalCharge.session.date,
+        amount: focalCharge.amount,
+        reason: "missing_rate",
+      });
+      continue;
+    }
 
-    const billable = sessionCharges.filter((c) => c.chargeType !== "FREE_ENTRY");
+    const billable = sessionCharges.filter(
+      (c) => c.chargeType !== "FREE_ENTRY",
+    );
     const freeEntryPlayerIds = sessionCharges
       .filter((c) => c.chargeType === "FREE_ENTRY")
       .map((c) => c.playerId);
@@ -206,7 +260,16 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
       players,
       freeEntryPlayerIds,
     });
-    if (!proposal) continue;
+    if (!proposal) {
+      unrecalculatedDropIns.push({
+        chargeId: focalCharge.id,
+        sessionId: focalCharge.session.id,
+        sessionDate: focalCharge.session.date,
+        amount: focalCharge.amount,
+        reason: "below_min_players",
+      });
+      continue;
+    }
 
     const proposedById = new Map(proposal.charges.map((c) => [c.playerId, c]));
 
@@ -214,10 +277,24 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
     for (const existing of sessionCharges) {
       if (existing.chargeType === "FREE_ENTRY") continue;
       const proposed = proposedById.get(existing.playerId);
-      if (!proposed) continue;
+      if (!proposed) {
+        if (existing.playerId === playerId) {
+          unrecalculatedDropIns.push({
+            chargeId: focalCharge.id,
+            sessionId: focalCharge.session.id,
+            sessionDate: focalCharge.session.date,
+            amount: focalCharge.amount,
+            reason: "no_matching_proposal",
+          });
+        }
+        continue;
+      }
       const adminDelta = existing.amount - existing.calculatedAmount;
       const newAmount = proposed.calculatedAmount + adminDelta;
-      if (newAmount === existing.amount && proposed.chargeType === existing.chargeType) {
+      if (
+        newAmount === existing.amount &&
+        proposed.chargeType === existing.chargeType
+      ) {
         continue;
       }
       const isFocal = existing.playerId === playerId;
@@ -242,6 +319,14 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
         sessionDate: focalCharge.session.date,
         changes: sessionChanges,
       });
+    } else {
+      unrecalculatedDropIns.push({
+        chargeId: focalCharge.id,
+        sessionId: focalCharge.session.id,
+        sessionDate: focalCharge.session.date,
+        amount: focalCharge.amount,
+        reason: "no_change",
+      });
     }
   }
 
@@ -255,7 +340,9 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
   const allChanges = affectedSessions.flatMap((s) => s.changes);
   const unchangedDebtComponents = buildUnchangedDebtComponents({
     allCharges,
-    changedChargeIds: new Set(allChanges.filter((ch) => ch.isFocalPlayer).map((ch) => ch.chargeId)),
+    changedChargeIds: new Set(
+      allChanges.filter((ch) => ch.isFocalPlayer).map((ch) => ch.chargeId),
+    ),
     amountToExplain: amountToPayNow,
   });
   const balanceImpacts = await buildBalanceImpacts(allChanges, playerId);
@@ -268,6 +355,7 @@ async function computeRetroChanges(playerId: string): Promise<RetroPreview | nul
     projectedBalance,
     amountToPayNow,
     unchangedDebtComponents,
+    unrecalculatedDropIns,
     balanceImpacts,
     streakCount: streak.length,
   };
@@ -294,6 +382,7 @@ function buildUnchangedDebtComponents({
   for (const charge of allCharges) {
     if (remaining <= 0) break;
     if (changedChargeIds.has(charge.id)) continue;
+    if (charge.chargeType === "DROP_IN") continue;
     if (charge.amount <= 0) continue;
 
     const includedAmount = Math.min(charge.amount, remaining);
@@ -310,8 +399,14 @@ function buildUnchangedDebtComponents({
   return components;
 }
 
-async function buildBalanceImpacts(changes: RetroChargeChange[], focalPlayerId: string): Promise<RetroBalanceImpact[]> {
-  const byPlayer = new Map<string, { playerName: string; isFocalPlayer: boolean; chargeDiff: number }>();
+async function buildBalanceImpacts(
+  changes: RetroChargeChange[],
+  focalPlayerId: string,
+): Promise<RetroBalanceImpact[]> {
+  const byPlayer = new Map<
+    string,
+    { playerName: string; isFocalPlayer: boolean; chargeDiff: number }
+  >();
   for (const ch of changes) {
     const current = byPlayer.get(ch.playerId) ?? {
       playerName: ch.playerName,
@@ -337,7 +432,11 @@ async function buildBalanceImpacts(changes: RetroChargeChange[], focalPlayerId: 
         projectedBalance: currentBalance + balanceDiff,
       };
     })
-    .sort((a, b) => Number(b.isFocalPlayer) - Number(a.isFocalPlayer) || a.playerName.localeCompare(b.playerName, "he"));
+    .sort(
+      (a, b) =>
+        Number(b.isFocalPlayer) - Number(a.isFocalPlayer) ||
+        a.playerName.localeCompare(b.playerName, "he"),
+    );
 }
 
 export async function previewRetroCloseDebtAction(
@@ -410,7 +509,10 @@ export async function applyRetroCloseDebtAction(
     }
     revalidatePath("/admin/finance");
 
-    return { ok: true, message: `עודכנו ${allChanges.length} חיובים ב-${preview.affectedSessions.length} מפגשים` };
+    return {
+      ok: true,
+      message: `עודכנו ${allChanges.length} חיובים ב-${preview.affectedSessions.length} מפגשים`,
+    };
   } catch (e) {
     console.error("applyRetroCloseDebtAction failed", e);
     return { ok: false, message: GENERIC_ERROR };
