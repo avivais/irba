@@ -25,6 +25,7 @@ export type RetroChargeChange = {
   newAmount: number;
   oldChargeType: ChargeType;
   newChargeType: ChargeType;
+  playerKind: PlayerKind;
 };
 
 export type RetroSessionEntry = {
@@ -50,9 +51,7 @@ export type RetroUnrecalculatedDropIn = {
   amount: number;
   reason:
     | "admin_override_present"
-    | "missing_duration"
-    | "missing_rate"
-    | "below_min_players"
+    | "insufficient_session_data"
     | "no_matching_proposal"
     | "no_change";
 };
@@ -212,28 +211,6 @@ async function computeRetroChanges(
       continue;
     }
 
-    if (!focalCharge.session.durationMinutes) {
-      unrecalculatedDropIns.push({
-        chargeId: focalCharge.id,
-        sessionId: focalCharge.session.id,
-        sessionDate: focalCharge.session.date,
-        amount: focalCharge.amount,
-        reason: "missing_duration",
-      });
-      continue;
-    }
-    const hourlyRate = await getRateForDate(focalCharge.session.date);
-    if (!hourlyRate) {
-      unrecalculatedDropIns.push({
-        chargeId: focalCharge.id,
-        sessionId: focalCharge.session.id,
-        sessionDate: focalCharge.session.date,
-        amount: focalCharge.amount,
-        reason: "missing_rate",
-      });
-      continue;
-    }
-
     const billable = sessionCharges.filter(
       (c) => c.chargeType !== "FREE_ENTRY",
     );
@@ -252,26 +229,32 @@ async function computeRetroChanges(
             : 0,
     }));
 
-    const proposal = proposeSessionCharges({
-      hourlyRate,
-      durationMinutes: focalCharge.session.durationMinutes,
-      minPlayers,
-      debtThreshold,
-      players,
-      freeEntryPlayerIds,
-    });
-    if (!proposal) {
+    const hourlyRate = await getRateForDate(focalCharge.session.date);
+    const proposal =
+      hourlyRate && focalCharge.session.durationMinutes
+        ? proposeSessionCharges({
+            hourlyRate,
+            durationMinutes: focalCharge.session.durationMinutes,
+            minPlayers,
+            debtThreshold,
+            players,
+            freeEntryPlayerIds,
+          })
+        : null;
+
+    const proposedById = proposal
+      ? new Map(proposal.charges.map((c) => [c.playerId, c]))
+      : proposeRetroChargesFromExisting(sessionCharges, playerId);
+    if (!proposedById) {
       unrecalculatedDropIns.push({
         chargeId: focalCharge.id,
         sessionId: focalCharge.session.id,
         sessionDate: focalCharge.session.date,
         amount: focalCharge.amount,
-        reason: "below_min_players",
+        reason: "insufficient_session_data",
       });
       continue;
     }
-
-    const proposedById = new Map(proposal.charges.map((c) => [c.playerId, c]));
 
     const sessionChanges: RetroChargeChange[] = [];
     for (const existing of sessionCharges) {
@@ -310,6 +293,7 @@ async function computeRetroChanges(
         newAmount,
         oldChargeType: existing.chargeType as ChargeType,
         newChargeType: proposed.chargeType,
+        playerKind: existing.player.playerKind as PlayerKind,
       });
     }
 
@@ -399,6 +383,70 @@ function buildUnchangedDebtComponents({
   return components;
 }
 
+function proposeRetroChargesFromExisting(
+  sessionCharges: Array<{
+    playerId: string;
+    amount: number;
+    calculatedAmount: number;
+    chargeType: string;
+    player: { playerKind: string };
+  }>,
+  focalPlayerId: string,
+): Map<
+  string,
+  { playerId: string; chargeType: ChargeType; calculatedAmount: number }
+> | null {
+  const billable = sessionCharges.filter((c) => c.chargeType !== "FREE_ENTRY");
+  const focal = billable.find((c) => c.playerId === focalPlayerId);
+  if (!focal) return null;
+
+  const normalRegistered = billable.filter(
+    (c) =>
+      c.player.playerKind === "REGISTERED" &&
+      (c.playerId === focalPlayerId || c.chargeType === "REGISTERED"),
+  );
+  if (normalRegistered.length === 0) return null;
+
+  const fixedDropIns = billable.filter(
+    (c) =>
+      c.player.playerKind === "DROP_IN" ||
+      (c.player.playerKind === "REGISTERED" &&
+        c.playerId !== focalPlayerId &&
+        c.chargeType === "DROP_IN"),
+  );
+  const totalExisting = billable.reduce(
+    (sum, c) => sum + c.calculatedAmount,
+    0,
+  );
+  const fixedTotal = fixedDropIns.reduce(
+    (sum, c) => sum + c.calculatedAmount,
+    0,
+  );
+  const registeredAmount = Math.ceil(
+    (totalExisting - fixedTotal) / normalRegistered.length,
+  );
+
+  return new Map(
+    billable.map((c) => {
+      const isNormalRegistered = normalRegistered.some(
+        (r) => r.playerId === c.playerId,
+      );
+      return [
+        c.playerId,
+        {
+          playerId: c.playerId,
+          chargeType: isNormalRegistered
+            ? "REGISTERED"
+            : (c.chargeType as ChargeType),
+          calculatedAmount: isNormalRegistered
+            ? registeredAmount
+            : c.calculatedAmount,
+        },
+      ];
+    }),
+  );
+}
+
 async function buildBalanceImpacts(
   changes: RetroChargeChange[],
   focalPlayerId: string,
@@ -408,6 +456,8 @@ async function buildBalanceImpacts(
     { playerName: string; isFocalPlayer: boolean; chargeDiff: number }
   >();
   for (const ch of changes) {
+    if (ch.playerKind !== "REGISTERED") continue;
+    if (ch.newAmount === ch.oldAmount) continue;
     const current = byPlayer.get(ch.playerId) ?? {
       playerName: ch.playerName,
       isFocalPlayer: ch.playerId === focalPlayerId,

@@ -18,9 +18,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 const UNRECALCULATED_REASON_LABEL: Record<string, string> = {
   admin_override_present: "יש עקיפת מנהל במפגש",
-  missing_duration: "חסר משך מפגש",
-  missing_rate: "חסר תעריף לתאריך הזה",
-  below_min_players: "מתחת למינימום שחקנים לחישוב",
+  insufficient_session_data: "אין מספיק נתוני חיוב לשחזור",
   no_matching_proposal: "לא נמצא חיוב תואם בחישוב החדש",
   no_change: "החישוב החדש לא משנה את החיוב",
 };
