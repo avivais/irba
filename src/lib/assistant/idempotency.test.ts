@@ -34,7 +34,7 @@ describe("assistant idempotency", () => {
     vi.mocked(prisma.assistantRequestLog.findUnique).mockResolvedValue({
       operation: "help",
       resultSnapshot: response,
-    });
+    } as never);
 
     await expect(getAssistantIdempotency("k", "help")).resolves.toEqual({
       kind: "hit",
@@ -46,7 +46,7 @@ describe("assistant idempotency", () => {
     vi.mocked(prisma.assistantRequestLog.findUnique).mockResolvedValue({
       operation: "roster.add",
       resultSnapshot: response,
-    });
+    } as never);
 
     await expect(getAssistantIdempotency("k", "help")).resolves.toEqual({ kind: "conflict" });
   });

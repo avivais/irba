@@ -203,7 +203,7 @@ describe("POST /api/assistant/v1", () => {
         error: null,
         idempotent_replay: false,
       },
-    });
+    } as never);
 
     const res = await POST(request());
     const json = await res.json();

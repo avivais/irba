@@ -112,6 +112,7 @@ type FinancePlayer = {
   id: string;
   phone: string;
   playerKind?: string | null;
+  isAdmin?: boolean | null;
   nickname: string | null;
   firstNameHe: string | null;
   lastNameHe: string | null;
@@ -181,12 +182,13 @@ export async function assistantRegisteredPlayerBalances(actor: AssistantActor): 
   requireAdmin(actor);
 
   const players = await prisma.player.findMany({
-    where: { playerKind: "REGISTERED" },
+    where: { playerKind: "REGISTERED", isAdmin: false },
     orderBy: [{ nickname: "asc" }, { firstNameHe: "asc" }, { lastNameHe: "asc" }, { phone: "asc" }],
     select: {
       id: true,
       phone: true,
       playerKind: true,
+      isAdmin: true,
       nickname: true,
       firstNameHe: true,
       lastNameHe: true,
@@ -195,7 +197,9 @@ export async function assistantRegisteredPlayerBalances(actor: AssistantActor): 
     },
   });
   const balances = await computePlayerBalances(players.map((p) => p.id));
-  const formatted = players.map((player) => formatBalanceData(player, balances.get(player.id) ?? emptyBalance(), false));
+  const formatted = players
+    .map((player) => formatBalanceData(player, balances.get(player.id) ?? emptyBalance(), false))
+    .sort((a, b) => a.balance - b.balance || a.player.display_name.localeCompare(b.player.display_name, "he") || a.player.phone.localeCompare(b.player.phone));
 
   return {
     players: formatted,

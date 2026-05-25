@@ -32,7 +32,7 @@ describe("resolveAssistantActor", () => {
       firstNameHe: null,
       lastNameHe: null,
       isAdmin: true,
-    });
+    } as never);
 
     await expect(resolveAssistantActor("+972501234567")).resolves.toMatchObject({
       level: "admin",
@@ -48,7 +48,7 @@ describe("resolveAssistantActor", () => {
       firstNameHe: "שחקן",
       lastNameHe: null,
       isAdmin: false,
-    });
+    } as never);
 
     await expect(resolveAssistantActor("0507654321")).resolves.toMatchObject({
       level: "member",

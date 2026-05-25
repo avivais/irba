@@ -107,26 +107,29 @@ describe("assistant finance operations", () => {
     await expect(assistantFinanceSummary(memberActor)).rejects.toMatchObject({ code: "FORBIDDEN_OPERATION" });
   });
 
-  it("returns balances for registered players only", async () => {
+  it("returns non-admin registered player balances sorted by balance ascending", async () => {
     vi.mocked(prisma.player.findMany).mockResolvedValue([
-      { ...player, id: "p1", nickname: "אדיר", playerKind: "REGISTERED" },
-      { ...player, id: "p2", phone: "0502222222", nickname: "יקיר", playerKind: "REGISTERED" },
+      { ...player, id: "p1", nickname: "אדיר", playerKind: "REGISTERED", isAdmin: false },
+      { ...player, id: "p2", phone: "0502222222", nickname: "יקיר", playerKind: "REGISTERED", isAdmin: false },
+      { ...player, id: "p3", phone: "0503333333", nickname: "בנג׳ו", playerKind: "REGISTERED", isAdmin: false },
     ] as never);
     vi.mocked(computePlayerBalances).mockResolvedValue(
       new Map([
         ["p1", balance({ totalPaid: 100, totalCharged: 140, balance: -40 })],
         ["p2", balance({ totalPaid: 200, totalCharged: 150, balance: 50 })],
+        ["p3", balance({ totalPaid: 100, totalCharged: 110, balance: -10 })],
       ]) as never,
     );
 
     const result = await assistantRegisteredPlayerBalances(adminActor);
 
-    expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { playerKind: "REGISTERED" } }));
+    expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { playerKind: "REGISTERED", isAdmin: false } }));
     expect(result.players).toEqual([
       expect.objectContaining({ player: expect.objectContaining({ display_name: "אדיר" }), balance: -40 }),
+      expect.objectContaining({ player: expect.objectContaining({ display_name: "בנג׳ו" }), balance: -10 }),
       expect.objectContaining({ player: expect.objectContaining({ display_name: "יקיר" }), balance: 50 }),
     ]);
-    expect(result.totals).toMatchObject({ players_count: 2, total_balance: 10, debtors_count: 1, total_debt: 40, credits_count: 1, total_credit: 50 });
+    expect(result.totals).toMatchObject({ players_count: 3, total_balance: 0, debtors_count: 2, total_debt: 50, credits_count: 1, total_credit: 50 });
   });
 
   it("blocks registered player balances for non-admin", async () => {
