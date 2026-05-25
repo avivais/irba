@@ -6,9 +6,16 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone, PhoneValidationError } from "@/lib/phone";
 import { getPlayerDisplayName } from "@/lib/player-display";
-import { computePromoteTimestamp } from "@/lib/waitlist";
-import { notifySessionRoster, notifyWaitlistPromote, sendWaGroupMessage, sendWaPoll } from "@/lib/wa-notify";
-import { buildNumberedList } from "@/lib/sort-attendances";
+import {
+  notifySessionRoster,
+  notifyWaitlistPromote,
+  sendWaGroupMessage,
+  sendWaPoll,
+} from "@/lib/wa-notify";
+import {
+  buildNumberedList,
+  sortAttendancesByPrecedence,
+} from "@/lib/sort-attendances";
 import { writeAuditLog } from "@/lib/audit";
 import { CONFIG } from "@/lib/config-keys";
 import { getAllConfigs } from "@/lib/config";
@@ -32,9 +39,14 @@ export async function addPlayerAction(
   if (!session) return { ok: false, message: "מפגש לא נמצא" };
 
   try {
-    await prisma.attendance.create({ data: { playerId, gameSessionId: sessionId } });
+    await prisma.attendance.create({
+      data: { playerId, gameSessionId: sessionId },
+    });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
       return { ok: false, message: "השחקן כבר רשום למפגש זה" };
     }
     throw e;
@@ -72,19 +84,30 @@ export async function quickAddDropInAction(
   });
   if (!session) return { ok: false, message: "מפגש לא נמצא" };
 
-  const existing = await prisma.player.findUnique({ where: { phone }, select: { id: true } });
+  const existing = await prisma.player.findUnique({
+    where: { phone },
+    select: { id: true },
+  });
   if (!existing && !name) return { ok: false, message: "נא להזין שם" };
   const playerId = existing
     ? existing.id
-    : (await prisma.player.create({ data: { phone, firstNameHe: name, playerKind: "DROP_IN" }, select: { id: true } })).id;
+    : (
+        await prisma.player.create({
+          data: { phone, firstNameHe: name, playerKind: "DROP_IN" },
+          select: { id: true },
+        })
+      ).id;
 
   const alreadyRegistered = await prisma.attendance.findFirst({
     where: { playerId, gameSessionId: sessionId },
     select: { id: true },
   });
-  if (alreadyRegistered) return { ok: false, message: "השחקן כבר רשום למפגש זה" };
+  if (alreadyRegistered)
+    return { ok: false, message: "השחקן כבר רשום למפגש זה" };
 
-  await prisma.attendance.create({ data: { playerId, gameSessionId: sessionId } });
+  await prisma.attendance.create({
+    data: { playerId, gameSessionId: sessionId },
+  });
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
@@ -111,7 +134,14 @@ export async function lookupPlayerByPhoneAction(
 
   const player = await prisma.player.findUnique({
     where: { phone },
-    select: { id: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true },
+    select: {
+      id: true,
+      firstNameHe: true,
+      lastNameHe: true,
+      firstNameEn: true,
+      lastNameEn: true,
+      nickname: true,
+    },
   });
   if (!player) return { status: "new" };
 
@@ -131,46 +161,78 @@ export async function promoteWaitlistAction(
   sessionId: string,
   attendanceId: string,
   _prev: SessionAttendanceState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<SessionAttendanceState> {
   await requireAdmin();
+
+  const replaceAttendanceId =
+    formData.get("replaceAttendanceId")?.toString().trim() ?? "";
+  if (!replaceAttendanceId)
+    return { ok: false, message: "נא לבחור מי יוצא מהרשימה" };
 
   const session = await prisma.gameSession.findUnique({
     where: { id: sessionId },
     select: {
+      date: true,
       maxPlayers: true,
-      attendances: { orderBy: { createdAt: "asc" }, select: { id: true, createdAt: true } },
+      attendances: {
+        orderBy: { createdAt: "asc" },
+        include: { player: true },
+      },
     },
   });
   if (!session) return { ok: false, message: "מפגש לא נמצא" };
 
-  const newTimestamp = computePromoteTimestamp(session.attendances, session.maxPlayers, attendanceId);
-  if (newTimestamp === null) {
+  const sorted = await sortAttendancesByPrecedence(
+    session.attendances,
+    session.date.getFullYear(),
+  );
+  const targetIndex = sorted.findIndex((a) => a.id === attendanceId);
+  if (targetIndex === -1)
+    return { ok: false, message: "השחקן לא נמצא ברשימת ההמתנה" };
+  if (targetIndex < session.maxPlayers) {
     return { ok: false, message: "השחקן כבר ברשימת המשתתפים" };
   }
 
-  const [attendance] = await Promise.all([
-    prisma.attendance.update({
-      where: { id: attendanceId },
-      data: { createdAt: newTimestamp },
-      select: {
-        player: { select: { phone: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true } },
-        gameSession: { select: { date: true } },
-      },
-    }),
-  ]);
+  const replaceIndex = sorted.findIndex((a) => a.id === replaceAttendanceId);
+  if (replaceIndex === -1)
+    return { ok: false, message: "השחקן להחלפה לא נמצא" };
+  if (replaceIndex >= session.maxPlayers) {
+    return { ok: false, message: "אפשר להחליף רק שחקן שנמצא ברשימת המשתתפים" };
+  }
+
+  const promoted = sorted[targetIndex];
+  const withoutPromoted = sorted.filter((a) => a.id !== attendanceId);
+  const withoutReplaced = withoutPromoted.filter(
+    (a) => a.id !== replaceAttendanceId,
+  );
+  const nextOrder = [
+    ...withoutReplaced.slice(0, replaceIndex),
+    promoted,
+    ...withoutReplaced.slice(replaceIndex, session.maxPlayers - 1),
+    sorted[replaceIndex],
+    ...withoutReplaced.slice(session.maxPlayers - 1),
+  ];
+
+  await prisma.$transaction(
+    nextOrder.map((attendance, index) =>
+      prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { positionOverride: index },
+      }),
+    ),
+  );
 
   revalidatePath(`/admin/sessions/${sessionId}`);
   revalidatePath("/");
 
-  // Notify promoted player (best-effort)
-  const dateStr = attendance.gameSession.date.toLocaleDateString("he-IL", {
+  const dateStr = session.date.toLocaleDateString("he-IL", {
     timeZone: "Asia/Jerusalem",
     weekday: "long",
     day: "numeric",
     month: "long",
   });
-  const playerName = getPlayerDisplayName(attendance.player);
+  const playerName = getPlayerDisplayName(promoted.player);
   const [configs, postPromoteAttendances] = await Promise.all([
     getAllConfigs(),
     prisma.attendance.findMany({
@@ -179,13 +241,37 @@ export async function promoteWaitlistAction(
       include: { player: true },
     }),
   ]);
-  const names = postPromoteAttendances.map((a) => getPlayerDisplayName(a.player));
+  const postSorted = await sortAttendancesByPrecedence(
+    postPromoteAttendances,
+    session.date.getFullYear(),
+  );
+  const names = postSorted.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, session.maxPlayers);
   const waitlist = names.slice(session.maxPlayers);
-  const sessionYear = attendance.gameSession.date.getFullYear();
-  buildNumberedList(postPromoteAttendances, sessionYear)
-    .then((numberedList) => notifyWaitlistPromote(attendance.player.phone, dateStr, playerName, registeredList, waitlist, numberedList, configs))
-    .catch((e) => console.warn("[wa-notify] numbered list build failed:", e));
+  const numberedList = await buildNumberedList(
+    postPromoteAttendances,
+    session.date.getFullYear(),
+  );
+  notifyWaitlistPromote(
+    promoted.player.phone,
+    dateStr,
+    playerName,
+    registeredList,
+    waitlist,
+    numberedList,
+    configs,
+  ).catch((e) => console.warn("[wa-notify] waitlist promote failed:", e));
+
+  writeAuditLog({
+    actor: "admin",
+    action: "PROMOTE_WAITLIST_REPLACE",
+    entityType: "GameSession",
+    entityId: sessionId,
+    after: {
+      promotedAttendanceId: attendanceId,
+      replacedAttendanceId: replaceAttendanceId,
+    },
+  });
 
   return { ok: true, message: "השחקן קודם בהצלחה" };
 }
@@ -214,20 +300,36 @@ export async function broadcastSessionRosterAction(
     day: "numeric",
     month: "long",
   });
-  const names = session.attendances.map((a) => getPlayerDisplayName(a.player));
+  const sortedAttendances = await sortAttendancesByPrecedence(
+    session.attendances,
+    session.date.getFullYear(),
+  );
+  const names = sortedAttendances.map((a) => getPlayerDisplayName(a.player));
   const registeredList = names.slice(0, session.maxPlayers);
   const waitlist = names.slice(session.maxPlayers);
-  const numberedList = await buildNumberedList(session.attendances, session.date.getFullYear());
+  const numberedList = await buildNumberedList(
+    session.attendances,
+    session.date.getFullYear(),
+  );
 
   const configs = await getAllConfigs();
-  await notifySessionRoster(dateStr, registeredList, waitlist, numberedList, configs);
+  await notifySessionRoster(
+    dateStr,
+    registeredList,
+    waitlist,
+    numberedList,
+    configs,
+  );
 
   writeAuditLog({
     actor: "admin",
     action: "BROADCAST_SESSION_ROSTER",
     entityType: "GameSession",
     entityId: sessionId,
-    after: { confirmedCount: registeredList.length, waitlistCount: waitlist.length },
+    after: {
+      confirmedCount: registeredList.length,
+      waitlistCount: waitlist.length,
+    },
   });
 
   return { ok: true, message: "ההודעה נשלחה" };
@@ -244,7 +346,10 @@ export async function removePlayerAction(
   try {
     await prisma.attendance.delete({ where: { id: attendanceId } });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2025"
+    ) {
       // already gone
     } else throw e;
   }

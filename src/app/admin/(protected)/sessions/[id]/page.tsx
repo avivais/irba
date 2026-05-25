@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getPlayerDisplayName } from "@/lib/player-display";
-import { computePrecedenceScores } from "@/lib/precedence";
+import { sortAttendancesByPrecedence } from "@/lib/sort-attendances";
 import { getAllConfigs } from "@/lib/config";
 import { CONFIG } from "@/lib/config-keys";
 import { SessionForm } from "@/components/admin/session-form";
@@ -28,7 +28,7 @@ type Props = { params: Promise<{ id: string }> };
 export default async function AdminSessionPage({ params }: Props) {
   const { id } = await params;
 
-  const [session, yearWeights, config, chargesRaw, rateRaw, matchesRaw] = await Promise.all([
+  const [session, config, chargesRaw, rateRaw, matchesRaw] = await Promise.all([
     prisma.gameSession.findUnique({
       where: { id },
       include: {
@@ -39,7 +39,6 @@ export default async function AdminSessionPage({ params }: Props) {
         _count: { select: { attendances: true } },
       },
     }),
-    prisma.yearWeight.findMany(),
     getAllConfigs(),
     prisma.sessionCharge.findMany({
       where: { sessionId: id },
@@ -49,10 +48,26 @@ export default async function AdminSessionPage({ params }: Props) {
         amount: true,
         calculatedAmount: true,
         chargeType: true,
-        player: { select: { id: true, firstNameHe: true, lastNameHe: true, firstNameEn: true, lastNameEn: true, nickname: true, phone: true } },
+        player: {
+          select: {
+            id: true,
+            firstNameHe: true,
+            lastNameHe: true,
+            firstNameEn: true,
+            lastNameEn: true,
+            nickname: true,
+            phone: true,
+          },
+        },
         auditEntries: {
           orderBy: { changedAt: "desc" },
-          select: { changedAt: true, changedBy: true, previousAmount: true, newAmount: true, reason: true },
+          select: {
+            changedAt: true,
+            changedBy: true,
+            previousAmount: true,
+            newAmount: true,
+            reason: true,
+          },
         },
       },
     }),
@@ -76,68 +91,55 @@ export default async function AdminSessionPage({ params }: Props) {
   ]);
   if (!session) notFound();
 
-  const confirmed = session.attendances.slice(0, session.maxPlayers);
+  const attendances = await sortAttendancesByPrecedence(
+    session.attendances,
+    session.date.getFullYear(),
+  );
+  const confirmed = attendances.slice(0, session.maxPlayers);
+  const promoteReplaceOptions = confirmed.map((a) => ({
+    attendanceId: a.id,
+    playerName: getPlayerDisplayName(a.player),
+  }));
   const confirmedAttendees = confirmed.map((a) => ({
     id: a.playerId,
-    displayName: a.player.nickname ?? a.player.firstNameHe ?? a.player.firstNameEn ?? getPlayerDisplayName(a.player),
+    displayName:
+      a.player.nickname ??
+      a.player.firstNameHe ??
+      a.player.firstNameEn ??
+      getPlayerDisplayName(a.player),
   }));
   const attendeesWithRank = confirmed.map((a) => ({
     id: a.playerId,
-    displayName: a.player.nickname ?? a.player.firstNameHe ?? a.player.firstNameEn ?? getPlayerDisplayName(a.player),
+    displayName:
+      a.player.nickname ??
+      a.player.firstNameHe ??
+      a.player.firstNameEn ??
+      getPlayerDisplayName(a.player),
     rank: a.player.computedRank ?? a.player.rank,
     positions: a.player.positions as string[],
   }));
-  const waitlistRaw = session.attendances.slice(session.maxPlayers);
-  const attendingIds = new Set(session.attendances.map((a) => a.playerId));
-
-  // Sort waitlist: REGISTERED by precedence desc, DROP_IN by createdAt asc (already ordered)
-  const currentYear = new Date().getFullYear();
-  let waiting = waitlistRaw;
-  if (waitlistRaw.length > 0) {
-    const registeredWaiting = waitlistRaw.filter((a) => a.player.playerKind === "REGISTERED");
-    const dropinWaiting = waitlistRaw.filter((a) => a.player.playerKind === "DROP_IN");
-
-    if (registeredWaiting.length > 1 && yearWeights.length > 0) {
-      const playerIds = registeredWaiting.map((a) => a.playerId);
-      const [aggregates, adjustments, liveCounts] = await Promise.all([
-        prisma.playerYearAggregate.findMany({ where: { playerId: { in: playerIds } } }),
-        prisma.playerAdjustment.findMany({ where: { playerId: { in: playerIds } } }),
-        prisma.attendance.groupBy({
-          by: ["playerId"],
-          where: { playerId: { in: playerIds }, gameSession: { date: { gte: new Date(currentYear, 0, 1) } } },
-          _count: { id: true },
-        }),
-      ]);
-      const liveMap = new Map(liveCounts.map((r) => [r.playerId, r._count.id]));
-      const scored = computePrecedenceScores(
-        registeredWaiting.map((a) => ({
-          id: a.playerId,
-          playerName: getPlayerDisplayName(a.player),
-          aggregates: aggregates.filter((ag) => ag.playerId === a.playerId).map((ag) => ({ year: ag.year, count: ag.count })),
-          liveCount: liveMap.get(a.playerId) ?? 0,
-          adjustments: adjustments.filter((adj) => adj.playerId === a.playerId).map((adj) => ({ points: adj.points })),
-        })),
-        yearWeights,
-        currentYear,
-      );
-      const scoreMap = new Map(scored.map((r) => [r.playerId, r.totalScore]));
-      registeredWaiting.sort((a, b) => (scoreMap.get(b.playerId) ?? 0) - (scoreMap.get(a.playerId) ?? 0));
-    }
-    waiting = [...registeredWaiting, ...dropinWaiting];
-  }
+  const waiting = attendances.slice(session.maxPlayers);
+  const attendingIds = new Set(attendances.map((a) => a.playerId));
 
   const allPlayers = await prisma.player.findMany({
     orderBy: [{ firstNameHe: "asc" }, { firstNameEn: "asc" }],
     select: {
       id: true,
-      firstNameHe: true, lastNameHe: true,
-      firstNameEn: true, lastNameEn: true,
-      nickname: true, phone: true,
+      firstNameHe: true,
+      lastNameHe: true,
+      firstNameEn: true,
+      lastNameEn: true,
+      nickname: true,
+      phone: true,
     },
   });
   const availablePlayers = allPlayers
     .filter((p) => !attendingIds.has(p.id))
-    .map((p) => ({ id: p.id, displayName: getPlayerDisplayName(p), phone: p.phone }));
+    .map((p) => ({
+      id: p.id,
+      displayName: getPlayerDisplayName(p),
+      phone: p.phone,
+    }));
 
   const sessionData = {
     id: session.id,
@@ -197,7 +199,10 @@ export default async function AdminSessionPage({ params }: Props) {
         <div className="flex items-center gap-2">
           <SessionCancelButton id={id} cancelledAt={session.cancelledAt} />
           <SessionArchiveButton id={id} isArchived={session.isArchived} />
-          <SessionDeleteButton id={id} attendanceCount={session._count.attendances} />
+          <SessionDeleteButton
+            id={id}
+            attendanceCount={session._count.attendances}
+          />
         </div>
       </header>
 
@@ -206,10 +211,15 @@ export default async function AdminSessionPage({ params }: Props) {
         <section className="mx-auto mt-6 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
           <div className="font-semibold">המפגש בוטל</div>
           {session.cancellationReason && (
-            <div className="mt-1 whitespace-pre-wrap">{session.cancellationReason}</div>
+            <div className="mt-1 whitespace-pre-wrap">
+              {session.cancellationReason}
+            </div>
           )}
           <div className="mt-1 text-xs opacity-75">
-            בוטל ב-{session.cancelledAt.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })}
+            בוטל ב-
+            {session.cancelledAt.toLocaleString("he-IL", {
+              timeZone: "Asia/Jerusalem",
+            })}
           </div>
         </section>
       )}
@@ -239,7 +249,10 @@ export default async function AdminSessionPage({ params }: Props) {
       <section className="mx-auto mt-4 w-full max-w-2xl md:max-w-4xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-zinc-600 dark:text-zinc-400" aria-hidden />
+            <Users
+              className="h-5 w-5 text-zinc-600 dark:text-zinc-400"
+              aria-hidden
+            />
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               משתתפים
             </h2>
@@ -253,11 +266,16 @@ export default async function AdminSessionPage({ params }: Props) {
         </div>
 
         {confirmed.length === 0 ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">אין נרשמים עדיין.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            אין נרשמים עדיין.
+          </p>
         ) : (
           <ol className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
             {confirmed.map((row, index) => (
-              <li key={row.id} className="flex items-center justify-between gap-3 py-2.5">
+              <li
+                key={row.id}
+                className="flex items-center justify-between gap-3 py-2.5"
+              >
                 <span className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="w-5 tabular-nums text-zinc-400 dark:text-zinc-500">
                     {index + 1}.
@@ -291,7 +309,10 @@ export default async function AdminSessionPage({ params }: Props) {
             </h3>
             <ol className="flex flex-col divide-y divide-amber-100 dark:divide-amber-900/30">
               {waiting.map((row, index) => (
-                <li key={row.id} className="flex items-center justify-between gap-3 py-2.5">
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between gap-3 py-2.5"
+                >
                   <span className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="w-5 tabular-nums text-zinc-400 dark:text-zinc-500">
                       {index + 1}.
@@ -313,6 +334,7 @@ export default async function AdminSessionPage({ params }: Props) {
                       sessionId={id}
                       attendanceId={row.id}
                       playerName={getPlayerDisplayName(row.player)}
+                      replaceOptions={promoteReplaceOptions}
                     />
                     <SessionRemoveButton
                       sessionId={id}

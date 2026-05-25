@@ -15,6 +15,17 @@ export async function sortAttendancesByPrecedence(
   attendances: AttendanceWithPlayer[],
   sessionYear: number,
 ): Promise<AttendanceWithPlayer[]> {
+  if (attendances.some((a) => a.positionOverride !== null)) {
+    return [...attendances].sort((a, b) => {
+      const posA = a.positionOverride ?? Number.MAX_SAFE_INTEGER;
+      const posB = b.positionOverride ?? Number.MAX_SAFE_INTEGER;
+      if (posA !== posB) return posA - posB;
+      if (a.createdAt < b.createdAt) return -1;
+      if (a.createdAt > b.createdAt) return 1;
+      return getPlayerDisplayName(a.player).localeCompare(getPlayerDisplayName(b.player), "he");
+    });
+  }
+
   const registered = attendances.filter((a) => a.player.playerKind === "REGISTERED");
   const dropIns = attendances.filter((a) => a.player.playerKind !== "REGISTERED");
 

@@ -157,10 +157,11 @@ model PlayerAdjustment {
 }
 
 model Attendance {
-  id            String   @id @default(cuid())
-  playerId      String
-  gameSessionId String
-  createdAt     DateTime @default(now())
+  id               String   @id @default(cuid())
+  playerId         String
+  gameSessionId    String
+  createdAt        DateTime @default(now())
+  positionOverride Int?
 
   player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
   gameSession GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
