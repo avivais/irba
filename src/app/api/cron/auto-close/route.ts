@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { autoClosePastSessions } from "@/lib/auto-close-sessions";
 
 /**
- * Idempotent cron endpoint: closes sessions whose end time has passed.
+ * Idempotent cron endpoint: closes registration for sessions whose start time has passed.
  * Called every minute by an EC2 cron job.
  *
  * Authorization: Bearer <CRON_SECRET>

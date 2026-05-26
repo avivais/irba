@@ -13,6 +13,7 @@ type Session = {
   maxPlayers: number;
   isClosed: boolean;
   isArchived: boolean;
+  isCharged: boolean;
   cancelledAt: Date | null;
   _count: { attendances: number };
 };
@@ -63,7 +64,9 @@ export function SessionList({ sessions, minPlayers = 10 }: { sessions: Session[]
                     : session.isArchived
                     ? "ארכיון"
                     : session.isClosed
-                    ? "סגור"
+                    ? session.isCharged
+                      ? "סגור · חויב"
+                      : "סגור · לא חויב"
                     : "פתוח"}
                 </span>
               </div>

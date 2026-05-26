@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getAllConfigs, CONFIG } from "@/lib/config";
+import { getAllConfigs } from "@/lib/config";
 import { notifySessionClose } from "@/lib/wa-notify";
 import { writeAuditLog } from "@/lib/audit";
 import { checkLowAttendanceAlerts } from "@/lib/low-attendance-alert";
@@ -11,27 +11,25 @@ export type AutoCloseResult = {
 };
 
 /**
- * Idempotent: closes all sessions whose end time (date + duration) has passed.
+ * Idempotent: closes registration for all sessions whose start time has passed.
+ * This prevents new registrations once the session starts. The separate RSVP
+ * cancellation lock is still controlled by the configured close window.
  * Called by the /api/cron/auto-close endpoint every minute.
  */
 export async function autoClosePastSessions(): Promise<AutoCloseResult> {
   const configs = await getAllConfigs();
-  const defaultDuration = parseInt(configs[CONFIG.SESSION_DEFAULT_DURATION_MIN], 10);
   const now = new Date();
 
   const openSessions = await prisma.gameSession.findMany({
     where: { isClosed: false, isArchived: false, cancelledAt: null },
-    select: { id: true, date: true, durationMinutes: true },
+    select: { id: true, date: true },
   });
 
   const closed: string[] = [];
   let skipped = 0;
 
   for (const session of openSessions) {
-    const duration = session.durationMinutes ?? defaultDuration;
-    const endTime = new Date(session.date.getTime() + duration * 60 * 1000);
-
-    if (endTime > now) {
+    if (session.date > now) {
       skipped++;
       continue;
     }
