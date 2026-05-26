@@ -10,7 +10,56 @@ step() { echo ""; echo "━━━ $* ━━━━━━━━━━━━━━�
 
 # Resolve the local commit hash up front — we deploy whatever main is at and
 # pin to the SHA so a concurrent build pushing `:latest` can't race us.
+FULL_COMMIT_HASH=$(git rev-parse HEAD)
 COMMIT_HASH=$(git rev-parse --short HEAD)
+
+deploy_via_github_actions() {
+  if ! command -v gh >/dev/null 2>&1; then
+    log "Docker is not installed and GitHub CLI (gh) is unavailable."
+    log "Install Docker for direct deploys, or install/authenticate gh for GitHub Actions deploys."
+    exit 1
+  fi
+
+  if ! gh auth status >/dev/null 2>&1; then
+    log "Docker is not installed and GitHub CLI is not authenticated."
+    log "Run: gh auth login"
+    exit 1
+  fi
+
+  step "GITHUB ACTIONS DEPLOY"
+  log "Docker is not installed locally; dispatching .github/workflows/deploy.yml instead."
+  log "Deploying commit $COMMIT_HASH via GitHub Actions..."
+  gh workflow run deploy.yml -f "ref=$FULL_COMMIT_HASH"
+
+  # workflow_dispatch does not return a run id. Give GitHub a moment to create
+  # the run, then find the newest Deploy run for this exact commit.
+  sleep 3
+  RUN_ID=$(gh run list \
+    --workflow deploy.yml \
+    --limit 10 \
+    --json databaseId,headSha \
+    --jq ".[] | select(.headSha == \"$FULL_COMMIT_HASH\") | .databaseId" \
+    | head -n 1)
+
+  if [ -z "$RUN_ID" ]; then
+    log "Could not find the dispatched deploy run. Check GitHub Actions:"
+    log "  https://github.com/avivais/irba/actions/workflows/deploy.yml"
+    exit 1
+  fi
+
+  gh run watch "$RUN_ID" --exit-status
+
+  step "HEALTH CHECK"
+  curl -sf https://irba.club/api/health
+  echo ""
+  log "Deploy complete. https://irba.club"
+  log "Deployed: $COMMIT_HASH"
+}
+
+if ! command -v docker >/dev/null 2>&1; then
+  deploy_via_github_actions
+  exit 0
+fi
 
 # ── 1. Wait for the GHCR image to be published ────────────────────────────────
 # CI builds on every push to main; we don't try to deploy a SHA that doesn't
