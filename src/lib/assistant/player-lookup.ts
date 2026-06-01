@@ -33,10 +33,17 @@ type PlayerRecord = {
   lastNameEn: string | null;
 };
 
-type PriorityField = {
-  field: keyof Pick<PlayerRecord, "nickname" | "firstNameHe" | "lastNameHe" | "firstNameEn" | "lastNameEn">;
-  label: string;
-};
+type PriorityField =
+  | {
+      kind: "field";
+      field: keyof Pick<PlayerRecord, "nickname" | "firstNameHe" | "lastNameHe" | "firstNameEn" | "lastNameEn">;
+      label: string;
+    }
+  | {
+      kind: "fullName";
+      fields: readonly ["firstNameHe", "lastNameHe"] | readonly ["firstNameEn", "lastNameEn"];
+      label: string;
+    };
 
 function normalizeToken(s: string): string {
   return s.trim().replace(/\s+/g, " ");
@@ -58,14 +65,26 @@ function normalizedContains(fieldValue: string | null | undefined, query: string
 
 function getPriorityFields(lang: "he" | "en"): PriorityField[] {
   return [
-    { field: "nickname", label: "nickname" },
+    { kind: "field", field: "nickname", label: "nickname" },
     lang === "he"
-      ? { field: "lastNameHe", label: "lastNameHe" }
-      : { field: "lastNameEn", label: "lastNameEn" },
+      ? { kind: "field", field: "firstNameHe", label: "firstNameHe" }
+      : { kind: "field", field: "firstNameEn", label: "firstNameEn" },
     lang === "he"
-      ? { field: "firstNameHe", label: "firstNameHe" }
-      : { field: "firstNameEn", label: "firstNameEn" },
+      ? { kind: "field", field: "lastNameHe", label: "lastNameHe" }
+      : { kind: "field", field: "lastNameEn", label: "lastNameEn" },
+    lang === "he"
+      ? { kind: "fullName", fields: ["firstNameHe", "lastNameHe"], label: "fullNameHe" }
+      : { kind: "fullName", fields: ["firstNameEn", "lastNameEn"], label: "fullNameEn" },
   ];
+}
+
+function getPriorityValue(p: PlayerRecord, priority: PriorityField): string | null {
+  if (priority.kind === "field") return p[priority.field];
+  const fullName = priority.fields
+    .map((field) => p[field]?.trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || null;
 }
 
 function toCandidate(p: PlayerRecord): PlayerLookupCandidate {
@@ -112,30 +131,32 @@ export async function lookupPlayerByName(
   });
 
   // Exact pass: stop at first priority level with ≥1 match
-  for (const { field, label } of priorityFields) {
-    const matches = allPlayers.filter((p) =>
-      normalizedEquals(p[field], normalizedQuery, caseInsensitive),
-    );
+  for (const priority of priorityFields) {
+    const matches = allPlayers
+      .map((player) => ({ player, value: getPriorityValue(player, priority) }))
+      .filter(({ value }) => normalizedEquals(value, normalizedQuery, caseInsensitive));
     if (matches.length === 1) {
+      const match = matches[0];
       return {
         status: "unique",
-        player: toCandidate(matches[0]),
-        matched_field: label,
-        matched_value: matches[0][field] as string,
+        player: toCandidate(match.player),
+        matched_field: priority.label,
+        matched_value: match.value as string,
       };
     }
     if (matches.length > 1) {
-      return { status: "ambiguous", candidates: matches.map(toCandidate) };
+      return { status: "ambiguous", candidates: matches.map(({ player }) => toCandidate(player)) };
     }
   }
 
   // Partial fallback: contains matching, resolve only if exactly one unique player found
   const partialById = new Map<string, { player: PlayerRecord; field: string; value: string }>();
-  for (const { field, label } of priorityFields) {
+  for (const priority of priorityFields) {
     for (const p of allPlayers) {
       if (partialById.has(p.id)) continue;
-      if (normalizedContains(p[field], normalizedQuery, caseInsensitive)) {
-        partialById.set(p.id, { player: p, field: label, value: p[field] as string });
+      const value = getPriorityValue(p, priority);
+      if (normalizedContains(value, normalizedQuery, caseInsensitive)) {
+        partialById.set(p.id, { player: p, field: priority.label, value: value as string });
       }
     }
   }

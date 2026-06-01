@@ -76,7 +76,7 @@ describe("lookupPlayerByName", () => {
     }
   });
 
-  it("Hebrew last name exact match wins over Hebrew first name", async () => {
+  it("Hebrew first name exact match wins over Hebrew last name", async () => {
     const p1 = makePlayer({ id: "p1", phone: "050-111", lastNameHe: "אדיר" });
     const p2 = makePlayer({ id: "p2", phone: "050-222", firstNameHe: "אדיר" });
     vi.mocked(prisma.player.findMany).mockResolvedValue([p1, p2] as never);
@@ -84,8 +84,8 @@ describe("lookupPlayerByName", () => {
     const result = await lookupPlayerByName("אדיר");
     expect(result.status).toBe("unique");
     if (result.status === "unique") {
-      expect(result.player.id).toBe("p1");
-      expect(result.matched_field).toBe("lastNameHe");
+      expect(result.player.id).toBe("p2");
+      expect(result.matched_field).toBe("firstNameHe");
     }
   });
 
@@ -102,7 +102,7 @@ describe("lookupPlayerByName", () => {
     }
   });
 
-  it("English last name exact match wins over English first name", async () => {
+  it("English first name exact match wins over English last name", async () => {
     const p1 = makePlayer({ id: "p1", phone: "050-111", lastNameEn: "Cohen" });
     const p2 = makePlayer({ id: "p2", phone: "050-222", firstNameEn: "Cohen" });
     vi.mocked(prisma.player.findMany).mockResolvedValue([p1, p2] as never);
@@ -110,8 +110,8 @@ describe("lookupPlayerByName", () => {
     const result = await lookupPlayerByName("Cohen");
     expect(result.status).toBe("unique");
     if (result.status === "unique") {
-      expect(result.player.id).toBe("p1");
-      expect(result.matched_field).toBe("lastNameEn");
+      expect(result.player.id).toBe("p2");
+      expect(result.matched_field).toBe("firstNameEn");
     }
   });
 
@@ -140,6 +140,18 @@ describe("lookupPlayerByName", () => {
       expect(result.candidates).toHaveLength(2);
       expect(result.candidates.map((c) => c.id)).toContain("p1");
       expect(result.candidates.map((c) => c.id)).toContain("p2");
+    }
+  });
+
+  it("matches Hebrew full name after nickname, first name, and last name", async () => {
+    const p1 = makePlayer({ id: "p1", phone: "050-111", firstNameHe: "אורי", lastNameHe: "חזן" });
+    vi.mocked(prisma.player.findMany).mockResolvedValue([p1] as never);
+
+    const result = await lookupPlayerByName("אורי חזן");
+    expect(result.status).toBe("unique");
+    if (result.status === "unique") {
+      expect(result.player.id).toBe("p1");
+      expect(result.matched_field).toBe("fullNameHe");
     }
   });
 
