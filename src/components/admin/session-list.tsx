@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { formatGameDate } from "@/lib/format-date";
+import { getSessionDisplayStatus } from "@/lib/session-display-status";
 import { SessionDeleteButton } from "@/components/admin/session-delete-button";
 import { SessionArchiveButton } from "@/components/admin/session-archive-button";
 
@@ -25,6 +26,7 @@ export function SessionList({ sessions, minPlayers = 10 }: { sessions: Session[]
     <ul className="flex flex-col divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
       {sessions.map((session) => {
         const isLoading = loadingId === session.id;
+        const status = getSessionDisplayStatus(session);
         return (
           <li
             key={session.id}
@@ -50,26 +52,18 @@ export function SessionList({ sessions, minPlayers = 10 }: { sessions: Session[]
                 </span>
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-normal ${
-                    session.cancelledAt
+                    status.tone === "cancelled"
                       ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                      : session.isArchived
+                      : status.tone === "archived"
                       ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-                      : session.isClosed && session.isCharged
+                      : status.tone === "charged"
                       ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                      : session.isClosed
+                      : status.tone === "closed"
                       ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                       : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                   }`}
                 >
-                  {session.cancelledAt
-                    ? "בוטל"
-                    : session.isArchived
-                    ? "ארכיון"
-                    : session.isClosed
-                    ? session.isCharged
-                      ? "חויב"
-                      : "לא חויב"
-                    : "פתוח"}
+                  {status.label}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm">

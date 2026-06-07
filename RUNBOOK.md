@@ -96,8 +96,8 @@ Add these lines:
 # Runs more often than hourly so a deploy/restart cannot permanently miss the opening minute.
 */5 * * * * /opt/irba/scripts/cron-auto-create.sh >> /opt/irba/cron.log 2>&1
 
-# Every-minute check to auto-close ended sessions and fire configured low-attendance alerts
-* * * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/auto-close >> /opt/irba/cron.log 2>&1
+# Every-minute check to auto-close started sessions and fire configured low-attendance alerts
+* * * * * /opt/irba/scripts/cron-auto-close.sh
 
 # Daily audit-log prune at 03:30 (default retention: 90 days; override with AUDIT_LOG_RETENTION_DAYS in .env)
 30 3 * * * curl -s -H "Authorization: Bearer $(grep CRON_SECRET /opt/irba/.env | cut -d= -f2 | tr -d '\"')" https://irba.club/api/cron/prune-audit >> /opt/irba/cron.log 2>&1

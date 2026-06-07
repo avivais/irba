@@ -315,6 +315,7 @@ export async function chargeSessionAction(
   const competitionResult = await checkCompetitionCompletion(sessionId, config);
 
   revalidatePath(`/admin/sessions/${sessionId}`);
+  revalidatePath("/admin/sessions");
   return { ok: true, message: "המפגש חויב בהצלחה", competitionResult: competitionResult ?? undefined };
 }
 
@@ -358,6 +359,7 @@ export async function unchargeSessionAction(
   });
 
   revalidatePath(`/admin/sessions/${sessionId}`);
+  revalidatePath("/admin/sessions");
   return { ok: true, message: "החיוב בוטל" };
 }
 
