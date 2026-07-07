@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const subscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 function timeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -35,21 +39,20 @@ export function CommitInfo({
   hash: string;
   utcDate: string;
 }) {
-  // Lazy initializer runs once on the client — avoids setState-in-effect lint error.
-  // utcDate is a build-time constant so it never changes after mount.
-  const [display] = useState<{ local: string; ago: string } | null>(() => {
-    if (typeof window === "undefined") return null;
-    const d = new Date(utcDate);
-    return { local: formatLocal(d), ago: timeAgo(d) };
-  });
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
+  const date = hydrated ? new Date(utcDate) : null;
 
   return (
     <span>
       {hash}
-      {display ? (
+      {date ? (
         <>
-          <span> · {display.local}</span>
-          <span className="block text-zinc-400 dark:text-zinc-600">{display.ago}</span>
+          <span> · {formatLocal(date)}</span>
+          <span className="block text-zinc-400 dark:text-zinc-600">{timeAgo(date)}</span>
         </>
       ) : (
         <span> · {utcDate}</span>

@@ -24,15 +24,17 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
   const [lookup, setLookup] = useState<PhoneLookupResult | null>(null);
   // Track which phone value the current lookup result belongs to
   const [resolvedPhone, setResolvedPhone] = useState("");
-  const [, startLookup] = useTransition();
+  const [lookupPending, startLookup] = useTransition();
 
+  const trimmedName = name.trim();
   const isPhoneValid = ISRAELI_MOBILE.test(phone);
-  const lookupSettled = !isPhoneValid || resolvedPhone === phone;
+  const lookupCurrent = isPhoneValid && resolvedPhone === phone;
+  const lookupSettled = !isPhoneValid || lookupCurrent;
   const isExistingPlayer = lookupSettled && lookup?.status === "existing_not_registered";
   const isAlreadyRegistered = lookupSettled && lookup?.status === "already_registered";
-  const isNameValid = isExistingPlayer || name.trim().length > 0;
+  const isNameValid = isExistingPlayer || trimmedName.length > 0;
   const isValid = isPhoneValid && isNameValid && !isAlreadyRegistered && lookupSettled;
-  const showNameError = nameBlurred && !isExistingPlayer && name.trim().length === 0;
+  const showNameError = nameBlurred && !isExistingPlayer && trimmedName.length === 0;
   const showPhoneError = phoneBlurred && phone.length > 0 && !isPhoneValid;
 
   // Lookup when phone becomes valid
@@ -125,6 +127,12 @@ export function SessionQuickDropInForm({ sessionId }: { sessionId: string }) {
       {showPhoneError && (
         <p className="text-xs text-red-600 dark:text-red-400">
           מספר טלפון לא תקין — נדרש פורמט 05XXXXXXXX
+        </p>
+      )}
+
+      {lookupPending && isPhoneValid && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          בודק אם השחקן כבר קיים…
         </p>
       )}
 
