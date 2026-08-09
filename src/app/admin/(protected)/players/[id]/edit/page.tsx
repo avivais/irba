@@ -13,6 +13,7 @@ import { computePlayerBalance } from "@/lib/balance";
 import { PlayerPayments } from "@/components/admin/player-payments";
 import { PlayerRetroButton } from "@/components/admin/player-retro-button";
 import { getPlayerRankBreakdown } from "@/lib/computed-rank";
+import { buildPlayerLedger, indexLedgerBalances } from "@/lib/player-ledger";
 
 export const metadata: Metadata = { title: "עריכת שחקן" };
 
@@ -35,6 +36,11 @@ function formatScore(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1);
 }
 
+function formatBalance(n: number): string {
+  if (n === 0) return "₪0";
+  return n > 0 ? `+₪${n}` : `-₪${Math.abs(n)}`;
+}
+
 export default async function AdminPlayersEditPage({
   params,
   searchParams,
@@ -55,6 +61,7 @@ export default async function AdminPlayersEditPage({
     playerPayments,
     balance,
     playerCharges,
+    playerSharedExpenseCharges,
     rankBreakdown,
   ] = await Promise.all([
     prisma.player.findUnique({
@@ -91,6 +98,7 @@ export default async function AdminPlayersEditPage({
         amount: true,
         method: true,
         description: true,
+        createdAt: true,
       },
     }),
     computePlayerBalance(id),
@@ -102,7 +110,16 @@ export default async function AdminPlayersEditPage({
         amount: true,
         calculatedAmount: true,
         chargeType: true,
+        createdAt: true,
         session: { select: { id: true, date: true } },
+      },
+    }),
+    prisma.sharedExpenseCharge.findMany({
+      where: { playerId: id },
+      select: {
+        id: true,
+        amount: true,
+        createdAt: true,
       },
     }),
     getPlayerRankBreakdown(id).catch(() => null),
@@ -131,6 +148,38 @@ export default async function AdminPlayersEditPage({
 
   const playerRank = precedenceRows.findIndex((r) => r.playerId === id) + 1;
   const playerPrecedence = precedenceRows.find((r) => r.playerId === id);
+
+  const ledgerBalances = indexLedgerBalances(
+    buildPlayerLedger([
+      ...playerPayments.map((payment) => ({
+        id: payment.id,
+        kind: "PAYMENT" as const,
+        effectiveAt: payment.date,
+        createdAt: payment.createdAt,
+        amount: payment.amount,
+      })),
+      ...playerCharges.map((charge) => ({
+        id: charge.id,
+        kind: "SESSION_CHARGE" as const,
+        effectiveAt: charge.session.date,
+        createdAt: charge.createdAt,
+        amount: charge.amount,
+      })),
+      ...playerSharedExpenseCharges.map((charge) => ({
+        id: charge.id,
+        kind: "SHARED_EXPENSE_CHARGE" as const,
+        effectiveAt: charge.createdAt,
+        createdAt: charge.createdAt,
+        amount: charge.amount,
+      })),
+    ]),
+  );
+
+  const paymentsWithRunningBalance = playerPayments.map((payment) => ({
+    ...payment,
+    balanceAfter:
+      ledgerBalances.get(`PAYMENT:${payment.id}`) ?? balance.balance,
+  }));
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -188,7 +237,7 @@ export default async function AdminPlayersEditPage({
           </h2>
           <PlayerPayments
             playerId={id}
-            payments={playerPayments}
+            payments={paymentsWithRunningBalance}
             balance={balance}
           />
         </section>
@@ -245,6 +294,18 @@ export default async function AdminPlayersEditPage({
                           </span>
                         )}
                       </div>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        יתרה לאחר הפעולה:{" "}
+                        <span
+                          dir="ltr"
+                          className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300"
+                        >
+                          {formatBalance(
+                            ledgerBalances.get(`SESSION_CHARGE:${charge.id}`) ??
+                              balance.balance,
+                          )}
+                        </span>
+                      </span>
                     </div>
                     <span
                       className="shrink-0 tabular-nums font-semibold text-red-600 dark:text-red-400"

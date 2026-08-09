@@ -13,6 +13,7 @@ import {
 } from "@/lib/charging";
 import { computePlayerBalance, computePlayerBalances } from "@/lib/balance";
 import { getPlayerDisplayName } from "@/lib/player-display";
+import { selectRetroSessionChanges } from "@/lib/retro-selection";
 
 const GENERIC_ERROR = "אירעה שגיאה. נסה שוב מאוחר יותר.";
 
@@ -67,6 +68,7 @@ export type RetroBalanceImpact = {
 };
 
 export type RetroPreview = {
+  selectableSessions: RetroSessionEntry[];
   affectedSessions: RetroSessionEntry[];
   skippedSessions: {
     sessionId: string;
@@ -109,6 +111,7 @@ async function getRateForDate(date: Date): Promise<number | null> {
  */
 async function computeRetroChanges(
   playerId: string,
+  selectedSessionIds?: string[],
 ): Promise<RetroPreview | null> {
   const player = await prisma.player.findUnique({
     where: { id: playerId },
@@ -134,6 +137,7 @@ async function computeRetroChanges(
   if (streak.length === 0) {
     const balance = (await computePlayerBalance(playerId)).balance;
     return {
+      selectableSessions: [],
       affectedSessions: [],
       skippedSessions: [],
       totals: { focalDiff: 0, othersDiff: 0, residual: 0 },
@@ -186,8 +190,6 @@ async function computeRetroChanges(
   const affectedSessions: RetroSessionEntry[] = [];
   const skippedSessions: RetroPreview["skippedSessions"] = [];
   const unrecalculatedDropIns: RetroUnrecalculatedDropIn[] = [];
-  let focalDiff = 0;
-  let othersDiff = 0;
 
   // Process oldest-first so the audit log reads chronologically
   const orderedStreak = [...streak].reverse();
@@ -281,9 +283,6 @@ async function computeRetroChanges(
         continue;
       }
       const isFocal = existing.playerId === playerId;
-      const diff = newAmount - existing.amount;
-      if (isFocal) focalDiff += diff;
-      else othersDiff += diff;
       sessionChanges.push({
         chargeId: existing.id,
         playerId: existing.playerId,
@@ -314,14 +313,20 @@ async function computeRetroChanges(
     }
   }
 
-  // Display newest-first in the modal
+  // Display newest-first in the modal. Keep the complete set for checkbox
+  // choices, and derive every financial preview field from the selected subset.
   affectedSessions.reverse();
+  const selectableSessions = affectedSessions;
+  const { selectedSessions, allChanges, focalDiff, othersDiff } =
+    selectRetroSessionChanges<RetroChargeChange, RetroSessionEntry>(
+      selectableSessions,
+      selectedSessionIds,
+    );
 
   const currentBalance = (await computePlayerBalance(playerId)).balance;
   // focalDiff < 0 means his charge dropped → balance improves by |focalDiff|
   const projectedBalance = currentBalance - focalDiff;
   const amountToPayNow = Math.max(-projectedBalance, 0);
-  const allChanges = affectedSessions.flatMap((s) => s.changes);
   const unchangedDebtComponents = buildUnchangedDebtComponents({
     allCharges,
     changedChargeIds: new Set(
@@ -332,7 +337,8 @@ async function computeRetroChanges(
   const balanceImpacts = await buildBalanceImpacts(allChanges, playerId);
 
   return {
-    affectedSessions,
+    selectableSessions,
+    affectedSessions: selectedSessions,
     skippedSessions,
     totals: { focalDiff, othersDiff, residual: focalDiff + othersDiff },
     currentBalance,
@@ -489,12 +495,29 @@ async function buildBalanceImpacts(
     );
 }
 
+function isValidSessionSelection(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 500 &&
+    value.every(
+      (id) => typeof id === "string" && id.length > 0 && id.length <= 100,
+    )
+  );
+}
+
 export async function previewRetroCloseDebtAction(
   playerId: string,
+  selectedSessionIds?: string[],
 ): Promise<RetroPreviewState> {
   await requireAdmin();
+  if (
+    selectedSessionIds !== undefined &&
+    !isValidSessionSelection(selectedSessionIds)
+  ) {
+    return { ok: false, message: "בחירת החיובים אינה תקינה" };
+  }
   try {
-    const preview = await computeRetroChanges(playerId);
+    const preview = await computeRetroChanges(playerId, selectedSessionIds);
     if (!preview) {
       return { ok: false, message: "השחקן אינו רשום כקבוע" };
     }
@@ -507,11 +530,30 @@ export async function previewRetroCloseDebtAction(
 
 export async function applyRetroCloseDebtAction(
   playerId: string,
+  selectedSessionIds: string[],
 ): Promise<RetroApplyState> {
   await requireAdmin();
+  if (
+    !isValidSessionSelection(selectedSessionIds) ||
+    selectedSessionIds.length === 0
+  ) {
+    return { ok: false, message: "יש לבחור לפחות חוב אחד לסגירה" };
+  }
   try {
-    const preview = await computeRetroChanges(playerId);
+    const preview = await computeRetroChanges(playerId, selectedSessionIds);
     if (!preview) return { ok: false, message: "השחקן אינו רשום כקבוע" };
+
+    const selectableIds = new Set(
+      preview.selectableSessions.map((session) => session.sessionId),
+    );
+    const uniqueSelectedIds = new Set(selectedSessionIds);
+    if ([...uniqueSelectedIds].some((id) => !selectableIds.has(id))) {
+      return {
+        ok: false,
+        message: "הנתונים השתנו מאז התצוגה המקדימה. יש לפתוח אותה מחדש.",
+      };
+    }
+
     const allChanges = preview.affectedSessions.flatMap((s) => s.changes);
     if (allChanges.length === 0) return { ok: true, message: "אין שינויים" };
 

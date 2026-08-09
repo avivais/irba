@@ -15,6 +15,7 @@ type Payment = {
   amount: number;
   method: string;
   description: string | null;
+  balanceAfter: number;
 };
 
 type BalanceBreakdown = {
@@ -45,14 +46,17 @@ function formatDate(d: Date): string {
   }).format(new Date(d));
 }
 
+function formatBalance(n: number): string {
+  if (n === 0) return "₪0";
+  return n > 0 ? `+₪${n}` : `-₪${Math.abs(n)}`;
+}
+
 const INIT: PaymentActionState = { ok: false };
 
 const inputBase =
   "block w-full rounded-lg border px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 dark:text-zinc-100 dark:placeholder-zinc-500";
 const inputNormal =
   "border-zinc-300 bg-white focus:ring-zinc-400/40 dark:border-zinc-600 dark:bg-zinc-800";
-const inputError =
-  "border-red-400 bg-red-50 focus:ring-red-400/40 dark:border-red-500 dark:bg-red-950/20";
 
 export function PlayerPayments({ playerId, payments, balance }: Props) {
   const [showForm, setShowForm] = useState(false);
@@ -139,6 +143,15 @@ export function PlayerPayments({ playerId, payments, balance }: Props) {
                 </div>
                 <span className="text-xs text-zinc-400 dark:text-zinc-500">
                   {formatDate(p.date)}
+                </span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  יתרה לאחר הפעולה:{" "}
+                  <span
+                    dir="ltr"
+                    className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300"
+                  >
+                    {formatBalance(p.balanceAfter)}
+                  </span>
                 </span>
               </div>
               <button
