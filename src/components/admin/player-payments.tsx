@@ -51,6 +51,8 @@ const CHARGE_TYPE_LABEL: Record<string, string> = {
   FREE_ENTRY: "כניסה חינם",
 };
 
+const LEDGER_PAGE_SIZE = 10;
+
 function formatDate(d: Date): string {
   return new Intl.DateTimeFormat("he-IL", {
     day: "numeric",
@@ -74,6 +76,7 @@ const inputNormal =
 export function PlayerBalance({ playerId, ledgerRows, balance }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [visibleRowCount, setVisibleRowCount] = useState(LEDGER_PAGE_SIZE);
 
   const boundAdd = addPaymentAction.bind(null, playerId);
   const [addState, addAction, addPending] = useActionState(boundAdd, INIT);
@@ -91,6 +94,9 @@ export function PlayerBalance({ playerId, ledgerRows, balance }: Props) {
       : balance.balance < 0
         ? "text-red-600 dark:text-red-400"
         : "text-zinc-600 dark:text-zinc-400";
+
+  const visibleLedgerRows = ledgerRows.slice(0, visibleRowCount);
+  const hasMoreRows = visibleRowCount < ledgerRows.length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -114,6 +120,96 @@ export function PlayerBalance({ playerId, ledgerRows, balance }: Props) {
           </span>
         </span>
       </div>
+      {!showForm ? (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-1.5 self-start rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          הוסף תשלום
+        </button>
+      ) : (
+        <form
+          action={addAction}
+          className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                תאריך
+              </label>
+              <DateInputIL
+                name="date"
+                defaultValue={new Date().toISOString().split("T")[0]}
+                ariaLabel="תאריך"
+                className={`${inputBase} ${inputNormal}`}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                סכום (₪)
+              </label>
+              <input
+                type="number"
+                name="amount"
+                required
+                placeholder="100"
+                className={`${inputBase} ${inputNormal}`}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                אמצעי תשלום
+              </label>
+              <select
+                name="method"
+                defaultValue="BIT"
+                className={`${inputBase} ${inputNormal}`}
+              >
+                {Object.entries(METHOD_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                הערה (אופציונלי)
+              </label>
+              <input
+                type="text"
+                name="description"
+                maxLength={200}
+                placeholder="פירוט"
+                className={`${inputBase} ${inputNormal}`}
+              />
+            </div>
+          </div>
+
+          {addState.message && !addState.ok && (
+            <p className="text-sm text-red-600 dark:text-red-400">{addState.message}</p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={addPending}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              {addPending ? "שומר…" : "שמור"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
+      )}
 
       {ledgerRows.length === 0 ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -121,7 +217,7 @@ export function PlayerBalance({ playerId, ledgerRows, balance }: Props) {
         </p>
       ) : (
         <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
-          {ledgerRows.map((row) => {
+          {visibleLedgerRows.map((row) => {
             const signedAmount = row.kind === "PAYMENT" ? row.amount : -row.amount;
             const isPayment = row.kind === "PAYMENT";
             const hasOverride =
@@ -224,94 +320,16 @@ export function PlayerBalance({ playerId, ledgerRows, balance }: Props) {
         </ul>
       )}
 
-      {!showForm ? (
+      {hasMoreRows && (
         <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 self-start rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          type="button"
+          onClick={() =>
+            setVisibleRowCount((count) => count + LEDGER_PAGE_SIZE)
+          }
+          className="self-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          הוסף תשלום
+          טען עוד…
         </button>
-      ) : (
-        <form
-          action={addAction}
-          className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50"
-        >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                תאריך
-              </label>
-              <DateInputIL
-                name="date"
-                defaultValue={new Date().toISOString().split("T")[0]}
-                ariaLabel="תאריך"
-                className={`${inputBase} ${inputNormal}`}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                סכום (₪)
-              </label>
-              <input
-                type="number"
-                name="amount"
-                required
-                placeholder="100"
-                className={`${inputBase} ${inputNormal}`}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                אמצעי תשלום
-              </label>
-              <select
-                name="method"
-                defaultValue="BIT"
-                className={`${inputBase} ${inputNormal}`}
-              >
-                {Object.entries(METHOD_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                הערה (אופציונלי)
-              </label>
-              <input
-                type="text"
-                name="description"
-                maxLength={200}
-                placeholder="פירוט"
-                className={`${inputBase} ${inputNormal}`}
-              />
-            </div>
-          </div>
-
-          {addState.message && !addState.ok && (
-            <p className="text-sm text-red-600 dark:text-red-400">{addState.message}</p>
-          )}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={addPending}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-600/40 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              {addPending ? "שומר…" : "שמור"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              ביטול
-            </button>
-          </div>
-        </form>
       )}
     </div>
   );
