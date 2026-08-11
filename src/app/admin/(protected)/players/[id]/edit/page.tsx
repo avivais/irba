@@ -10,10 +10,10 @@ import { AggregateUpsertForm } from "@/components/admin/aggregate-upsert-form";
 import { AdjustmentDeleteButton } from "@/components/admin/adjustment-delete-button";
 import { computePrecedenceScores } from "@/lib/precedence";
 import { computePlayerBalance } from "@/lib/balance";
-import { PlayerPayments } from "@/components/admin/player-payments";
+import { PlayerBalance } from "@/components/admin/player-payments";
 import { PlayerRetroButton } from "@/components/admin/player-retro-button";
 import { getPlayerRankBreakdown } from "@/lib/computed-rank";
-import { buildPlayerLedger, indexLedgerBalances } from "@/lib/player-ledger";
+import { buildPlayerLedger } from "@/lib/player-ledger";
 
 export const metadata: Metadata = { title: "עריכת שחקן" };
 
@@ -34,11 +34,6 @@ function formatDate(d: Date): string {
 
 function formatScore(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1);
-}
-
-function formatBalance(n: number): string {
-  if (n === 0) return "₪0";
-  return n > 0 ? `+₪${n}` : `-₪${Math.abs(n)}`;
 }
 
 export default async function AdminPlayersEditPage({
@@ -120,6 +115,9 @@ export default async function AdminPlayersEditPage({
         id: true,
         amount: true,
         createdAt: true,
+        sharedExpense: {
+          select: { title: true, description: true },
+        },
       },
     }),
     getPlayerRankBreakdown(id).catch(() => null),
@@ -149,37 +147,75 @@ export default async function AdminPlayersEditPage({
   const playerRank = precedenceRows.findIndex((r) => r.playerId === id) + 1;
   const playerPrecedence = precedenceRows.find((r) => r.playerId === id);
 
-  const ledgerBalances = indexLedgerBalances(
-    buildPlayerLedger([
-      ...playerPayments.map((payment) => ({
-        id: payment.id,
-        kind: "PAYMENT" as const,
-        effectiveAt: payment.date,
-        createdAt: payment.createdAt,
-        amount: payment.amount,
-      })),
-      ...playerCharges.map((charge) => ({
-        id: charge.id,
-        kind: "SESSION_CHARGE" as const,
-        effectiveAt: charge.session.date,
-        createdAt: charge.createdAt,
-        amount: charge.amount,
-      })),
-      ...playerSharedExpenseCharges.map((charge) => ({
-        id: charge.id,
-        kind: "SHARED_EXPENSE_CHARGE" as const,
-        effectiveAt: charge.createdAt,
-        createdAt: charge.createdAt,
-        amount: charge.amount,
-      })),
-    ]),
+  const ledgerEntries = buildPlayerLedger([
+    ...playerPayments.map((payment) => ({
+      id: payment.id,
+      kind: "PAYMENT" as const,
+      effectiveAt: payment.date,
+      createdAt: payment.createdAt,
+      amount: payment.amount,
+    })),
+    ...playerCharges.map((charge) => ({
+      id: charge.id,
+      kind: "SESSION_CHARGE" as const,
+      effectiveAt: charge.session.date,
+      createdAt: charge.createdAt,
+      amount: charge.amount,
+    })),
+    ...playerSharedExpenseCharges.map((charge) => ({
+      id: charge.id,
+      kind: "SHARED_EXPENSE_CHARGE" as const,
+      effectiveAt: charge.createdAt,
+      createdAt: charge.createdAt,
+      amount: charge.amount,
+    })),
+  ]);
+
+  const paymentsById = new Map(playerPayments.map((payment) => [payment.id, payment]));
+  const sessionChargesById = new Map(playerCharges.map((charge) => [charge.id, charge]));
+  const sharedExpenseChargesById = new Map(
+    playerSharedExpenseCharges.map((charge) => [charge.id, charge]),
   );
 
-  const paymentsWithRunningBalance = playerPayments.map((payment) => ({
-    ...payment,
-    balanceAfter:
-      ledgerBalances.get(`PAYMENT:${payment.id}`) ?? balance.balance,
-  }));
+  const ledgerRows = [...ledgerEntries].reverse().map((entry) => {
+    if (entry.kind === "PAYMENT") {
+      const payment = paymentsById.get(entry.id)!;
+      return {
+        id: entry.id,
+        kind: entry.kind,
+        date: entry.effectiveAt,
+        amount: entry.amount,
+        balanceAfter: entry.balanceAfter,
+        method: payment.method,
+        description: payment.description,
+      };
+    }
+
+    if (entry.kind === "SESSION_CHARGE") {
+      const charge = sessionChargesById.get(entry.id)!;
+      return {
+        id: entry.id,
+        kind: entry.kind,
+        date: entry.effectiveAt,
+        amount: entry.amount,
+        balanceAfter: entry.balanceAfter,
+        sessionId: charge.session.id,
+        chargeType: charge.chargeType,
+        calculatedAmount: charge.calculatedAmount,
+      };
+    }
+
+    const charge = sharedExpenseChargesById.get(entry.id)!;
+    return {
+      id: entry.id,
+      kind: entry.kind,
+      date: entry.effectiveAt,
+      amount: entry.amount,
+      balanceAfter: entry.balanceAfter,
+      sharedExpenseTitle: charge.sharedExpense.title,
+      description: charge.sharedExpense.description,
+    };
+  });
 
   return (
     <div className="flex min-h-full flex-1 flex-col px-4 pb-10 pt-6 sm:px-6">
@@ -230,22 +266,10 @@ export default async function AdminPlayersEditPage({
           />
         </section>
 
-        {/* 2 — Payments */}
+        {/* 2 — Unified balance ledger */}
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            תשלומים
-          </h2>
-          <PlayerPayments
-            playerId={id}
-            payments={paymentsWithRunningBalance}
-            balance={balance}
-          />
-        </section>
-
-        {/* 3 — Session charges */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            חיובי מפגשים
+            יתרה
           </h2>
           {(() => {
             // All historical DROP_IN charges — eligible only for REGISTERED-kind players
@@ -255,72 +279,15 @@ export default async function AdminPlayersEditPage({
             ).length;
             if (dropInCount === 0) return null;
             return (
-              <PlayerRetroButton playerId={id} dropInCount={dropInCount} />
+              <div className="mb-4">
+                <PlayerRetroButton playerId={id} dropInCount={dropInCount} />
+              </div>
             );
           })()}
-          {playerCharges.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              אין חיובים עדיין.
-            </p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
-              {playerCharges.map((charge) => {
-                const hasOverride = charge.amount !== charge.calculatedAmount;
-                const typeLabel =
-                  charge.chargeType === "REGISTERED"
-                    ? "קבוע"
-                    : charge.chargeType === "DROP_IN"
-                      ? "מזדמן"
-                      : "עקיפה";
-                return (
-                  <li
-                    key={charge.id}
-                    className="flex items-center justify-between gap-3 py-2.5"
-                  >
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <Link
-                        href={`/admin/sessions/${charge.session.id}`}
-                        className="text-sm font-medium text-zinc-800 hover:underline dark:text-zinc-200"
-                      >
-                        {formatDate(charge.session.date)}
-                      </Link>
-                      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
-                          {typeLabel}
-                        </span>
-                        {hasOverride && (
-                          <span className="text-amber-600 dark:text-amber-400">
-                            עקיפה (מחושב: ₪{charge.calculatedAmount})
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        יתרה לאחר הפעולה:{" "}
-                        <span
-                          dir="ltr"
-                          className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300"
-                        >
-                          {formatBalance(
-                            ledgerBalances.get(`SESSION_CHARGE:${charge.id}`) ??
-                              balance.balance,
-                          )}
-                        </span>
-                      </span>
-                    </div>
-                    <span
-                      className="shrink-0 tabular-nums font-semibold text-red-600 dark:text-red-400"
-                      dir="ltr"
-                    >
-                      -₪{charge.amount}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <PlayerBalance playerId={id} ledgerRows={ledgerRows} balance={balance} />
         </section>
 
-        {/* 4 — Computed rank + win/loss stats */}
+        {/* 3 — Computed rank + win/loss stats */}
         {rankBreakdown &&
           (() => {
             // Pre-compute per-component contributions for a clear formula display

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import {
@@ -9,13 +10,18 @@ import {
 import type { PaymentActionState } from "@/app/admin/(protected)/players/[id]/payments/actions";
 import { DateInputIL } from "@/components/ui/date-input-il";
 
-type Payment = {
+type LedgerRow = {
   id: string;
+  kind: "PAYMENT" | "SESSION_CHARGE" | "SHARED_EXPENSE_CHARGE";
   date: Date;
   amount: number;
-  method: string;
-  description: string | null;
   balanceAfter: number;
+  method?: string;
+  description?: string | null;
+  sessionId?: string;
+  chargeType?: string;
+  calculatedAmount?: number;
+  sharedExpenseTitle?: string;
 };
 
 type BalanceBreakdown = {
@@ -26,7 +32,7 @@ type BalanceBreakdown = {
 
 type Props = {
   playerId: string;
-  payments: Payment[];
+  ledgerRows: LedgerRow[];
   balance: BalanceBreakdown;
 };
 
@@ -38,6 +44,13 @@ const METHOD_LABEL: Record<string, string> = {
   OTHER: "אחר",
 };
 
+const CHARGE_TYPE_LABEL: Record<string, string> = {
+  REGISTERED: "קבוע",
+  DROP_IN: "מזדמן",
+  ADMIN_OVERRIDE: "עקיפה",
+  FREE_ENTRY: "כניסה חינם",
+};
+
 function formatDate(d: Date): string {
   return new Intl.DateTimeFormat("he-IL", {
     day: "numeric",
@@ -46,7 +59,7 @@ function formatDate(d: Date): string {
   }).format(new Date(d));
 }
 
-function formatBalance(n: number): string {
+function formatSignedAmount(n: number): string {
   if (n === 0) return "₪0";
   return n > 0 ? `+₪${n}` : `-₪${Math.abs(n)}`;
 }
@@ -58,7 +71,7 @@ const inputBase =
 const inputNormal =
   "border-zinc-300 bg-white focus:ring-zinc-400/40 dark:border-zinc-600 dark:bg-zinc-800";
 
-export function PlayerPayments({ playerId, payments, balance }: Props) {
+export function PlayerBalance({ playerId, ledgerRows, balance }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -79,17 +92,9 @@ export function PlayerPayments({ playerId, payments, balance }: Props) {
         ? "text-red-600 dark:text-red-400"
         : "text-zinc-600 dark:text-zinc-400";
 
-  const balanceText =
-    balance.balance > 0
-      ? `+₪${balance.balance}`
-      : balance.balance < 0
-        ? `-₪${Math.abs(balance.balance)}`
-        : "₪0";
-
   return (
     <div className="flex flex-col gap-4">
-      {/* Balance summary */}
-      <div className="flex flex-wrap gap-4 rounded-xl bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-800/50">
+      <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-xl bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-800/50">
         <span className="text-zinc-500 dark:text-zinc-400">
           שולם:{" "}
           <span className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200" dir="ltr">
@@ -105,69 +110,120 @@ export function PlayerPayments({ playerId, payments, balance }: Props) {
         <span className="text-zinc-500 dark:text-zinc-400">
           יתרה:{" "}
           <span className={`font-bold tabular-nums ${balanceColor}`} dir="ltr">
-            {balanceText}
+            {formatSignedAmount(balance.balance)}
           </span>
         </span>
       </div>
 
-      {/* Payment list */}
-      {payments.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">אין תשלומים עדיין.</p>
+      {ledgerRows.length === 0 ? (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          אין חיובים או תשלומים עדיין.
+        </p>
       ) : (
         <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
-          {payments.map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center justify-between gap-3 py-2"
-            >
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="flex items-center gap-2">
+          {ledgerRows.map((row) => {
+            const signedAmount = row.kind === "PAYMENT" ? row.amount : -row.amount;
+            const isPayment = row.kind === "PAYMENT";
+            const hasOverride =
+              row.kind === "SESSION_CHARGE" &&
+              row.calculatedAmount !== undefined &&
+              row.amount !== row.calculatedAmount;
+
+            return (
+              <li
+                key={`${row.kind}:${row.id}`}
+                className="flex items-start justify-between gap-3 py-3"
+              >
+                <div className="flex min-w-0 flex-col gap-1">
+                  {row.kind === "SESSION_CHARGE" && row.sessionId ? (
+                    <Link
+                      href={`/admin/sessions/${row.sessionId}`}
+                      className="text-sm font-medium text-zinc-800 hover:underline dark:text-zinc-200"
+                    >
+                      {formatDate(row.date)}
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                      {formatDate(row.date)}
+                    </span>
+                  )}
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span
+                      className={`rounded px-1.5 py-0.5 font-medium ${
+                        isPayment
+                          ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                          : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+                      }`}
+                    >
+                      {row.kind === "PAYMENT"
+                        ? "תשלום"
+                        : row.kind === "SESSION_CHARGE"
+                          ? "חיוב מפגש"
+                          : "הוצאה משותפת"}
+                    </span>
+                    {row.kind === "PAYMENT" && row.method && (
+                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
+                        {METHOD_LABEL[row.method] ?? row.method}
+                      </span>
+                    )}
+                    {row.kind === "SESSION_CHARGE" && row.chargeType && (
+                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
+                        {CHARGE_TYPE_LABEL[row.chargeType] ?? row.chargeType}
+                      </span>
+                    )}
+                    {row.kind === "SHARED_EXPENSE_CHARGE" && row.sharedExpenseTitle && (
+                      <span className="truncate">{row.sharedExpenseTitle}</span>
+                    )}
+                    {row.description && (
+                      <span className="max-w-full truncate">{row.description}</span>
+                    )}
+                    {hasOverride && (
+                      <span className="text-amber-600 dark:text-amber-400">
+                        עקיפה (מחושב: ₪{row.calculatedAmount})
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    יתרה לאחר הפעולה:{" "}
+                    <span
+                      dir="ltr"
+                      className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300"
+                    >
+                      {formatSignedAmount(row.balanceAfter)}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
                   <span
                     dir="ltr"
-                    className={`font-semibold tabular-nums ${
-                      p.amount >= 0
+                    className={`tabular-nums font-semibold ${
+                      signedAmount >= 0
                         ? "text-green-700 dark:text-green-400"
                         : "text-red-600 dark:text-red-400"
                     }`}
                   >
-                    {p.amount >= 0 ? "+" : ""}₪{p.amount}
+                    {formatSignedAmount(signedAmount)}
                   </span>
-                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                    {METHOD_LABEL[p.method] ?? p.method}
-                  </span>
-                  {p.description && (
-                    <span className="truncate text-sm text-zinc-600 dark:text-zinc-400">
-                      {p.description}
-                    </span>
+                  {isPayment && (
+                    <button
+                      onClick={() => handleDelete(row.id)}
+                      disabled={deletingId === row.id}
+                      className="rounded-lg border border-zinc-200 bg-white p-1.5 text-zinc-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/40 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-700 dark:hover:bg-red-950/20 dark:hover:text-red-400"
+                      aria-label="מחק תשלום"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
                   )}
                 </div>
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                  {formatDate(p.date)}
-                </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  יתרה לאחר הפעולה:{" "}
-                  <span
-                    dir="ltr"
-                    className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300"
-                  >
-                    {formatBalance(p.balanceAfter)}
-                  </span>
-                </span>
-              </div>
-              <button
-                onClick={() => handleDelete(p.id)}
-                disabled={deletingId === p.id}
-                className="shrink-0 rounded-lg border border-zinc-200 bg-white p-1.5 text-zinc-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/40 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-red-700 dark:hover:bg-red-950/20 dark:hover:text-red-400"
-                aria-label="מחק תשלום"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {/* Add payment */}
       {!showForm ? (
         <button
           onClick={() => setShowForm(true)}
